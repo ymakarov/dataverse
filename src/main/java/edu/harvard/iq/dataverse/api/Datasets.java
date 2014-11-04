@@ -5,15 +5,14 @@ import edu.harvard.iq.dataverse.DatasetField;
 import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
-import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUser;
 import edu.harvard.iq.dataverse.MetadataBlock;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
-import edu.harvard.iq.dataverse.engine.command.exception.CommandExecutionException;
 import edu.harvard.iq.dataverse.engine.command.exception.IllegalCommandException;
 import edu.harvard.iq.dataverse.engine.command.impl.CreateDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.DeleteDatasetCommand;
+import edu.harvard.iq.dataverse.engine.command.impl.DeleteDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.GetDatasetCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.GetSpecificPublishedDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.GetDraftDatasetVersionCommand;
@@ -56,12 +55,21 @@ public class Datasets extends AbstractApiBean {
     @EJB
     DataverseServiceBean dataverseService;
 
-    
+    /**
+     * Used to consolidate the way we parse and handle dataset versions.
+     * @param <T> 
+     */
+    private interface DsVersionHandler<T> {
+        T handleLatest();
+        T handleDraft();
+        T handleSpecific( long major, long minor );
+        T handleLatestPublished();
+    }
 	
 	@GET
 	@Path("{id}")
     public Response getDataset( @PathParam("id") Long id, @QueryParam("key") String apiKey ) {
-		User u = builtinUserSvc.findByIdentifier(apiKey);
+		User u = findUserByApiToken(apiKey);
 		if ( u == null ) return errorResponse( Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
 		
         Dataset ds = datasetService.find(id);
@@ -73,7 +81,7 @@ public class Datasets extends AbstractApiBean {
             final JsonObjectBuilder jsonbuilder = json(retrieved);
             
             return okResponse(jsonbuilder.add("latestVersion", (latest != null) ? json(latest) : null));
-        } catch ( FailedCommandResult ex ) {
+        } catch ( WrappedResponse ex ) {
 			return ex.getResponse();
 		}
         
@@ -82,23 +90,18 @@ public class Datasets extends AbstractApiBean {
 	@DELETE
 	@Path("{id}")
 	public Response deleteDataset( @PathParam("id") Long id, @QueryParam("key") String apiKey ) {
-		User u = builtinUserSvc.findByIdentifier(apiKey);
+		User u = findUserByApiToken(apiKey);
 		if ( u == null ) return errorResponse( Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
 		
         Dataset ds = datasetService.find(id);
         if (ds == null) return errorResponse( Response.Status.NOT_FOUND, "dataset not found");
 		
 		try {
-			engineSvc.submit( new DeleteDatasetCommand(ds, u));
+			execCommand( new DeleteDatasetCommand(ds, u), "Delete dataset " + id);
 			return okResponse("Dataset " + id + " deleted");
 			
-		} catch (CommandExecutionException ex) {
-			// internal error
-			logger.log( Level.SEVERE, "Error deleting dataset " + id + ":  " + ex.getMessage(), ex );
-			return errorResponse( Response.Status.FORBIDDEN, "Can't delete dataset: " + ex.getMessage() );
-			
-		} catch (CommandException ex) {
-			return errorResponse( Response.Status.INTERNAL_SERVER_ERROR, "Can't delete dataset: " + ex.getMessage() );
+		} catch (WrappedResponse ex) {
+			return ex.getResponse();
 		}
 		
 	}
@@ -106,9 +109,8 @@ public class Datasets extends AbstractApiBean {
 	@GET
 	@Path("{id}/versions")
     public Response listVersions( @PathParam("id") Long id, @QueryParam("key") String apiKey ) {
-		User u = builtinUserSvc.findByIdentifier(apiKey);
+		User u = findUserByApiToken(apiKey);
 		if ( u == null ) return errorResponse( Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
-		
 		
         Dataset ds = datasetService.find(id);
         if (ds == null) return notFound("dataset not found");
@@ -120,7 +122,7 @@ public class Datasets extends AbstractApiBean {
                 bld.add( json(dsv) );
             }
             return okResponse( bld );
-        } catch (FailedCommandResult ex) {
+        } catch (WrappedResponse ex) {
             return ex.getResponse();
         }
     }
@@ -128,46 +130,40 @@ public class Datasets extends AbstractApiBean {
 	@GET
 	@Path("{id}/versions/{versionId}")
     public Response getVersion( @PathParam("id") Long datasetId, @PathParam("versionId") String versionId, @QueryParam("key") String apiKey ) {
-		User u = builtinUserSvc.findByIdentifier(apiKey);
+		final User u = findUserByApiToken(apiKey);
 		if ( u == null ) return errorResponse(Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
 		
-		
-        Dataset ds = datasetService.find(datasetId);
+        final Dataset ds = datasetService.find(datasetId);
         if (ds == null) return errorResponse(Response.Status.NOT_FOUND, "dataset " + datasetId + " not found");
 		
-        Command<DatasetVersion> cmd;
-        
-		switch (versionId) {
-			case ":latest":
-                cmd = new GetLatestAccessibleDatasetVersionCommand(u, ds);
-                break;	
-			case ":draft":
-                cmd = new GetDraftDatasetVersionCommand(u, ds);
-                break;
-            case ":latest-published":
-                cmd = new GetLatestPublishedDatasetVersionCommand(u, ds);
-                break;
-			default:
-				try {
-                    String[] versions = versionId.split("\\.");
-                    if (versions.length == 1) {
-                        cmd = new GetSpecificPublishedDatasetVersionCommand(u, ds, Long.parseLong(versions[0]), (long)0.0);
-                    } else if (versions.length == 2) {
-                        cmd = new GetSpecificPublishedDatasetVersionCommand(u, ds, Long.parseLong(versions[0]), Long.parseLong(versions[1]));
-                    } else {
-                        return errorResponse( Response.Status.BAD_REQUEST, "Illegal version identifier '" + versionId + "'");
-                    }
-				} catch ( NumberFormatException nfe ) {
-					return errorResponse( Response.Status.BAD_REQUEST, "Illegal version identifier '" + versionId + "'");
-                }
-		}
-		
         try {
+            Command<DatasetVersion> cmd = handleVersion( versionId, new DsVersionHandler<Command<DatasetVersion>>(){
+
+                @Override
+                public Command<DatasetVersion> handleLatest() {
+                    return new GetLatestAccessibleDatasetVersionCommand(u, ds);
+                }
+
+                @Override
+                public Command<DatasetVersion> handleDraft() {
+                    return new GetDraftDatasetVersionCommand(u, ds);
+                }
+
+                @Override
+                public Command<DatasetVersion> handleSpecific(long major, long minor) {
+                    return new GetSpecificPublishedDatasetVersionCommand(u, ds, major, minor);
+                }
+
+                @Override
+                public Command<DatasetVersion> handleLatestPublished() {
+                    return new GetLatestPublishedDatasetVersionCommand(u, ds);
+                }
+            });
             DatasetVersion dsv = execCommand(cmd, versionId);
             return (dsv == null || dsv.getId() == null)
                     ? errorResponse(Response.Status.NOT_FOUND, "Dataset version not found")
                     : okResponse(json(dsv));
-        } catch (FailedCommandResult ex) {
+        } catch (WrappedResponse ex) {
             return ex.getResponse();
         }
     }
@@ -175,40 +171,22 @@ public class Datasets extends AbstractApiBean {
     @GET
 	@Path("{id}/versions/{versionId}/metadata")
     public Response getVersionMetadata( @PathParam("id") Long datasetId, @PathParam("versionId") String versionId, @QueryParam("key") String apiKey ) {
-		BuiltinUser u = builtinUserSvc.findByUserName(apiKey);
+		User u = findUserByApiToken(apiKey);
 		if ( u == null ) return errorResponse(Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
-		
-		// TODO filter by what the user can see.
 		
         Dataset ds = datasetService.find(datasetId);
         if (ds == null) return errorResponse(Response.Status.NOT_FOUND, "dataset " + datasetId + " not found");
 		
-		DatasetVersion dsv = null;
-		switch (versionId) {
-			case ":latest":
-				dsv = ds.getLatestVersion();
-				break;
-			case ":edit":
-				dsv = ds.getEditVersion();
-				break;
-			default:
-				try {
-					long versionNumericId = Long.parseLong(versionId);
-					for ( DatasetVersion aDsv : ds.getVersions() ) {
-						if ( aDsv.getId().equals(versionNumericId) ) {
-							dsv = aDsv;
-							break; // for, not while
-						}
-					}
-				} catch ( NumberFormatException nfe ) {
-					return errorResponse( Response.Status.BAD_REQUEST, "Illegal id number '" + versionId + "'");
-				}	
-                break;
-		}
+        try {
+            DatasetVersion dsv = getDatasetVersion( u, versionId, ds );
+            return (dsv==null)
+                    ? errorResponse(Response.Status.NOT_FOUND, "dataset version not found")
+                    : okResponse( JsonPrinter.jsonByBlocks(dsv.getDatasetFields())  );
+            
+        } catch (WrappedResponse ex) {
+            return ex.getResponse();
+        }
 		
-		return (dsv==null)
-				? errorResponse(Response.Status.NOT_FOUND, "dataset version not found")
-				: okResponse( JsonPrinter.jsonByBlocks(dsv.getDatasetFields())  );
     }
     
     @GET
@@ -217,65 +195,56 @@ public class Datasets extends AbstractApiBean {
                                              @PathParam("versionNumber") String versionNumber, 
                                              @PathParam("block") String blockName,
                                              @QueryParam("key") String apiKey ) {
-		BuiltinUser u = builtinUserSvc.findByUserName(apiKey);
+		User u = findUserByApiToken(apiKey);
 		if ( u == null ) return errorResponse(Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
 		
-		// TODO filter by what the user can see.
-		
-        Dataset ds = datasetService.find(datasetId);
+        final Dataset ds = datasetService.find(datasetId);
         if (ds == null) return errorResponse(Response.Status.NOT_FOUND, "dataset " + datasetId + " not found");
 		
-		DatasetVersion dsv = null;
-		switch (versionNumber) {
-			case ":latest":
-				dsv = ds.getLatestVersion();
-				break;
-			case ":edit":
-				dsv = ds.getEditVersion();
-				break;
-			default:
-				try {
-                    String[] comps = versionNumber.split("\\.");
-                    long majorVersion = Long.parseLong(comps[0]);
-                    long minorVersion = comps.length > 1 ? Long.parseLong(comps[1]) : 0;
-					for ( DatasetVersion aDsv : ds.getVersions() ) {
-						if ( aDsv.getVersionNumber().equals(majorVersion) &&
-                              aDsv.getMinorVersionNumber().equals(minorVersion)) {
-							dsv = aDsv;
-							break; // for, not switch
-						}
-					}
-				} catch ( NumberFormatException nfe ) {
-					return errorResponse( Response.Status.BAD_REQUEST, "Illegal version number '" + versionNumber + "'. Values are :latest, :edit and x.y");
-				}	
-                break;
-		}
-		
-        if ( dsv == null ) return errorResponse(Response.Status.NOT_FOUND, "dataset version not found");
-        Map<MetadataBlock, List<DatasetField>> fieldsByBlock = DatasetField.groupByBlock(dsv.getDatasetFields());
-        for ( Map.Entry<MetadataBlock, List<DatasetField>> p : fieldsByBlock.entrySet() ) {
-            if ( p.getKey().getName().equals(blockName) ) {
-                return okResponse( JsonPrinter.json(p.getKey(), p.getValue()) );
+        try {
+            DatasetVersion dsv = getDatasetVersion(u, versionNumber, ds);
+            if ( dsv == null ) return errorResponse(Response.Status.NOT_FOUND, "dataset version not found");
+            Map<MetadataBlock, List<DatasetField>> fieldsByBlock = DatasetField.groupByBlock(dsv.getDatasetFields());
+            for ( Map.Entry<MetadataBlock, List<DatasetField>> p : fieldsByBlock.entrySet() ) {
+                if ( p.getKey().getName().equals(blockName) ) {
+                    return okResponse( JsonPrinter.json(p.getKey(), p.getValue()) );
+                }
             }
+            return notFound("metadata block named " + blockName + " not found");
+            
+        } catch (WrappedResponse ex) {
+            return ex.getResponse();
         }
-		return notFound("metadata block named " + blockName + " not found");
+		
     }
 	
-	@GET
-	@Path("{id}/versions/{versionId}/files/")
-	public String listFiles() {
-		// TODO implement
-		return error("Not implemented yet");
-	}
-	
+    @DELETE
+	@Path("{id}/versions/{versionId}")
+	public Response deleteDraftVersion( @PathParam("id") Long id,  @PathParam("versionId") String versionId, @QueryParam("key") String apiKey ){
+        if ( ! ":draft".equals(versionId) ) 
+            return errorResponse( Response.Status.BAD_REQUEST, "Only the :draft version can be deleted");
+        
+        User u = findUserByApiToken(apiKey);
+        if ( u == null ) return errorResponse( Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
+        Dataset ds = datasetService.find(id);
+        if ( ds == null ) return notFound("Can't find dataset with id '" + id + "'");
+        
+        try {
+            execCommand( new DeleteDatasetVersionCommand(u,ds), "Deleting draft version of dataset " + id );
+            return okResponse("Draft version of dataset " + id + " deleted");
+        } catch (WrappedResponse ex) {
+            return ex.getResponse();
+        }
+    }
+    
     @PUT
 	@Path("{id}/versions/{versionId}")
 	public Response updateDraftVersion( String jsonBody, @PathParam("id") Long id,  @PathParam("versionId") String versionId, @QueryParam("key") String apiKey ){
         
-        if ( ! ":edit".equals(versionId) ) 
-            return errorResponse( Response.Status.BAD_REQUEST, "Only the :edit version can be put on server");
+        if ( ! ":draft".equals(versionId) ) 
+            return errorResponse( Response.Status.BAD_REQUEST, "Only the :draft version can be updated");
         
-        User u = builtinUserSvc.findByIdentifier(apiKey);
+        User u = findUserByApiToken(apiKey);
         if ( u == null ) return errorResponse( Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
         Dataset ds = datasetService.find(id);
         if ( ds == null ) return notFound("Can't find dataset with id '" + id + "'");
@@ -283,7 +252,9 @@ public class Datasets extends AbstractApiBean {
         try ( StringReader rdr = new StringReader(jsonBody) ) {
             JsonObject json = Json.createReader(rdr).readObject();
             DatasetVersion version = jsonParser().parseDatasetVersion(json);
+            
             version.setDataset(ds);
+
             boolean updateDraft = ds.getLatestVersion().isDraft();
             DatasetVersion managedVersion = engineSvc.submit( updateDraft
                                                                 ? new UpdateDatasetVersionCommand(u, version)
@@ -319,7 +290,7 @@ public class Datasets extends AbstractApiBean {
                 return errorResponse( Response.Status.BAD_REQUEST, "Bad dataset id. Please provide a number.");
             }
             
-            User u = builtinUserSvc.findByIdentifier(apiKey);
+            User u = findUserByApiToken(apiKey);
             if ( u == null ) return errorResponse( Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
             
             Dataset ds = datasetService.find(dsId);
@@ -335,6 +306,54 @@ public class Datasets extends AbstractApiBean {
             Logger.getLogger(Datasets.class.getName()).log(Level.SEVERE, "Error while publishing a Dataset", ex);
             return errorResponse( Response.Status.INTERNAL_SERVER_ERROR, "Error publishing the dataset: " + ex.getMessage() );
         }
+    }
+    
+    
+    private <T> T handleVersion( String versionId, DsVersionHandler<T> hdl )
+        throws WrappedResponse {
+        switch (versionId) {
+			case ":latest": return hdl.handleLatest();
+			case ":draft": return hdl.handleDraft();
+            case ":latest-published": return hdl.handleLatestPublished();
+			default:
+                try {
+                    String[] versions = versionId.split("\\.");
+                    if (versions.length == 1) {
+                        return hdl.handleSpecific(Long.parseLong(versions[0]), (long)0.0);
+                    } else if (versions.length == 2) {
+                        return hdl.handleSpecific( Long.parseLong(versions[0]), Long.parseLong(versions[1]) );
+                    } else {
+                        throw new WrappedResponse(errorResponse( Response.Status.BAD_REQUEST, "Illegal version identifier '" + versionId + "'"));
+                    }
+                } catch ( NumberFormatException nfe ) {
+                    throw new WrappedResponse( errorResponse( Response.Status.BAD_REQUEST, "Illegal version identifier '" + versionId + "'") );
+                }
+		}
+    }
+    
+    private DatasetVersion getDatasetVersion( final User u, String versionNumber, final Dataset ds ) throws WrappedResponse {
+        return execCommand( handleVersion(versionNumber, new DsVersionHandler<Command<DatasetVersion>>(){
+
+                @Override
+                public Command<DatasetVersion> handleLatest() {
+                    return new GetLatestAccessibleDatasetVersionCommand(u, ds);
+                }
+
+                @Override
+                public Command<DatasetVersion> handleDraft() {
+                    return new GetDraftDatasetVersionCommand(u, ds);
+                }
+
+                @Override
+                public Command<DatasetVersion> handleSpecific(long major, long minor) {
+                    return new GetSpecificPublishedDatasetVersionCommand(u, ds, major, minor);
+                }
+
+                @Override
+                public Command<DatasetVersion> handleLatestPublished() {
+                    return new GetLatestPublishedDatasetVersionCommand(u, ds);
+                }
+            }), "Accessing dataset version");
     }
     
 }

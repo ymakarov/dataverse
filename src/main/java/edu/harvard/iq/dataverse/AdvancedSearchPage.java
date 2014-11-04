@@ -1,6 +1,6 @@
 package edu.harvard.iq.dataverse;
 
-import edu.harvard.iq.dataverse.api.SearchFields;
+import edu.harvard.iq.dataverse.search.SearchFields;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,7 +15,7 @@ import org.apache.commons.lang.StringUtils;
 
 @ViewScoped
 @Named("AdvancedSearchPage")
-public class AdvancedSearchPage {
+public class AdvancedSearchPage implements java.io.Serializable {
 
     private static final Logger logger = Logger.getLogger(AdvancedSearchPage.class.getCanonicalName());
 

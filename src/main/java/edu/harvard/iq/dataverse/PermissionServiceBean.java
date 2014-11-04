@@ -18,6 +18,7 @@ import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import static edu.harvard.iq.dataverse.engine.command.CommandHelper.CH;
+import java.util.ArrayList;
 
 /**
  * Your one-stop-shop for deciding which user can do what action on which
@@ -38,6 +39,9 @@ public class PermissionServiceBean {
 
     @EJB
     DataverseRoleServiceBean roleService;
+
+    @EJB
+    DataverseServiceBean dataverseService;
 
     @PersistenceContext
     EntityManager em;
@@ -109,12 +113,13 @@ public class PermissionServiceBean {
         // get as much or as little permissions as the local dataverse are 
         // willing to give it. 
         // - Leonid, 4.0 beta 7 (merge party)
+        // NOT solvable until we get groups in. Then, we assign this roel to a
+        // the authenticated users group.
         
         if (d instanceof Dataverse) {
             Dataverse dv = (Dataverse) d;
             if (u.isAuthenticated()) {
                 if (dv.getOwner() == null || dv.getAlias().endsWith("_open")) {
-                    retVal.add(Permission.UndoableEdit);
                     retVal.add(Permission.AddDataset);
                     retVal.add(Permission.AddDataverse);
                 }
@@ -159,7 +164,7 @@ public class PermissionServiceBean {
     public boolean isUserAllowedOn(User u, Class<? extends Command> commandClass, DvObject dvo) {
         Map<String, Set<Permission>> required = CH.permissionsRequired(commandClass);
         if (required.isEmpty() || required.get("") == null) {
-            logger.info("IsUserAllowedOn: empty-true");
+            logger.fine("IsUserAllowedOn: empty-true");
             return true;
         } else {
             Set<Permission> grantedUserPermissions = permissionsFor(u, dvo);
@@ -186,4 +191,26 @@ public class PermissionServiceBean {
         return userOn(session.getUser(), d);
     }
 
+    /**
+     * Go from (User, Permission) to a list of Dataverse objects that the user
+     * has the permission on.
+     *
+     * @todo Check isPermissionRoot (or [sic] isEffectivlyPermissionRoot?)
+     *
+     * @todo Refactor this into something more performant:
+     * https://github.com/IQSS/dataverse/issues/784
+     *
+     * In DVN 3.x we had this: List<VDC> vdcList =
+     * vdcService.getUserVDCs(vdcUser.getId());
+     */
+    public List<Dataverse> getDataversesUserHasPermissionOn(User user, Permission permission) {
+        List<Dataverse> allDataverses = dataverseService.findAll();
+        List<Dataverse> dataversesUserHasPermissionOn = new ArrayList<>();
+        for (Dataverse dataverse : allDataverses) {
+            if (userOn(user, dataverse).has(permission)) {
+                dataversesUserHasPermissionOn.add(dataverse);
+            }
+        }
+        return dataversesUserHasPermissionOn;
+    }
 }

@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse.api;
 
+import edu.harvard.iq.dataverse.search.SearchFields;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
 import edu.harvard.iq.dataverse.FacetCategory;
 import edu.harvard.iq.dataverse.FacetLabel;
@@ -128,8 +129,9 @@ public class Search extends AbstractApiBean {
                 value.add("relevance", relevancePerResult.build());
             }
             if (false) {
-                /**
+                /*
                  * @todo: add booleans to enable these
+                 * You can use SettingsServiceBeans for this
                  */
                 value.add("spelling_alternatives", spelling_alternatives);
                 value.add("facets", facets);

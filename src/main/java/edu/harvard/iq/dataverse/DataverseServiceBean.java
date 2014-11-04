@@ -16,6 +16,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
+import javax.persistence.NonUniqueResultException;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
 import javax.persistence.TypedQuery;
@@ -26,7 +27,7 @@ import javax.persistence.TypedQuery;
  */
 @Stateless
 @Named
-public class DataverseServiceBean {
+public class DataverseServiceBean implements java.io.Serializable {
 
     private static final Logger logger = Logger.getLogger(DataverseServiceBean.class.getCanonicalName());
     @EJB
@@ -39,6 +40,7 @@ public class DataverseServiceBean {
     private EntityManager em;
 
     public Dataverse save(Dataverse dataverse) {
+       
         Dataverse savedDataverse = em.merge(dataverse);
         String indexingResult = indexService.indexDataverse(savedDataverse);
         logger.info("during dataverse save, indexing result was: " + indexingResult);
@@ -90,7 +92,7 @@ public class DataverseServiceBean {
 				: em.createQuery("select d from Dataverse d WHERE d.alias=:alias", Dataverse.class)
 					.setParameter("alias", anAlias)
 					.getSingleResult();
-        } catch ( NoResultException nre ) {
+        } catch ( NoResultException|NonUniqueResultException ex ) {
             return null;
         }
     }

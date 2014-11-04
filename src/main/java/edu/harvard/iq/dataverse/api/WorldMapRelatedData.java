@@ -15,7 +15,6 @@ import edu.harvard.iq.dataverse.FileMetadata;
 import edu.harvard.iq.dataverse.MapLayerMetadata;
 import edu.harvard.iq.dataverse.MapLayerMetadataServiceBean;
 import edu.harvard.iq.dataverse.worldmapauth.TokenApplicationTypeServiceBean;
-import edu.harvard.iq.dataverse.UserNotification;
 import edu.harvard.iq.dataverse.UserNotificationServiceBean;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
@@ -54,7 +53,7 @@ import javax.ws.rs.core.Response;
 @Path("worldmap")
 public class WorldMapRelatedData extends AbstractApiBean {
 
-    private static final Logger logger = Logger.getLogger(Files.class.getCanonicalName());
+    private static final Logger logger = Logger.getLogger(WorldMapRelatedData.class.getCanonicalName());
 
     
     private static final String BASE_PATH = "/api/worldmap/";
@@ -168,10 +167,15 @@ public class WorldMapRelatedData extends AbstractApiBean {
              return "";
         }
         int portNumber = request.getServerPort();
-        if (portNumber==80){
-           return "http://" + serverName;
+        
+        String http_prefix = "https://";
+        if (serverName.contains("localhost")){
+            http_prefix = "http://";
         }
-        return "http://" + serverName + ":" + portNumber;
+        if (portNumber==80){
+           return http_prefix + serverName;
+        }
+        return http_prefix + serverName + ":" + portNumber;
                
     }
     
@@ -321,7 +325,7 @@ public class WorldMapRelatedData extends AbstractApiBean {
         // DataverseUser Info
         //------------------------------------
         dfile_json.add("dv_user_id", dv_user.getId());
-        dfile_json.add("dv_username", dv_user.getName());
+        dfile_json.add("dv_username", dv_user.getUserIdentifier()); 
         dfile_json.add("dv_user_email", dv_user.getEmail());
                 
         //------------------------------------
@@ -355,6 +359,7 @@ public class WorldMapRelatedData extends AbstractApiBean {
 
         dfile_json.add("dataset_description", "");  // Need to fix to/do
 
+        dfile_json.add("dataset_is_public", dset_version.isReleased());
                 
         //------------------------------------
         // DataFile/FileMetaData Info

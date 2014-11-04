@@ -11,10 +11,13 @@ interoperate with the Dataverse Network to utilize our open source
 APIs. Please visit http://datascience.iq.harvard.edu/collaborations for
 examples of external apps that have been built to work with our APIs.
 
+Rather than using a production installation of Dataverse, API users are
+welcome to use http://apitest.dataverse.org for testing.
+
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
   data-sharing
-  data-deposit
+  SWORD

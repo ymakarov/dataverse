@@ -20,7 +20,7 @@ import javax.persistence.TypedQuery;
  */
 @Stateless
 @Named
-public class DataverseRoleServiceBean {
+public class DataverseRoleServiceBean implements java.io.Serializable {
 	
 	@PersistenceContext(unitName = "VDCNet-ejbPU")
     private EntityManager em;
@@ -93,6 +93,12 @@ public class DataverseRoleServiceBean {
 		return retVal;
 	}
 	
+    public List<RoleAssignment> roleAssignments( Long roleId ) {
+        return em.createNamedQuery("RoleAssignment.listByRoleId", RoleAssignment.class)
+                .setParameter("roleId", roleId)
+                .getResultList();
+    }
+    
 	public RoleAssignmentSet assignmentsFor( final User u, final DvObject d ) {
 		return d.accept( new DvObject.Visitor<RoleAssignmentSet>() {
 
@@ -117,9 +123,10 @@ public class DataverseRoleServiceBean {
 		});
 	}
 	
-	public Set<RoleAssignment> rolesAssignments( Dataverse dv ) {
+	public Set<RoleAssignment> rolesAssignments( DvObject dv ) {
 		Set<RoleAssignment> ras = new HashSet<>();
-		while ( ! dv.isEffectivlyPermissionRoot() ) {
+                // since currently a dataset /datafile is always permission root, we can skip the while loop
+		while ( dv instanceof Dataverse && !((Dataverse) dv).isEffectivlyPermissionRoot() ) {
 			ras.addAll( em.createNamedQuery("RoleAssignment.listByDefinitionPointId", RoleAssignment.class)
 					.setParameter("definitionPointId", dv.getId() ).getResultList() );
 			dv = dv.getOwner();

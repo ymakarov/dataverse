@@ -4,7 +4,8 @@
       xmlns:f="http://java.sun.com/jsf/core"
       xmlns:ui="http://java.sun.com/jsf/facelets"
       xmlns:p="http://primefaces.org/ui"
-      xmlns:c="http://xmlns.jcp.org/jsp/jstl/core">
+      xmlns:c="http://xmlns.jcp.org/jsp/jstl/core"
+      xmlns:jsf="http://xmlns.jcp.org/jsf">
 
     <h:head>
     </h:head>
@@ -161,6 +162,14 @@
                                                             <f:setPropertyActionListener target="#{DatasetPage.selectedTabIndex}" value="0" />
                                                             <h:outputText value="Metadata" />
                                                         </p:commandLink>
+                                                    </li>
+                                                    <li>                                                    
+                                                        <p:commandLink id="rolesPermissionsOpts" 
+                                                                       actionListener="#{rolePermissionFragment.setDvObject(DatasetPage.dataset)}" 
+                                                                       update="rolesPermissionsDialog"
+                                                                       oncomplete="rolesPermissionsForm.show()">
+                                                            <h:outputText value="Roles + Permissions" />
+                                                        </p:commandLink>  
                                                     </li>
                                                     <ui:fragment rendered="#{!DatasetPage.dataset.released and DatasetPage.dataset.latestVersion.versionState=='DRAFT' and permissionServiceBean.on(DatasetPage.dataset).canIssueCommand('DeleteDatasetCommand')}">
                                                         <li class="divider"></li>
@@ -400,7 +409,7 @@
                                         </p:selectOneMenu>
                                         <p:commandButton value="Direct" id="updateTemplate"
                                                          style="display:none"
-                                                         update="@all"
+                                                         update="@form"
                                                          action="#{DatasetPage.handleChangeButton}">
                                         </p:commandButton>
                                     </div>
@@ -464,9 +473,8 @@
                                                       fileUploadListener="#{DatasetPage.handleFileUpload}" process="filesTable" update="filesTable" label="Select Files to Add"
                                                       oncomplete="javascript:bind_bsui_components();uploadWidgetDropMsg();addDeleteTooltip();" onstart="javascript:uploadWidgetDropRemoveMsg();"/>
 
-
-                                        <div class="panel panel-default" style="margin-top:1em;">
-                                            <ui:fragment  rendered="#{!empty DatasetPage.dropBoxKey}">
+                                        <ui:fragment rendered="#{!empty DatasetPage.dropBoxKey}">
+                                            <div id="dropboxUploadBlock" class="panel panel-default" style="margin-top:1em;">
                                                 <div class="panel-body">
                                                     <h:inputText id="dropBoxSelectionInput" style="display:none" value="#{DatasetPage.dropBoxSelection}"/>
                                                     <p:commandButton id="dropBoxButton" actionListener="#{DatasetPage.handleDropBoxUpload}" update="@all" style="display:none">
@@ -474,14 +482,14 @@
                                                     <p:commandButton value="Upload from Dropbox" onclick="openDropboxChooser();" icon="dropin-btn-status"/>
                                                     <p class="help-block">Files can also be uploaded directly from Dropbox.</p>
                                                 </div>
-                                            </ui:fragment>
-                                        </div>
+                                            </div>
+                                        </ui:fragment>
                                     </ui:fragment>
                                     <!-- View -->
                                     <ui:fragment rendered="#{dataverseSession.user.authenticated and empty DatasetPage.editMode
                                                              and DatasetPage.workingVersion == DatasetPage.dataset.latestVersion
                                                              and permissionServiceBean.on(DatasetPage.dataset).canIssueCommand('UpdateDatasetCommand')}">
-                                        <div class="" style="text-align:right; margin-bottom:.5em;">
+                                        <div class="" style="text-align:right; margin-top:1em; margin-bottom:.5em;">
                                             <p:commandLink style="color:black;" styleClass="btn btn-default" title="Upload + Edit Files" actionListener="#{DatasetPage.edit('FILE')}" update="@form" oncomplete="javascript:post_edit_files();" disabled="#{DatasetPage.locked}">
                                                 <f:setPropertyActionListener target="#{DatasetPage.selectedTabIndex}" value="0" />
                                                 <span class="glyphicon #{DatasetPage.locked ? 'glyphicon-ban-circle' : 'glyphicon-plus'}" style="margin-right:.3em;"/> Upload + Edit Files
@@ -489,7 +497,7 @@
                                         </div>
                                     </ui:fragment>
                                     <!-- p:dataTable id="filesTable" value="#{empty DatasetPage.editMode ? DatasetPage.workingVersion.fileMetadatas : DatasetPage.dataset.latestVersion.fileMetadatas}" var="fileMetadata" -->
-                                    <p:dataTable id="filesTable" value="#{empty DatasetPage.editMode ? DatasetPage.workingVersion.fileMetadatas : DatasetPage.dataset.latestVersion.fileMetadatas}"
+                                    <p:dataTable id="filesTable" style="margin-top:1em;" value="#{empty DatasetPage.editMode ? DatasetPage.workingVersion.fileMetadatas : DatasetPage.dataset.latestVersion.fileMetadatas}"
                                                  rowIndexVar="rowNum"
                                                  selection="#{DatasetPage.selectedFiles}" rowKey="#{fileMetadata.dataFile.fileSystemName}" var="fileMetadata" widgetVar="filesTable">
                                         <p:column headerText="Delete?" selectionMode="multiple" rendered="#{DatasetPage.editMode == 'FILE' or DatasetPage.editMode == 'CREATE'}"
@@ -521,12 +529,16 @@
 
                                             <h:outputText id="fileTypeOutputRegular" value="#{fileMetadata.dataFile.friendlyType}#{!empty fileMetadata.dataFile.md5 ? ', ' : ''}" rendered="#{!(fileMetadata.dataFile.tabularData)}"/>
 
-                                            <h:outputText id="fileMD5" value="MD5: #{fileMetadata.dataFile.md5}" rendered="#{!(empty fileMetadata.dataFile.md5) and !(fileMetadata.dataFile.tabularData) and ((DatasetPage.editMode != 'FILE' and DatasetPage.editMode != 'CREATE') or !DatasetPage.isDuplicate(fileMetadata))}"/>
+                                            <!--h:outputText id="fileMD5" value="MD5: #{fileMetadata.dataFile.md5}" rendered="#{!(empty fileMetadata.dataFile.md5) and !(fileMetadata.dataFile.tabularData) and ((DatasetPage.editMode != 'FILE' and DatasetPage.editMode != 'CREATE') or !DatasetPage.isDuplicate(fileMetadata))}"/-->
+                                            <h:outputText id="fileMD5" value="MD5: #{fileMetadata.dataFile.md5}; " rendered="#{!(empty fileMetadata.dataFile.md5) and ((DatasetPage.editMode != 'FILE' and DatasetPage.editMode != 'CREATE') or !DatasetPage.isDuplicate(fileMetadata))}"/>
                                             <h:outputText id="duplicateFileMD5" style="color:red" value="MD5: #{fileMetadata.dataFile.md5} " rendered="#{!(empty fileMetadata.dataFile.md5) and ((DatasetPage.editMode == 'FILE' or DatasetPage.editMode == 'CREATE') and DatasetPage.isDuplicate(fileMetadata))}"/>
                                             <h:outputText id="fileDuplicateWarning" style="color:red" value=" (A file with this MD5 already exists in the dataset!)" rendered="#{DatasetPage.isDuplicate(fileMetadata) and (DatasetPage.editMode == 'FILE' or DatasetPage.editMode == 'CREATE') and (empty fileMetadata.id)}"/>
 
-                                            <h:outputText id="fileTypeOutputTabular" value="Tabular Data#{!empty fileMetadata.dataFile.unf ? ', ' : ''}" rendered="#{fileMetadata.dataFile.tabularData}"/>
-                                            <h:outputText id="fileUNF" value="#{fileMetadata.dataFile.unf}" rendered="#{!empty fileMetadata.dataFile.unf}"/>
+                                            <h:outputText id="fileTypeOutputTabular" value="Tabular Data, " rendered="#{fileMetadata.dataFile.tabularData}"/>
+                                            <h:outputText id="fileNumVars" value="#{fileMetadata.dataFile.dataTable.varQuantity} variables, " rendered="#{fileMetadata.dataFile.tabularData}"/>
+                                            <h:outputText id="fileNumObs" value="#{fileMetadata.dataFile.dataTable.caseQuantity} observations#{!empty fileMetadata.dataFile.unf ? ', ' : ''}" rendered="#{fileMetadata.dataFile.tabularData}"/>
+                                            <h:outputText id="fileUNF" value="#{fileMetadata.dataFile.unf}, " rendered="#{!empty fileMetadata.dataFile.unf}"/>
+
 
                                             <ui:fragment rendered="#{ DatasetPage.hasMapLayerMetadata(fileMetadata)}">
                                                 <br /><br /> <a href="#{ DatasetPage.getMapLayerMetadata(fileMetadata.dataFile).getLayerLink() }">View on WorldMap</a> 		
@@ -591,7 +603,7 @@
                                                             </h:outputLink>
                                                         </li>
                                                         <li>
-                                                            <h:outputLink value="/api/access/datafile/#{fileMetadata.dataFile.id}?format=RData"  disabled="#{empty fileMetadata.dataFile.id}">
+                                                            <h:outputLink value="/api/access/datafile/#{fileMetadata.dataFile.id}?format=RData"  rendered="#{!fileMetadata.dataFile.originalFormatLabel == 'RData'}" disabled="#{empty fileMetadata.dataFile.id}">
                                                                 <h:outputText value="As RData"/>
                                                             </h:outputLink>
                                                         </li>
@@ -616,7 +628,9 @@
                                     </p:dataTable>
                                 </p:tab>
 
-                                <p:tab id="metadataMapTab" title="Metadata" rendered="#{!DatasetPage.workingVersion.deaccessioned and (empty DatasetPage.editMode or DatasetPage.editMode == 'METADATA')}">
+                                <p:tab  id="metadataMapTab" title="Metadata" 
+                                        rendered="#{!DatasetPage.workingVersion.deaccessioned and (empty DatasetPage.editMode or DatasetPage.editMode == 'METADATA')}"
+                                        >
                                     <ui:fragment rendered="#{dataverseSession.user.authenticated and empty DatasetPage.editMode
                                                              and DatasetPage.workingVersion == DatasetPage.dataset.latestVersion
                                                              and permissionServiceBean.on(DatasetPage.dataset).canIssueCommand('UpdateDatasetCommand')}">
@@ -907,8 +921,11 @@
                     <p:commandButton value="Direct" id="datasetSave"
                                      style="display:none"
                                      update=":datasetForm"
+                                     oncomplete="javascript:bind_bsui_components();"
                                      action="#{DatasetPage.save}">
                     </p:commandButton>
+                    
+                    <ui:include src="rolesAndPermissionsFragment.xhtml"/>                    
                 </h:form>
             </ui:define>
         </ui:composition>

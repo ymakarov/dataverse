@@ -1,6 +1,6 @@
 package edu.harvard.iq.dataverse;
 
-import edu.harvard.iq.dataverse.api.SearchFields;
+import edu.harvard.iq.dataverse.search.SearchFields;
 import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import java.util.ArrayList;
@@ -19,7 +19,7 @@ import org.apache.commons.lang.StringUtils;
 
 @ViewScoped
 @Named("SearchIncludeFragment")
-public class SearchIncludeFragment {
+public class SearchIncludeFragment implements java.io.Serializable {
 
     private static final Logger logger = Logger.getLogger(SearchIncludeFragment.class.getCanonicalName());
 
@@ -57,6 +57,7 @@ public class SearchIncludeFragment {
     private String fq8;
     private String fq9;
     private Long dataverseId;
+    private String dataverseAlias;
     private Dataverse dataverse;
     // commenting out dataverseSubtreeContext. it was not well-loved in the GUI
 //    private String dataverseSubtreeContext;
@@ -215,6 +216,10 @@ public class SearchIncludeFragment {
         SolrQueryResponse solrQueryResponse = null;
 
         List<String> filterQueriesFinal = new ArrayList<>();
+        if ( dataverseAlias != null){
+            this.dataverse = dataverseService.findByAlias(dataverseAlias);
+            dataverseId = dataverse.getId();
+        }
         if (dataverseId != null) {
             this.dataverse = dataverseService.find(dataverseId);
             String dataversePath = dataverseService.determineDataversePath(this.dataverse);
@@ -315,12 +320,19 @@ public class SearchIncludeFragment {
                 }
                 if (solrSearchResult.getType().equals("dataverses")) {
                     Dataverse dataverseInCard = dataverseService.find(solrSearchResult.getEntityId());
+                    String parentId = solrSearchResult.getParent().get("id");
+                    if (parentId != null){
+                        Dataverse parentDataverseInCard = dataverseService.find(Long.parseLong(parentId));
+                        solrSearchResult.setDataverseParentAlias(parentDataverseInCard.getAlias());
+                    }
+                    
                     if (dataverseInCard != null) {
                         //Omit deaccessioned datasets
                         List<Dataset> datasets = datasetService.findByOwnerId(dataverseInCard.getId(), true);
                         solrSearchResult.setDatasets(datasets);
                         solrSearchResult.setDataverseAffiliation(dataverseInCard.getAffiliation());
                         solrSearchResult.setStatus(getCreatedOrReleasedDate(dataverseInCard, solrSearchResult.getReleaseOrCreateDate()));
+                        solrSearchResult.setDataverseAlias(dataverseInCard.getAlias());                        
                     }
                 } else if (solrSearchResult.getType().equals("datasets")) {
                     Long datasetVersionId = solrSearchResult.getDatasetVersionId();
@@ -908,6 +920,20 @@ public class SearchIncludeFragment {
 
     public void setErrorFromSolr(String errorFromSolr) {
         this.errorFromSolr = errorFromSolr;
+    }
+
+    /**
+     * @return the dataverseAlias
+     */
+    public String getDataverseAlias() {
+        return dataverseAlias;
+    }
+
+    /**
+     * @param dataverseAlias the dataverseAlias to set
+     */
+    public void setDataverseAlias(String dataverseAlias) {
+        this.dataverseAlias = dataverseAlias;
     }
 
 }

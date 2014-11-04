@@ -16,6 +16,13 @@ Set ``ShibEnabled`` to ``true`` to enable Shibboleth login.
 
 ``curl -X PUT http://localhost:8080/api/s/settings/:ShibEnabled/true``
 
+DataDepositApiMaxUploadInBytes
+------------------------------
+
+Set `DataDepositApiMaxUploadInBytes` to "2147483648", for example, to limit the size of files uploaded to 2 GB.
+
+``curl -X PUT http://localhost:8080/api/s/settings/:DataDepositApiMaxUploadInBytes/2147483648``
+
 JVM Options
 +++++++++++
 
@@ -58,6 +65,13 @@ Add the following to ``/etc/httpd/conf.d/dataverse.conf``
   # This rule will redirect users from their original location, to the same location but using HTTPS.
   # i.e.  http://www.example.com/foo/ to https://www.example.com/foo/
   # The leading slash is made optional so that this will work either in httpd.conf or .htaccess context
+
+
+Dropbox Configuration
+++++++++++++++++++++++
+
+- Add JVM option in the domain.xml: 
+``asadmin create-jvm-options "-Ddataverse.dropbox.key=<Enter your dropbox key here>"``
 
 
 

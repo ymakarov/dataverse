@@ -3,11 +3,13 @@ package edu.harvard.iq.dataverse;
 import java.util.Collection;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import javax.faces.model.SelectItem;
 import javax.persistence.*;
 
 /**
@@ -32,6 +34,10 @@ public class DatasetFieldType implements Serializable, Comparable<DatasetFieldTy
     public void setId(Long id) {
         this.id = id;
     }
+    
+    public String getIdString(){
+        return id.toString();
+    }
 
     @Column(name = "name", columnDefinition = "TEXT")
     private String name;    // This is the internal, DDI-like name, no spaces, etc.
@@ -47,7 +53,9 @@ public class DatasetFieldType implements Serializable, Comparable<DatasetFieldTy
     @OneToMany(mappedBy = "datasetFieldType")
     private Set<DataverseFacet> dataverseFacets;
     
-
+    @OneToMany(mappedBy = "datasetFieldType")
+    private Set<DataverseFieldTypeInputLevel> dataverseFieldTypeInputLevels;
+    
     @Transient
     private String searchValue;
     
@@ -56,6 +64,43 @@ public class DatasetFieldType implements Serializable, Comparable<DatasetFieldTy
 
     @Transient
     private Map<String, ControlledVocabularyValue> controlledVocabularyValuesByStrValue;
+    
+    @Transient 
+    private boolean requiredDV;
+    
+    public void setRequiredDV(boolean requiredDV){
+        this.requiredDV = requiredDV;
+    }
+    
+    public boolean isRequiredDV(){
+        return this.requiredDV;
+    }
+    
+    @Transient 
+    private boolean include;
+    
+    public void setInclude(boolean include){
+        this.include = include;
+    }
+    
+    public boolean isInclude(){
+        return this.include;
+    }
+    
+    @Transient 
+    private List<SelectItem> optionSelectItems;
+
+    public List<SelectItem> getOptionSelectItems() {
+        return optionSelectItems;
+    }
+
+    public void setOptionSelectItems(List<SelectItem> optionSelectItems) {
+        this.optionSelectItems = optionSelectItems;
+    }
+    
+    
+    
+
     
     public DatasetFieldType() {}
 
@@ -225,6 +270,14 @@ public class DatasetFieldType implements Serializable, Comparable<DatasetFieldTy
     public void setDataverseFacets(Set<DataverseFacet> dataverseFacets) {
         this.dataverseFacets = dataverseFacets;
     }
+    
+    public Set<DataverseFieldTypeInputLevel> getDataverseFieldTypeInputLevels() {
+        return dataverseFieldTypeInputLevels;
+    }
+
+    public void setDataverseFieldTypeInputLevels(Set<DataverseFieldTypeInputLevel> dataverseFieldTypeInputLevels) {
+        this.dataverseFieldTypeInputLevels = dataverseFieldTypeInputLevels;
+    }
 
     public String getSearchValue() {
         return searchValue;
@@ -280,6 +333,17 @@ public class DatasetFieldType implements Serializable, Comparable<DatasetFieldTy
     
     public boolean isHasChildren() {
         return !this.childDatasetFieldTypes.isEmpty();
+    }
+    
+    public boolean isHasRequiredChildren() {
+        if (this.childDatasetFieldTypes.isEmpty()){
+            return false;
+        } else {
+            for (DatasetFieldType dsftC : this.childDatasetFieldTypes){
+                if (dsftC.isRequired()) return true;
+            }
+        }
+        return false;
     }
 
     public boolean isHasParent() {

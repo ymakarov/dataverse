@@ -1,26 +1,28 @@
 package edu.harvard.iq.dataverse.api;
 
+import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetFieldServiceBean;
+import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseRoleServiceBean;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
-import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUserServiceBean;
 import edu.harvard.iq.dataverse.DvObject;
 import edu.harvard.iq.dataverse.EjbDataverseEngine;
 import edu.harvard.iq.dataverse.MetadataBlock;
 import edu.harvard.iq.dataverse.MetadataBlockServiceBean;
+import edu.harvard.iq.dataverse.PermissionServiceBean;
 import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
 import edu.harvard.iq.dataverse.UserServiceBean;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
-import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.exception.IllegalCommandException;
 import edu.harvard.iq.dataverse.engine.command.exception.PermissionException;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import edu.harvard.iq.dataverse.util.json.JsonParser;
+import java.net.URI;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,13 +45,12 @@ import javax.ws.rs.core.Response.Status;
 public abstract class AbstractApiBean {
 	
     /**
-     * Utility class to convey a proper error response on failed commands.
-     * @see #execCommand(edu.harvard.iq.dataverse.engine.command.Command, java.lang.String) 
+     * Utility class to convey a proper error response using Java's exceptions.
      */
-    public static class FailedCommandResult extends Exception {
+    public static class WrappedResponse extends Exception {
         private final Response response;
 
-        public FailedCommandResult(Response response) {
+        public WrappedResponse(Response response) {
             this.response = response;
         }
 
@@ -61,9 +62,9 @@ public abstract class AbstractApiBean {
 	@EJB
 	protected EjbDataverseEngine engineSvc;
 	
-	@EJB
-	protected BuiltinUserServiceBean builtinUserSvc;
-	
+    @EJB
+    protected DatasetServiceBean datasetSvc;
+    
 	@EJB
 	protected DataverseServiceBean dataverseSvc;
     
@@ -77,19 +78,22 @@ public abstract class AbstractApiBean {
     protected MetadataBlockServiceBean metadataBlockSvc;
     
     @EJB
-    UserServiceBean userSvc;
+    protected UserServiceBean userSvc;
     
 	@EJB
-	DataverseRoleServiceBean rolesSvc;
+	protected DataverseRoleServiceBean rolesSvc;
     
     @EJB
-    SettingsServiceBean settingsSvc;
+    protected SettingsServiceBean settingsSvc;
     
     @EJB
-    RoleAssigneeServiceBean roleAssigneeSvc;
+    protected RoleAssigneeServiceBean roleAssigneeSvc;
+    
+    @EJB
+    protected PermissionServiceBean permissionSvc;
     
 	@PersistenceContext(unitName = "VDCNet-ejbPU")
-	EntityManager em;
+	protected EntityManager em;
 	
     /**
      * For pretty printing (indenting) of JSON output.
@@ -110,14 +114,23 @@ public abstract class AbstractApiBean {
     	return roleAssigneeSvc.getRoleAssignee(identifier);
 	}
     
+    /**
+     * 
+     * @param apiKey the key to find the user with
+     * @return the user, or null
+     * @see #findUserOrDie(java.lang.String) 
+     */
     protected AuthenticatedUser findUserByApiToken( String apiKey ) {
         return authSvc.lookupUser(apiKey);
     }
     
-    protected User findUserById( String userIdtf ) {
-        return engineSvc.getContext().users().findByIdentifier(userIdtf);
+    protected AuthenticatedUser findUserOrDie( String apiKey ) throws WrappedResponse {
+        AuthenticatedUser u = authSvc.lookupUser(apiKey);
+        if ( u != null ) return u;
+        throw new WrappedResponse( badApiKey(apiKey) );
     }
-	
+    
+    
 	protected Dataverse findDataverse( String idtf ) {
 		return isNumeric(idtf) ? dataverseSvc.find(Long.parseLong(idtf))
 	 							  : dataverseSvc.findByAlias(idtf);
@@ -129,9 +142,43 @@ public abstract class AbstractApiBean {
 				.getSingleResult();
 	}
 	
+    /**
+     * Tries to find a DvObject. If the passed id can be interpreted as a number,
+     * it tries to get the DvObject by its id. Else, it tries to get a {@link Dataverse}
+     * with that alias. If that fails, tries to get a {@link Dataset} with that global id.
+     * @param id a value identifying the DvObject, either numeric of textual.
+     * @return A DvObject, or {@code null}
+     */
+	protected DvObject findDvo( String id ) {
+        if ( isNumeric(id) ) {
+            return findDvo( Long.valueOf(id)) ;
+        } else {
+            Dataverse d = dataverseSvc.findByAlias(id);
+            return ( d == null ) ?
+                    d : datasetSvc.findByGlobalId(id);
+            
+        }
+	}
+	
     protected MetadataBlock findMetadataBlock(String idtf) throws NumberFormatException {
         return isNumeric(idtf) ? metadataBlockSvc.findById(Long.parseLong(idtf))
                 : metadataBlockSvc.findByName(idtf);
+    }
+    
+    protected <T> T execCommand( Command<T> com, String messageSeed ) throws WrappedResponse {
+        try {
+            return engineSvc.submit(com);
+            
+        } catch (IllegalCommandException ex) {
+            throw new WrappedResponse( errorResponse( Response.Status.FORBIDDEN, messageSeed + ": Not Allowed (" + ex.getMessage() + ")" ));
+          
+        } catch (PermissionException ex) {
+            throw new WrappedResponse(errorResponse(Response.Status.UNAUTHORIZED, messageSeed + " unauthorized."));
+            
+        } catch (CommandException ex) {
+            Logger.getLogger(AbstractApiBean.class.getName()).log(Level.SEVERE, "Error while " + messageSeed, ex);
+            throw new WrappedResponse(errorResponse(Status.INTERNAL_SERVER_ERROR, messageSeed + " failed: " + ex.getMessage()));
+        }
     }
     
     protected Response okResponse( JsonArrayBuilder bld ) {
@@ -139,7 +186,7 @@ public abstract class AbstractApiBean {
             .add("status", "OK")
             .add("data", bld).build() ).build();
     }
-
+    
     protected Response okResponse(JsonArrayBuilder bld, Format format) {
         return Response.ok(Util.jsonObject2prettyString(
                 Json.createObjectBuilder()
@@ -148,32 +195,29 @@ public abstract class AbstractApiBean {
         ).build();
     }
     
+    protected Response createdResponse( String uri, JsonObjectBuilder bld ) {
+        return Response.created( URI.create(uri) )
+                .entity( Json.createObjectBuilder()
+                .add("status", "OK")
+                .add("data", bld).build())
+                .type(MediaType.APPLICATION_JSON)
+                .build();
+    }
+    
     protected Response okResponse( JsonObjectBuilder bld ) {
         return Response.ok( Json.createObjectBuilder()
             .add("status", "OK")
-            .add("data", bld).build() ).build();
+            .add("data", bld).build() )
+            .type(MediaType.APPLICATION_JSON)
+            .build();
     }
     
     protected Response okResponse( String msg ) {
         return Response.ok().entity(Json.createObjectBuilder()
             .add("status", "OK")
-            .add("data", Json.createObjectBuilder().add("message",msg)).build() ).build();
-    }
-    
-    protected <T> T execCommand( Command<T> com, String messageSeed ) throws FailedCommandResult {
-        try {
-            return engineSvc.submit(com);
-            
-        } catch (IllegalCommandException ex) {
-            throw new FailedCommandResult( errorResponse( Response.Status.FORBIDDEN, messageSeed + ": Not Allowed (" + ex.getMessage() + ")" ));
-          
-        } catch (PermissionException ex) {
-            throw new FailedCommandResult(errorResponse(Response.Status.UNAUTHORIZED, messageSeed + " unauthorized."));
-            
-        } catch (CommandException ex) {
-            Logger.getLogger(AbstractApiBean.class.getName()).log(Level.SEVERE, "Error while " + messageSeed, ex);
-            throw new FailedCommandResult(errorResponse(Status.INTERNAL_SERVER_ERROR, messageSeed + " failed: " + ex.getMessage()));
-        }
+            .add("data", Json.createObjectBuilder().add("message",msg)).build() )
+            .type(MediaType.APPLICATION_JSON)
+            .build();
     }
     
     /**
@@ -210,7 +254,7 @@ public abstract class AbstractApiBean {
     }
     
     protected Response badApiKey( String apiKey ) {
-        return errorResponse(Status.UNAUTHORIZED, "Bad api key '" + apiKey +"'");
+        return errorResponse(Status.UNAUTHORIZED, (apiKey != null ) ? "Bad api key '" + apiKey +"'" : "Please provide a key query parameter (?key=XXX)");
     }
     
     protected Response permissionError( PermissionException pe ) {
@@ -221,6 +265,7 @@ public abstract class AbstractApiBean {
         return Response.status(sts)
                 .entity( Json.createObjectBuilder().add("status", "ERROR")
                         .add( "message", msg ).build())
+                .type(MediaType.APPLICATION_JSON_TYPE)
                 .build();
     }
     

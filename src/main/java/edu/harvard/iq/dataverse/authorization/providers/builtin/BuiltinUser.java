@@ -21,6 +21,8 @@ import org.hibernate.validator.constraints.NotBlank;
 				query = "SELECT u FROM BuiltinUser u ORDER BY u.lastName"),
 		@NamedQuery( name="BuiltinUser.findByUserName",
 				query = "SELECT u FROM BuiltinUser u WHERE u.userName=:userName"),
+		@NamedQuery( name="BuiltinUser.findByEmail",
+				query = "SELECT o FROM BuiltinUser o WHERE o.email = :email"),
 		@NamedQuery( name="BuiltinUser.listByUserNameLike",
 				query = "SELECT u FROM BuiltinUser u WHERE u.userName LIKE :userNameLike")
 })
@@ -130,15 +132,11 @@ public class BuiltinUser implements Serializable {
 
     @Override
     public boolean equals(Object object) {
-        // TODO: Warning - this method won't work in the case the id fields are not set
         if (!(object instanceof BuiltinUser)) {
             return false;
         }
         BuiltinUser other = (BuiltinUser) object;
-        if ((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id))) {
-            return false;
-        }
-        return true;
+        return !((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id)));
     }
 
 	@Override

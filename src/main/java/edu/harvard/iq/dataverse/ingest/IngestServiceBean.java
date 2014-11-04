@@ -48,6 +48,7 @@ import edu.harvard.iq.dataverse.ingest.metadataextraction.impl.plugins.fits.FITS
 import edu.harvard.iq.dataverse.ingest.tabulardata.TabularDataFileReader;
 import edu.harvard.iq.dataverse.ingest.tabulardata.TabularDataIngest;
 import edu.harvard.iq.dataverse.ingest.tabulardata.impl.plugins.dta.DTAFileReader;
+import edu.harvard.iq.dataverse.ingest.tabulardata.impl.plugins.dta.DTA117FileReader;
 import edu.harvard.iq.dataverse.ingest.tabulardata.impl.plugins.dta.DTAFileReaderSpi;
 import edu.harvard.iq.dataverse.ingest.tabulardata.impl.plugins.rdata.RDATAFileReader;
 import edu.harvard.iq.dataverse.ingest.tabulardata.impl.plugins.rdata.RDATAFileReaderSpi;
@@ -78,6 +79,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -137,6 +139,7 @@ public class IngestServiceBean {
     QueueConnectionFactory factory;
     
     private static final String MIME_TYPE_STATA = "application/x-stata";
+    private static final String MIME_TYPE_STATA13 = "application/x-stata-13";
     private static final String MIME_TYPE_RDATA = "application/x-rlang-transport";
     private static final String MIME_TYPE_CSV   = "text/csv";
     private static final String MIME_TYPE_CSV_ALT = "text/comma-separated-values";
@@ -266,7 +269,6 @@ public class IngestServiceBean {
                 
         // If it's a ZIP file, we are going to unpack it and create multiple 
         // DataFile objects from its contents:
-       // } else if (( finalType.equals("application/zip")) || (finalType.equals(ShapefileHandler.SHAPEFILE_FILE_TYPE))) {   
           } else if (finalType.equals("application/zip")) {   
             
             ZipInputStream unZippedIn = null; 
@@ -292,7 +294,7 @@ public class IngestServiceBean {
                             // Check if it's a "fake" file - a zip archive entry 
                             // created for a MacOS X filesystem element: (these 
                             // start with "._")
-                            if (!fileEntryName.startsWith("._")) {
+                            if (!fileEntryName.startsWith("._") && !fileEntryName.startsWith(".DS_Store")) {
                                 // OK, this seems like an OK file entry - we'll try 
                                 // to read it and create a DataFile with it:
 
@@ -1088,8 +1090,6 @@ public class IngestServiceBean {
         
         // Locate ingest plugin for the file format by looking
         // it up with the Ingest Service Provider Registry:
-        //TabularDataFileReader ingestPlugin = IngestSP.getTabDataReaderByMIMEType(dFile.getContentType());
-        //TabularDataFileReader ingestPlugin = new DTAFileReader(new DTAFileReaderSpi());
         String fileName = dataFile.getFileMetadata().getLabel();
         TabularDataFileReader ingestPlugin = getTabDataReaderByMimeType(dataFile.getContentType());
 
@@ -1257,7 +1257,7 @@ public class IngestServiceBean {
                 errorReport.setDataFile(dataFile);
                 dataFile.setIngestReport(errorReport);
 
-            // blank the datatable that may have already been attached to the
+                // blank the datatable that may have already been attached to the
                 // datafile (it may have something "unsave-able" in it!)
                 dataFile.setDataTables(null);
                 if (tabDataIngest != null && tabDataIngest.getDataTable() != null) {
@@ -1298,6 +1298,8 @@ public class IngestServiceBean {
         
         if (mimeType.equals(MIME_TYPE_STATA)) {
             return true;
+        } else if (mimeType.equals(MIME_TYPE_STATA13)) {
+            return true;
         } else if (mimeType.equals(MIME_TYPE_RDATA)) {
             return true;
         } else if (mimeType.equals(MIME_TYPE_CSV) || mimeType.equals(MIME_TYPE_CSV_ALT)) {
@@ -1330,6 +1332,8 @@ public class IngestServiceBean {
 
         if (mimeType.equals(MIME_TYPE_STATA)) {
             ingestPlugin = new DTAFileReader(new DTAFileReaderSpi());
+        } else if (mimeType.equals(MIME_TYPE_STATA13)) {
+            ingestPlugin = new DTA117FileReader(new DTAFileReaderSpi());
         } else if (mimeType.equals(MIME_TYPE_RDATA)) {
             ingestPlugin = new RDATAFileReader(new RDATAFileReaderSpi());
         } else if (mimeType.equals(MIME_TYPE_CSV) || mimeType.equals(MIME_TYPE_CSV_ALT)) {
@@ -1418,85 +1422,187 @@ public class IngestServiceBean {
                 for (DatasetFieldType dsft : mdb.getDatasetFieldTypes()) {
                     if (dsft.isPrimitive()) {
                         if (!dsft.isHasParent()) {
-                        String dsfName = dsft.getName();
-                        // See if the plugin has found anything for this field: 
-                        if (fileMetadataMap.get(dsfName) != null && !fileMetadataMap.get(dsfName).isEmpty()) {
-                            
-                            logger.fine("Ingest Service: found extracted metadata for field " + dsfName);
-                            // go through the existing fields:
-                            for (DatasetField dsf : editVersion.getFlatDatasetFields()) {
-                                if (dsf.getDatasetFieldType().equals(dsft)) {
-                                    // yep, this is our field!
-                                    // let's go through the values that the ingest 
-                                    // plugin found in the file for this field: 
-                                    Set<String> mValues = fileMetadataMap.get(dsfName);
-                                    for (String fValue : mValues) {
-                                        if (!dsft.isControlledVocabulary()) {
-                                            // Need to only add the values not yet present!
-                                            // (the method below may be inefficient - ?)
-                                            boolean valueExists = false;
+                            String dsfName = dsft.getName();
+                            // See if the plugin has found anything for this field: 
+                            if (fileMetadataMap.get(dsfName) != null && !fileMetadataMap.get(dsfName).isEmpty()) {
 
-                                            Iterator<DatasetFieldValue> dsfvIt = dsf.getDatasetFieldValues().iterator();
+                                logger.fine("Ingest Service: found extracted metadata for field " + dsfName);
+                                // go through the existing fields:
+                                for (DatasetField dsf : editVersion.getFlatDatasetFields()) {
+                                    if (dsf.getDatasetFieldType().equals(dsft)) {
+                                        // yep, this is our field!
+                                        // let's go through the values that the ingest 
+                                        // plugin found in the file for this field: 
 
-                                            while (dsfvIt.hasNext()) {
-                                                DatasetFieldValue dsfv = dsfvIt.next();
-                                                if (fValue.equals(dsfv.getValue())) {
-                                                    logger.fine("Value " + fValue + " already exists for field " + dsfName);
-                                                    valueExists = true;
-                                                    break;
+                                        Set<String> mValues = fileMetadataMap.get(dsfName);
+
+                                        // Special rules apply to aggregation of values for 
+                                        // some specific fields - namely, the resolution.* 
+                                        // fields from the Astronomy Metadata block. 
+                                        // TODO: rather than hard-coded, this needs to be
+                                        // programmatically defined. -- L.A. 4.0
+                                        if (dsfName.equals("resolution.Temporal")
+                                                || dsfName.equals("resolution.Spatial")
+                                                || dsfName.equals("resolution.Spectral")) {
+                                            // For these values, we aggregate the minimum-maximum 
+                                            // pair, for the entire set. 
+                                            // So first, we need to go through the values found by 
+                                            // the plugin and select the min. and max. values of 
+                                            // these: 
+                                            // (note that we are assuming that they all must
+                                            // validate as doubles!)
+
+                                            Double minValue = null;
+                                            Double maxValue = null;
+
+                                            for (String fValue : mValues) {
+
+                                                try {
+                                                    double thisValue = Double.parseDouble(fValue);
+
+                                                    if (minValue == null || Double.compare(thisValue, minValue) < 0) {
+                                                        minValue = thisValue;
+                                                    }
+                                                    if (maxValue == null || Double.compare(thisValue, maxValue) > 0) {
+                                                        maxValue = thisValue;
+                                                    }
+                                                } catch (NumberFormatException e) {
                                                 }
                                             }
 
-                                            if (!valueExists) {
-                                                logger.fine("Creating a new value for field " + dsfName + ": " + fValue);
-                                                DatasetFieldValue newDsfv = new DatasetFieldValue(dsf);
-                                                newDsfv.setValue(fValue);
-                                                dsf.getDatasetFieldValues().add(newDsfv);
-                                            }
-                                        } else {
-                                            // A controlled vocabulary entry: 
-                                            // first, let's see if it's a legit control vocab. entry: 
-                                            ControlledVocabularyValue legitControlledVocabularyValue = null;
-                                            Collection<ControlledVocabularyValue> definedVocabularyValues = dsft.getControlledVocabularyValues();
-                                            if (definedVocabularyValues != null) {
-                                                for (ControlledVocabularyValue definedVocabValue : definedVocabularyValues) {
-                                                    if (fValue.equals(definedVocabValue.getStrValue())) {
-                                                        logger.fine("Yes, " + fValue + " is a valid controlled vocabulary value for the field " + dsfName);
-                                                        legitControlledVocabularyValue = definedVocabValue;
-                                                        break;
+                                            // Now let's see what aggregated values we 
+                                            // have stored already: 
+                                            
+                                            // (all of these resolution.* fields have allowedMultiple set to FALSE, 
+                                            // so there can be only one!)
+                                            //logger.fine("Min value: "+minValue+", Max value: "+maxValue);
+                                            if (minValue != null && maxValue != null) {
+                                                Double storedMinValue = null; 
+                                                Double storedMaxValue = null;
+                                            
+                                                String storedValue = "";
+                                                
+                                                if (dsf.getDatasetFieldValues() != null && dsf.getDatasetFieldValues().get(0) != null) {
+                                                    storedValue = dsf.getDatasetFieldValues().get(0).getValue();
+                                                
+                                                    if (storedValue != null && !storedValue.equals("")) {
+                                                        try {
+
+                                                            if (storedValue.indexOf(" - ") > -1) {
+                                                                storedMinValue = Double.parseDouble(storedValue.substring(0, storedValue.indexOf(" - ")));
+                                                                storedMaxValue = Double.parseDouble(storedValue.substring(storedValue.indexOf(" - ") + 3));
+                                                            } else {
+                                                                storedMinValue = Double.parseDouble(storedValue);
+                                                                storedMaxValue = storedMinValue;
+                                                            }
+                                                            if (storedMinValue != null && storedMinValue.compareTo(minValue) < 0) {
+                                                                minValue = storedMinValue;
+                                                            }
+                                                            if (storedMaxValue != null && storedMaxValue.compareTo(maxValue) > 0) {
+                                                                maxValue = storedMaxValue;
+                                                            }
+                                                        } catch (NumberFormatException e) {}
+                                                    } else {
+                                                        storedValue = "";
                                                     }
                                                 }
+                                            
+                                                //logger.fine("Stored min value: "+storedMinValue+", Stored max value: "+storedMaxValue);
+                                                
+                                                String newAggregateValue = "";
+                                                
+                                                if (minValue.equals(maxValue)) {
+                                                    newAggregateValue = minValue.toString();
+                                                } else {
+                                                    newAggregateValue = minValue.toString() + " - " + maxValue.toString();
+                                                }
+                                                
+                                                // finally, compare it to the value we have now:
+                                                if (!storedValue.equals(newAggregateValue)) {
+                                                    if (dsf.getDatasetFieldValues() == null) {
+                                                        dsf.setDatasetFieldValues(new ArrayList<DatasetFieldValue>());
+                                                    }
+                                                    if (dsf.getDatasetFieldValues().get(0) == null) {
+                                                        DatasetFieldValue newDsfv = new DatasetFieldValue(dsf);
+                                                        dsf.getDatasetFieldValues().add(newDsfv);
+                                                    }
+                                                    dsf.getDatasetFieldValues().get(0).setValue(newAggregateValue);
+                                                }
                                             }
-                                            if (legitControlledVocabularyValue != null) {
-                                                // Only need to add the value if it is new, 
-                                                // i.e. if it does not exist yet: 
-                                                boolean valueExists = false;
+                                            // Ouch. 
+                                        } else {
+                                            // Other fields are aggregated simply by 
+                                            // collecting a list of *unique* values encountered 
+                                            // for this Field throughout the dataset. 
+                                            // This means we need to only add the values *not yet present*.
+                                            // (the implementation below may be inefficient - ?)
 
-                                                List<ControlledVocabularyValue> existingControlledVocabValues = dsf.getControlledVocabularyValues();
-                                                if (existingControlledVocabValues != null) {
-                                                    Iterator<ControlledVocabularyValue> cvvIt = existingControlledVocabValues.iterator();
-                                                    while (cvvIt.hasNext()) {
-                                                        ControlledVocabularyValue cvv = cvvIt.next();
-                                                        if (fValue.equals(cvv.getStrValue())) {
-                                                            // or should I use if (legitControlledVocabularyValue.equals(cvv)) ?
-                                                            logger.fine("Controlled vocab. value " + fValue + " already exists for field " + dsfName);
+                                            for (String fValue : mValues) {
+                                                if (!dsft.isControlledVocabulary()) {
+                                                    Iterator<DatasetFieldValue> dsfvIt = dsf.getDatasetFieldValues().iterator();
+
+                                                    boolean valueExists = false;
+
+                                                    while (dsfvIt.hasNext()) {
+                                                        DatasetFieldValue dsfv = dsfvIt.next();
+                                                        if (fValue.equals(dsfv.getValue())) {
+                                                            logger.fine("Value " + fValue + " already exists for field " + dsfName);
                                                             valueExists = true;
                                                             break;
                                                         }
                                                     }
-                                                }
 
-                                                if (!valueExists) {
-                                                    logger.fine("Adding controlled vocabulary value " + fValue + " to field " + dsfName);
-                                                    dsf.getControlledVocabularyValues().add(legitControlledVocabularyValue);
+                                                    if (!valueExists) {
+                                                        logger.fine("Creating a new value for field " + dsfName + ": " + fValue);
+                                                        DatasetFieldValue newDsfv = new DatasetFieldValue(dsf);
+                                                        newDsfv.setValue(fValue);
+                                                        dsf.getDatasetFieldValues().add(newDsfv);
+                                                    }
+
+                                                } else {
+                                                    // A controlled vocabulary entry: 
+                                                    // first, let's see if it's a legit control vocab. entry: 
+                                                    ControlledVocabularyValue legitControlledVocabularyValue = null;
+                                                    Collection<ControlledVocabularyValue> definedVocabularyValues = dsft.getControlledVocabularyValues();
+                                                    if (definedVocabularyValues != null) {
+                                                        for (ControlledVocabularyValue definedVocabValue : definedVocabularyValues) {
+                                                            if (fValue.equals(definedVocabValue.getStrValue())) {
+                                                                logger.fine("Yes, " + fValue + " is a valid controlled vocabulary value for the field " + dsfName);
+                                                                legitControlledVocabularyValue = definedVocabValue;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                    if (legitControlledVocabularyValue != null) {
+                                                        // Only need to add the value if it is new, 
+                                                        // i.e. if it does not exist yet: 
+                                                        boolean valueExists = false;
+
+                                                        List<ControlledVocabularyValue> existingControlledVocabValues = dsf.getControlledVocabularyValues();
+                                                        if (existingControlledVocabValues != null) {
+                                                            Iterator<ControlledVocabularyValue> cvvIt = existingControlledVocabValues.iterator();
+                                                            while (cvvIt.hasNext()) {
+                                                                ControlledVocabularyValue cvv = cvvIt.next();
+                                                                if (fValue.equals(cvv.getStrValue())) {
+                                                                    // or should I use if (legitControlledVocabularyValue.equals(cvv)) ?
+                                                                    logger.fine("Controlled vocab. value " + fValue + " already exists for field " + dsfName);
+                                                                    valueExists = true;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+
+                                                        if (!valueExists) {
+                                                            logger.fine("Adding controlled vocabulary value " + fValue + " to field " + dsfName);
+                                                            dsf.getControlledVocabularyValues().add(legitControlledVocabularyValue);
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-
                                 }
                             }
-                        }
                         }
                     } else {
                         // A compound field: 
@@ -1741,7 +1847,7 @@ public class IngestServiceBean {
         }
     }
     
-    private void calculateUNF(DataFile dataFile, int varnum, String[] dataVector) {
+    private void calculateUNF(DataFile dataFile, int varnum, String[] dataVector) throws IOException {
         String unf = null;
         
         String[] dateFormats = null; 
@@ -1750,14 +1856,61 @@ public class IngestServiceBean {
         
         if ("time".equals(dataFile.getDataTable().getDataVariables().get(varnum).getFormatCategory())) {
             dateFormats = new String[dataVector.length];
-            String savedDateFormat = dataFile.getDataTable().getDataVariables().get(varnum).getFormatSchemaName();
+            String savedDateTimeFormat = dataFile.getDataTable().getDataVariables().get(varnum).getFormatSchemaName();
+            String timeFormat = null;
+            if (savedDateTimeFormat != null && !savedDateTimeFormat.equals("")) {
+                timeFormat = savedDateTimeFormat;
+            } else {
+                timeFormat = dateTimeFormat_ymdhmsS;
+            }
+            
+            /* What follows is special handling of a special case of time values
+             * non-uniform precision; specifically, when some have if some have 
+             * milliseconds, and some don't. (and that in turn is only 
+             * n issue when the timezone is present... without the timezone
+             * the time string would still evaluate to the end, even if the 
+             * format has the .SSS part and the string does not.
+             * This case will be properly handled internally, once we permanently
+             * switch to UNF6.
+             * -- L.A. 4.0 beta 8
+             */
+            String simplifiedFormat = null;
+            SimpleDateFormat fullFormatParser = null;
+            SimpleDateFormat simplifiedFormatParser = null;
+            
+            if (timeFormat.matches(".*\\.SSS z$")) {
+                simplifiedFormat = timeFormat.replace(".SSS", "");
+                
+                fullFormatParser = new SimpleDateFormat(timeFormat);
+                simplifiedFormatParser = new SimpleDateFormat(simplifiedFormat);
+            } 
+            
             for (int i = 0; i < dataVector.length; i++) {
                 if (dataVector[i] != null) {
-                    if (savedDateFormat != null && !savedDateFormat.equals("")) {
-                        dateFormats[i] = savedDateFormat;
-                    } else {
-                        dateFormats[i] = dateTimeFormat_ymdhmsS;
-                    }
+                    
+                    if (simplifiedFormatParser != null) {
+                        // first, try to parse the value against the "full" 
+                        // format (with the milliseconds part):
+                        fullFormatParser.setLenient(false);
+                    
+                        try {
+                            logger.fine("trying the \"full\" time format, with milliseconds: "+timeFormat+", "+dataVector[i]);
+                            fullFormatParser.parse(dataVector[i]);
+                         } catch (ParseException ex) {
+                            // try the simplified (no time zone) format instead:
+                            logger.fine("trying the simplified format: "+simplifiedFormat+", "+dataVector[i]);
+                            simplifiedFormatParser.setLenient(false);
+                            try {
+                                simplifiedFormatParser.parse(dataVector[i]);
+                                timeFormat = simplifiedFormat;
+                            } catch (ParseException ex1) {
+                                logger.warning("no parseable format found for time value "+i+" - "+dataVector[i]);
+                                throw new IOException("no parseable format found for time value "+i+" - "+dataVector[i]);
+                            }
+                        }
+
+                    } 
+                    dateFormats[i] = timeFormat;
                 }
             }
         } else if ("date".equals(dataFile.getDataTable().getDataVariables().get(varnum).getFormatCategory())) {
@@ -1776,6 +1929,7 @@ public class IngestServiceBean {
                 
         try {
             if (dateFormats == null) {
+                logger.fine("calculating the UNF value for string vector; first value: "+dataVector[0]);
                 unf = UNF5Util.calculateUNF(dataVector);
             } else {
                 unf = UNF5Util.calculateUNF(dataVector, dateFormats);

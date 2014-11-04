@@ -19,6 +19,7 @@ import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
+import javax.validation.constraints.Pattern;
 import org.hibernate.validator.constraints.NotBlank;
 
 /**
@@ -41,6 +42,7 @@ public class DataFile extends DvObject {
     private String name;
     
     @NotBlank    
+    @Pattern(regexp = "^.*/.*$", message = "Content-Type must contain a slash")
     private String contentType;
     
     private String fileSystemName;
@@ -168,18 +170,7 @@ public class DataFile extends DvObject {
      * A user-friendly version of the "original format":
      */
     public String getOriginalFormatLabel() {
-        String originalFormat = getOriginalFileFormat(); 
-        
-        if (originalFormat != null) {
-            if (originalFormat.equals("application/x-stata")) {
-                return "Stata";
-            } else if (originalFormat.equals("application/x-rlang-transport")) {
-                return "RData";
-            }
-            return originalFormat; 
-        }
-        
-        return null; 
+        return FileUtil.getUserFriendlyOriginalType(this);
     }
    
     // The dvObject field "name" should not be used in
@@ -440,12 +431,16 @@ public class DataFile extends DvObject {
     
     @Override
     public boolean equals(Object object) {
-        // TODO: Warning - this method won't work in the case the id fields are not set
         if (!(object instanceof DataFile)) {
             return false;
         }
         DataFile other = (DataFile) object;
         return Objects.equals(getId(), other.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
     }
 
     @Override
@@ -457,4 +452,10 @@ public class DataFile extends DvObject {
 	public <T> T accept( Visitor<T> v ) {
 		return v.visit(this);
 	}
+        
+    public String getDisplayName() {
+        // @todo should we show the published version label instead?
+        // currently this method is not being used
+        return getLatestFileMetadata().getLabel();
+    }
 }

@@ -3,7 +3,8 @@
       xmlns:h="http://java.sun.com/jsf/html"
       xmlns:f="http://java.sun.com/jsf/core"
       xmlns:ui="http://java.sun.com/jsf/facelets"
-      xmlns:p="http://primefaces.org/ui">
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:jsf="http://xmlns.jcp.org/jsf">
 
     <h:head>
     </h:head>
@@ -16,10 +17,12 @@
             <ui:define name="body">
                 <f:metadata>
                     <f:viewParam name="id" value="#{DataversePage.dataverse.id}"/>
+                    <f:viewParam name="alias" value="#{DataversePage.dataverse.alias}"/>
                     <f:viewParam name="ownerId" value="#{DataversePage.ownerId}"/>
                     <f:viewParam name="editMode" value="#{DataversePage.editMode}"/>
                     <f:viewAction action="#{DataversePage.init}"/>
                     <f:viewParam name="id" value="#{SearchIncludeFragment.dataverseId}"/>
+                    <f:viewParam name="alias" value="#{SearchIncludeFragment.dataverseAlias}"/>
                     <f:viewParam name="q" value="#{SearchIncludeFragment.query}"/>
                     <f:viewParam name="types" value="#{SearchIncludeFragment.selectedTypesString}"/>
                     <f:viewParam name="fq1" value="#{SearchIncludeFragment.fq1}"/>
@@ -70,11 +73,11 @@
                                 <h:outputText value="#{ DataversePage.dataverse.getOwner().name }" />
                                 <h:inputHidden value="#{DataversePage.ownerId}" id="hostDataverse" />
                                 <ui:remove><!-- removed for beta -->
-                                    <p:selectOneMenu id="hostDataverse" value="#{DataversePage.ownerId}" filter="true" filterMatchMode="startsWith" effect="none">                                    
+                                    <p:selectOneMenu id="hostDataverse" value="#{DataversePage.ownerId}" filter="true" filterMatchMode="startsWith" effect="none">
                                         <f:selectItems value="#{dataverseServiceBean.findAll()}" var="dv" itemLabel="#{dv.name}" itemValue="#{dv.id}"
-                                                       itemDisabled="#{dv eq DataversePage.dataverse or dv.owners.contains(DataversePage.dataverse)}" />                                                                          
+                                                       itemDisabled="#{dv eq DataversePage.dataverse or dv.owners.contains(DataversePage.dataverse)}" />
                                     </p:selectOneMenu>
-                                </ui:remove>    
+                                </ui:remove>
                             </p:panelGrid>
                         </p:panelGrid>
                     </p:panel>
@@ -85,7 +88,7 @@
                             <div class="col-xs-6 form-group">
                                 <label class="col-sm-3 control-label" for="alias" style="white-space:nowrap;">
                                     <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="Short name used for the URL of this Dataverse.">
-                                        Alias <span class="glyphicon glyphicon-asterisk text-danger" title="Required field"></span>
+                                        URL <span class="glyphicon glyphicon-asterisk text-danger" title="Required field"></span>
                                     </a>
                                 </label>
                                 <div class="col-sm-9">
@@ -121,7 +124,7 @@
                                     <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="The type that most closely reflects this Dataverse.">
                                         Category <span class="glyphicon glyphicon-asterisk text-danger" title="Required field"></span>
                                     </a>
-                                </label>  
+                                </label>
                                 <div class="col-sm-9">
                                     <p:panelGrid columns="2">
                                         <h:selectOneMenu id="dataverseCategory" styleClass="form-control" value="#{DataversePage.dataverse.dataverseType}">
@@ -157,35 +160,122 @@
                         </div>
                     </p:panel>
 
-                    <p:panel styleClass="panelLayoutBlock" rendered="#{DataversePage.editMode == 'INFO'}">
+                    <p:commandButton id="hiddenRefresh" value="back"  style="display:none" rendered="#{DataversePage.editMode == 'INFO'}"
+                                     actionListener="#{DataversePage.refresh}"
+                                     update="@widgetVar(optionBlock)" />
+                    <p:panel styleClass="panelLayoutBlock" rendered="#{DataversePage.editMode == 'INFO'}"  widgetVar="optionBlock">
+
                         <div class="row form-horizontal">
                             <div class="form-group">
                                 <label class="col-sm-3 control-label" for="mdbSelect">Metadata Elements</label>
                                 <div class="col-sm-9">
-                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"></span> Choose the sets of Metadata Elements for datasets in this Dataverse.</p>
+                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"></span> Choose metadata fields to use in dataset templates and when adding a dataset to this dataverse.</p>
                                     <ui:fragment rendered="#{DataversePage.dataverse.owner != null}">
                                         <p:selectBooleanCheckbox styleClass="metadata-blocks-default" value="#{DataversePage.inheritMetadataBlockFromParent}" itemLabel="Metadata Elements from Host Dataverse">
-                                            <p:ajax update="@widgetVar(metadataBlocks)" listener="#{DataversePage.editMetadataBlocks}"/>
+                                            <p:ajax update="@widgetVar(optionBlock)" listener="#{DataversePage.editMetadataBlocks}"/>
                                         </p:selectBooleanCheckbox>
                                     </ui:fragment>
 
-                                    <p:selectManyCheckbox id="mdbSelect" styleClass="metadata-blocks-select" value="#{DataversePage.dataverse.metadataBlocks}" converter="metadataBlockConverter"
-                                                          widgetVar="metadataBlocks" layout="pageDirection">
-                                        <f:selectItems value="#{dataverseServiceBean.findAllMetadataBlocks()}" var="mdb"
-                                                       itemLabel="#{mdb.displayName}#{mdb.required ? ' (Required)' : ' (Examples: '.concat(DataversePage.getMetadataBlockPreview(mdb,3)).concat(')')}" itemValue="#{mdb}"
-                                                       itemDisabled="#{(DataversePage.dataverse.owner != null and DataversePage.inheritMetadataBlockFromParent)}"/>
-                                    </p:selectManyCheckbox>
+                                    <ui:repeat value="#{DataversePage.allMetadataBlocks}"  var="mdb">
+                                        <ui:fragment rendered="#{mdb.required }">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input type="checkbox" jsf:itemValue="#{mdb}" id="#{mdb.idString}" jsf:value="#{mdb.selected}"
+                                                           name="mdbSelectRequired" disabled="disabled" checked="checked" />
+                                                    <h:outputText value="#{mdb.displayName}#{mdb.required ? ' (Required)' : ' (Examples: '.concat(DataversePage.getMetadataBlockPreview(mdb,3)).concat(')')}"/>
+                                                </label>
+                                            </div>
+                                                <p:commandLink style="display:block;" id="showDSFTRequired" rendered="#{!mdb.showDatasetFieldTypes and (mdb.selected or mdb.required) and !DataversePage.openMetadataBlock and !DataversePage.inheritMetadataBlockFromParent}"
+                                                                actionListener="#{DataversePage.showDatasetFieldTypes(mdb.id)}">
+                                                    <p:ajax update="@widgetVar(optionBlock)" listener="#{DataversePage.showDatasetFieldTypes(mdb.id)}" />
+                                                    <h:outputText value="Set Field Display + Requirements" />
+                                                </p:commandLink>
+                                        </ui:fragment>
+                                        <ui:fragment rendered="#{!mdb.required and DataversePage.inheritMetadataBlockFromParent}">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input type="checkbox" jsf:itemValue="#{mdb}" id="#{mdb.idString}" jsf:value="#{mdb.selected}"
+                                                           name="mdbSelectRequiredInherited" disabled="disabled">
+                                                        <p:ajax update="@widgetVar(optionBlock)" />
+                                                        <h:outputText value="#{mdb.displayName}#{mdb.required ? ' (Required)' : ' (Examples: '.concat(DataversePage.getMetadataBlockPreview(mdb,3)).concat(')')}"/>
+                                                    </input>
+                                                </label>
+                                            </div>
+                                        </ui:fragment>
+                                        <ui:fragment rendered="#{!mdb.required and !DataversePage.inheritMetadataBlockFromParent}">
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input type="checkbox" jsf:itemValue="#{mdb}" id="#{mdb.idString}" jsf:value="#{mdb.selected}"
+                                                           name="mdbSelectOptional">
+                                                        <p:ajax update="@widgetVar(optionBlock)" />
+                                                        <h:outputText value="#{mdb.displayName}#{mdb.required ? ' (Required)' : ''}" />
+                                                    </input>
+                                                </label>
+                                                <!--<p class="help-block">
+                                                    Examples: #{DataversePage.getMetadataBlockPreview(mdb,3)} 
+                                                </p>-->
+                                                <p:commandLink style="display:block;" id="showDSFT" rendered="#{!mdb.showDatasetFieldTypes and (mdb.selected or mdb.required) and !DataversePage.openMetadataBlock}"
+                                                                actionListener="#{DataversePage.showDatasetFieldTypes(mdb.id)}">
+                                                    <p:ajax update="@widgetVar(optionBlock)" listener="#{DataversePage.showDatasetFieldTypes(mdb.id)}" />
+                                                    <h:outputText value="Set Field Display + Requirements" />
+                                                </p:commandLink>
+                                            </div>
+                                        </ui:fragment>
+                                        
+                                        <p:commandLink style="padding-left: 20px;" id="hideDSFT" actionListener="#{DataversePage.hideDatasetFieldTypes(mdb.id)}" rendered="#{mdb.showDatasetFieldTypes and (mdb.selected or mdb.required)}">
+                                            <h:outputText value="Close" />
+                                            <p:ajax update="@widgetVar(optionBlock)" listener="#{DataversePage.hideDatasetFieldTypes(mdb.id)}" />
+                                        </p:commandLink>
+                                        <ui:fragment rendered="#{mdb.showDatasetFieldTypes}">
+                                            <div class="panel panel-default" style="width:70%;margin-left:60px;">
+                                                <div class="panel-body" style="max-height:400px;overflow-y:scroll;">
+                                                    <table id="metadataFieldOptions" class="table table-striped">
+                                                        <tbody>
+                                                            <ui:repeat value="#{mdb.datasetFieldTypes}" var="dsft">                                                                
+                                                                    <tr>                                                               
+                                                                        <td>
+                                                                        <p:selectBooleanCheckbox rendered="#{!dsft.hasParent}" value="#{dsft.include}" itemLabel="#{dsft.displayName}"
+                                                                                              disabled="#{!dsft.hasParent and (dsft.hasRequiredChildren or dsft.required) }">
+                                                                            <p:ajax  update="@widgetVar(OptButton#{dsft.id})"  listener="#{DataversePage.updateInclude(mdb.id, dsft.id)}"   />
+                                                                        </p:selectBooleanCheckbox> 
+                                                                            <ui:fragment rendered="#{dsft.hasParent}">
+                                                                                <div class="checkbox">
+                                                                                    <label>
+                                                                                        <h:outputText value="#{dsft.displayName}"/>
+                                                                                    </label>
+                                                                                </div>
+                                                                            </ui:fragment>
+                                                                        </td>
+                                                                        <td>  
+                                                                            
+                                                                            <p:selectOneRadio id="OptionsRadio#{dsft.id}" value="#{dsft.requiredDV}" widgetVar="OptButton#{dsft.id}" 
+                                                                                              rendered="#{!dsft.hasChildren and !((!dsft.hasChildren  and dsft.required) or (dsft.hasChildren  and dsft.hasRequiredChildren))}">
+                                                                                <f:selectItems value="#{dsft.optionSelectItems}"/>
+                                                                                <p:ajax update="@widgetVar(OptButton#{dsft.id})"   />
+                                                                            </p:selectOneRadio>
+                                                                           
+                                                                            <ui:fragment rendered="#{(!dsft.hasChildren  and dsft.required) or (dsft.hasChildren  and dsft.hasRequiredChildren)}">
+                                                                                Required by Dataverse
+                                                                            </ui:fragment>
+                                                                        </td>                                                                  
+                                                                    </tr>                                                               
+                                                            </ui:repeat>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </ui:fragment>
+                                    </ui:repeat>
                                 </div>
                             </div>
                         </div>
                     </p:panel>
-
                     <p:panel id="editFacets" styleClass="panelLayoutBlock" rendered="#{DataversePage.editMode == 'INFO'}" widgetVar="editFacets">
                         <div class="row form-horizontal">
                             <div class="form-group">
                                 <label class="col-sm-3 control-label" for="facetPickListCreate">Select Facets</label>
                                 <div class="col-sm-9">
-                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"></span> Choose the search result facets to display for this Dataverse.</p>
+                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"></span> Pick the metadata fields to use as facets for browsing datasets and dataverses in this dataverse.</p>
                                     <ui:fragment rendered="#{DataversePage.dataverse.owner != null}">
                                         <p:selectBooleanCheckbox styleClass="facet-category-default" value="#{DataversePage.inheritFacetFromParent}" itemLabel="Facets from Host Dataverse">
                                             <p:ajax update="editFacets" listener="#{DataversePage.editFacets}"/>
@@ -193,8 +283,9 @@
                                     </ui:fragment>
 
                                     <p:pickList id="facetPickListCreate" value="#{DataversePage.facets}" var="facet" converter="facetConverter"
-                                                itemLabel="#{facet.displayName}" itemValue="#{facet}" 
-                                                rendered="#{DataversePage.dataverse.facetRoot or DataversePage.dataverse.owner == null }"/>
+                                                itemLabel="#{facet.displayName}" itemValue="#{facet}"
+                                                disabled ="#{!DataversePage.dataverse.facetRoot and DataversePage.dataverse.owner != null }"
+                                                rendered="true"/>
                                 </div>
                             </div>
                         </div>
@@ -232,19 +323,23 @@
                                                 </p:commandLink>
                                             </li>
                                             <li>
-                                                <p:commandLink id="themeWidgetsOpts" onclick="themeAndWidgetsForm.show()">
+                                                <p:commandLink actionListener="#{themeWidgetFragment.initEditDv(DataversePage.dataverse.id)}"
+                                                               update="themeAndWidgetsDlg" id="themeWidgetsOpts" oncomplete="themeAndWidgetsForm.show();bind_bsui_components();">
                                                     <h:outputText value="Theme + Widgets" />
                                                 </p:commandLink>
                                             </li>
                                             <ui:fragment rendered="#{!empty DataversePage.featuredDataverses.source or !empty DataversePage.featuredDataverses.target}">
                                                 <li>
-                                                    <p:commandLink id="browseOpts" onclick="browseOptsForm.show()">                                                          
-                                                        <h:outputText value="Browsing Options" />
+                                                    <p:commandLink id="browseOpts" onclick="browseOptsForm.show()">
+                                                        <h:outputText value="Featured Dataverses" />
                                                     </p:commandLink>
                                                 </li>
                                             </ui:fragment>
                                             <li>
-                                                <p:commandLink id="rolesPermissionsOpts" onclick="rolesPermissionsForm.show()">
+                                                <p:commandLink id="rolesPermissionsOpts"
+                                                               actionListener="#{rolePermissionFragment.setDvObject(DataversePage.dataverse)}"
+                                                               update="rolesPermissionsDialog"
+                                                               oncomplete="rolesPermissionsForm.show()">
                                                     <h:outputText value="Roles + Permissions" />
                                                 </p:commandLink>
                                             </li>
@@ -254,11 +349,11 @@
                                                     <f:param name="dataverseId" value="#{DataversePage.dataverse.id}" />
                                                 </h:link>
                                             </li>
-                                            <ui:fragment rendered="#{DataversePage.isEmptyDataverse() and !(DataversePage.dataverse.owner == null) 
+                                            <ui:fragment rendered="#{DataversePage.isEmptyDataverse() and !(DataversePage.dataverse.owner == null)
                                                                      and permissionServiceBean.on(DataversePage.dataverse).canIssueCommand('DeleteDataverseCommand')}">
                                                 <li class="divider"></li>
                                                 <li>
-                                                    <p:commandLink id="deleteDataset" onclick="deleteConfirmation.show()">                                                          
+                                                    <p:commandLink id="deleteDataset" onclick="deleteConfirmation.show()">
                                                         <h:outputText value="Delete Dataverse" />
                                                     </p:commandLink>
                                                 </li>
@@ -290,8 +385,8 @@
                                     </button>
                                 </div>
                             </ui:fragment>
-                            <p:confirmDialog message="Dataverse 4.0 Beta cannot email dataverse contacts. Look for this feature in Dataverse 4.0!" header="Email Dataverse Contact" widgetVar="contact_confirmation">                                           
-                            </p:confirmDialog>                                                                
+                            <p:confirmDialog message="Dataverse 4.0 Beta cannot email dataverse contacts. Look for this feature in Dataverse 4.0!" header="Email Dataverse Contact" widgetVar="contact_confirmation">
+                            </p:confirmDialog>
                         </div>
 
                         <ui:fragment rendered="#{SearchIncludeFragment.filterQueries.size() == 0 and SearchIncludeFragment.mode != SearchIncludeFragment.searchModeString}">
@@ -311,19 +406,19 @@
                                             <div id="featuredDataversesList" class="owl-carousel owl-theme" style="width:90%;float:left;">
                                                 <ui:repeat value="#{DataversePage.carouselFeaturedDataverses}" var="dv" varStatus="status">
                                                     <div class="item" style="min-height:80px;">
-                                                        <ui:fragment rendered="#{empty dv.logo}">
-                                                            <a href="/dataverse.xhtml?id=#{dv.id}" title="#{dv.name} Dataverse" style="display:block;">
+                                                        <ui:fragment rendered="#{empty dv.dataverseTheme.logo}">
+                                                            <a href="/dataverse.xhtml?id=#{dv.dataverseTheme.id}" title="#{dv.name} Dataverse" style="display:block;">
                                                                 <img src="/resources/images/icon_dataverse.png" style="height:60px;" alt="#{dv.name} Dataverse"/>
                                                             </a>
                                                         </ui:fragment>
-                                                        <ui:fragment rendered="#{!empty dv.logo and dv.logoFormat == 'SQUARE'}">
+                                                        <ui:fragment rendered="#{!empty dv.dataverseTheme.logo and dv.dataverseTheme.logoFormat == 'SQUARE'}">
                                                             <a href="/dataverse.xhtml?id=#{dv.id}" title="#{dv.name} Dataverse" style="display:block;">
-                                                                <img src="/logos/#{dv.logo}" style="max-width:60px;max-height:60px;" alt="#{dv.name} Dataverse"/>
+                                                                <img src="/logos/#{dv.logoOwnerId}/#{dv.dataverseTheme.logo}" style="max-width:60px;max-height:60px;" alt="#{dv.name} Dataverse"/>
                                                             </a>
                                                         </ui:fragment>
-                                                        <ui:fragment rendered="#{!empty dv.logo and dv.logoFormat == 'RECTANGLE'}">
+                                                        <ui:fragment rendered="#{!empty dv.dataverseTheme.logo and dv.dataverseTheme.logoFormat == 'RECTANGLE'}">
                                                             <a href="/dataverse.xhtml?id=#{dv.id}" title="#{dv.name} Dataverse" style="display:block;">
-                                                                <img src="/logos/#{dv.logo}" style="max-width:210px;max-height:60px;" alt="#{dv.name} Dataverse"/>
+                                                                <img src="/logos/#{dv.logoOwnerId}/#{dv.dataverseTheme.logo}" style="max-width:210px;max-height:60px;" alt="#{dv.name} Dataverse"/>
                                                             </a>
                                                         </ui:fragment>
                                                         <a href="/dataverse.xhtml?id=#{dv.id}" title="#{dv.name} Dataverse" style="display:block;">
@@ -359,171 +454,32 @@
                             </ui:fragment>
                         </ui:fragment>
                     </ui:fragment>
-                    
-                    <!-- Roles + Permissions Popup -->
-                    <p:dialog header="Roles + Permissions" widgetVar="rolesPermissionsForm" modal="true" styleClass="largePopUp">
-                        <div class="alert alert-danger form-horizontal" role="alert">
-                            <div class="form-group" style="margin-bottom:0; padding-top:0;">
-                              <label for="inputEmail3" class="col-sm-4 control-label" style="padding-top:0;">Inherit Roles + Permissions</label>
-                              <div class="col-sm-8 checkbox" style="padding-top:0;min-height:20px;">
-                                  <p:selectBooleanCheckbox  /> <span style="vertical-align:top;">Inherit all roles and permissions from parent dataverse.</span>
-                              </div>
-                            </div>
-                        </div>
-                        <p:tabView id="rolesPermissionsTabView" widgetVar="content" styleClass="popupSubTabParent">
-                            <p:tab id="permissionsTab" title="Permissions">
-                                <p:tabView id="permissionsSubTabView" widgetVar="subContent">
-                                    <p:tab id="usersGroupsSubTab" title="Users/Groups">
-                                        <div class="highlight">
-                                            <button type="button" class="btn btn-default" style="margin-right:1em;">Invite User</button> Invite a user to create a Dataverse account, and assign them a role to your dataverse.
-                                        </div>
-                                        <div class="highlight form-inline">
-                                            <div class="form-group">
-                                                <label class="control-label">User/Group Name</label> <p:inputText id="userGroupNameAssign" styleClass="form-control"/>
-                                                <label class="control-label">Role</label> 
-                                                <p:selectOneMenu id="assignRoleOptions" styleClass="form-control">
-                                                    <f:selectItem id="one" itemLabel="One" itemValue="One" />
-                                                    <f:selectItem id="two" itemLabel="Two" itemValue="Two" />
-                                                    <f:selectItem id="three" itemLabel="Three" itemValue="Three" />
-                                                </p:selectOneMenu>
-                                                <button type="button" class="btn btn-default">Assign</button>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            DATATABLE
-                                        </div>
-                                    </p:tab>
-                                </p:tabView>
-                                <div>
-                                    <h:link id="manageRoles" styleClass="ui-commandlink ui-widget" outcome="manage-roles">
-                                        <h:outputText value="Visit Old Roles + Permissions Page" />
-                                        <f:param name="dataverseId" value="#{DataversePage.dataverse.id}" />
-                                        <f:param name="objectType" value="USERS" />
-                                    </h:link>
-                                </div>
-                            </p:tab>
-                            <p:tab id="GroupsTab" title="Groups">
-                                <!-- FORM -->
-                                Groups
-                            </p:tab>
-                            <p:tab id="rolesTab" title="Roles">
-                                <!-- FORM -->
-                                Roles
-                            </p:tab>
-                        </p:tabView>
-                        <button type="button" style="margin-top:1em;" class="btn btn-default" onclick="rolesPermissionsForm.hide()" value="Done">Done</button>
-                    </p:dialog>
 
-                    <!-- Browsing Options Popup -->
-                    <p:dialog header="Browsing Options" widgetVar="browseOptsForm" modal="true">
+
+                    <!-- Featured Dataverses Popup -->
+                    <p:dialog header="Featured Dataverses" widgetVar="browseOptsForm" modal="true">
+                        <!--<div class="form-group">
+                            <p:selectBooleanCheckbox value="    #    {DataversePage.dataverse.displayByType}"
+                                                 itemLabel="Display 'Dataverse by Category' Carousel on Front Page"/>
+                        </div>-->
                         <div class="form-group">
-                            <!--<p:selectBooleanCheckbox value="    #    {DataversePage.dataverse.displayByType}" 
-                                                 itemLabel="Display 'Dataverse by Category' Carousel on Front Page"/>-->
-                        </div>
-                        <div class="form-group">
-                            <p:selectBooleanCheckbox value="#{DataversePage.dataverse.displayFeatured}" 
-                                                     itemLabel="Display 'Featured Dataverses' Carousel on Front Page"/>
+                            <p:selectBooleanCheckbox value="#{DataversePage.dataverse.displayFeatured}"
+                                                     itemLabel="Display &#34;Featured Dataverses&#34; Carousel on Front Page"/>
                         </div>
                         <div class="form-group">
                             <label for="exampleInputFile">Featured Dataverses</label>
-                            <p class="help-block">Selected Dataverses to feature on the front page of your Dataverse.</p>
-                            <p:pickList id="featuredDataverseList" value="#{DataversePage.featuredDataverses}" var="featureddataverse" 
-                                        itemLabel="#{featureddataverse.name}" 
+                            <p class="help-block">Select dataverses to feature on the homepage of this dataverse.</p>
+                            <p:pickList id="featuredDataverseList" value="#{DataversePage.featuredDataverses}" var="featureddataverse"
+                                        itemLabel="#{featureddataverse.name}"
                                         itemValue="#{featureddataverse}" converter="dataverseConverter"
                                         showSourceFilter="true" showTargetFilter="true" />
                         </div>
                         <h:commandButton type="submit" action="#{DataversePage.save()}" class="btn btn-success" value="Save Changes"/>
                         <button type="button" class="btn btn-default" onclick="browseOptsForm.hide()" value="Cancel">Cancel</button>
                     </p:dialog>
-                    
-                    <!-- Theme and Widgets Popup -->
-                    <p:dialog header="Theme + Widgets" widgetVar="themeAndWidgetsForm" modal="true" styleClass="largePopUp">
-                        <p:tabView id="themeWidgetsTabView" widgetVar="content">
-                            <p:tab id="widgetsTab" title="Widgets">
-                                <div>
-                                    <p class="bg-info" style="padding: 15px;">Copy and paste this code into the HTML on your site.</p>
-                                </div>
-                                <div>
-                                    <h5>
-                                        Dataverse Search Box
-                                    </h5>
-                                    <span class="text-muted">Add a way for visitors on your website to be able to search Dataverse.</span>
-                                </div>
-                                <div>
-                                    <textarea rows="3" cols="54" class="form-control">&lt;script src=&quot;#{DataversePage.dataverseSiteUrl}/resources/js/widgets.js?id=#{DataversePage.dataverse.id}&amp;amp;dvUrl=#{DataversePage.dataverseSiteUrl}&amp;amp;widget=search&quot;&gt;&lt;/script&gt;
-                                    </textarea>
-                                </div>
-                                <div>
-                                    <h5>
-                                        Dataverse Listing
-                                    </h5>
-                                    <span class="text-muted">Add a way for visitors on your website to be able to view your dataverses and datasets, sort and page through them.</span>
-                                </div>
-                                <div>
-                                    <textarea rows="2" cols="54" class="form-control">&lt;script src=&quot;#{DataversePage.dataverseSiteUrl}/resources/js/widgets.js?id=#{DataversePage.dataverse.id}&amp;amp;dvUrl=#{DataversePage.dataverseSiteUrl}&amp;amp;widget=iframe&quot;&gt;&lt;/script&gt;
-                                    </textarea>
-                                </div>
-                            </p:tab>
-                            <p:tab id="themeTab" title="Theme">
-                                <!-- Dataverse Theme Panel -->
-                                <ui:remove>
-                                    <ui:fragment rendered="#{DataversePage.editMode == 'THEME'}">
-                                        <p:panelGrid columns="3">
-                                            <h:outputLabel value="Logo"/>
-                                            <p:inputText id="logo" value="#{DataversePage.dataverse.logo}"/>
-                                            <p:message for="logo"/>
 
-                                            <h:outputLabel value="Logo Format"/>
-                                            <p:selectOneRadio id="logoFormat" value="#{DataversePage.dataverse.logoFormat}">
-                                                <f:selectItem itemLabel="SQUARE" itemValue="SQUARE"/>
-                                                <f:selectItem itemLabel="RECTANGLE" itemValue="RECTANGLE"/>
-                                            </p:selectOneRadio>
-                                            <p:message for="logoFormat"/>
-
-                                            <h:outputLabel value="Logo Alignment"/>
-                                            <p:selectOneMenu id="logoAlignment" value="#{DataversePage.dataverse.logoAlignment}">
-                                                <f:selectItem id="left" itemLabel="LEFT" itemValue="LEFT" />
-                                                <f:selectItem id="center" itemLabel="CENTER" itemValue="CENTER" />
-                                                <f:selectItem id="right" itemLabel="RIGHT" itemValue="RIGHT" />
-                                            </p:selectOneMenu>
-                                            <p:message for="logoFormat"/>
-
-                                            <h:outputLabel value="Logo Background Color"/>
-                                            <p:inputText id="logoBackgroundColor" value="#{DataversePage.dataverse.logoBackgroundColor}"/>
-                                            <p:message for="logoBackgroundColor"/>
-
-                                            <h:outputLabel value="Tagline"/>
-                                            <p:inputText id="tagline" value="#{DataversePage.dataverse.tagline}"/>
-                                            <p:message for="tagline"/>
-
-                                            <h:outputLabel value="Link URL"/>
-                                            <p:inputText id="linkUrl" value="#{DataversePage.dataverse.linkUrl}"/>
-                                            <p:message for="linkUrl"/>
-
-                                            <h:outputLabel value="Link Text"/>
-                                            <p:inputText id="linkText" value="#{DataversePage.dataverse.linkText}"/>
-                                            <p:message for="linkText"/>
-
-                                            <h:outputLabel value="Link Color"/>
-                                            <p:inputText id="linkColor" value="#{DataversePage.dataverse.linkColor}"/>
-                                            <p:message for="linkColor"/>
-
-                                            <h:outputLabel value="Text Color"/>
-                                            <p:inputText id="textColor" value="#{DataversePage.dataverse.textColor}"/>
-                                            <p:message for="textColor"/>
-
-                                            <h:outputLabel value="Background Color"/>
-                                            <p:inputText id="backgroundColor" value="#{DataversePage.dataverse.backgroundColor}"/>
-                                            <p:message for="backgroundColor"/>
-                                        </p:panelGrid>
-                                        <h:commandButton type="submit" disabled="true" action="#{DataversePage.save()}" class="btn btn-success" value="Save Changes"/>
-                                    </ui:fragment>
-                                </ui:remove>
-                                <h:outputText value="Theme updates are not available at this time." />
-                            </p:tab>
-                        </p:tabView>
-                        <button type="button" style="margin-top:1em;" class="btn btn-default" onclick="themeAndWidgetsForm.hide()" value="Done">Done</button>
-                    </p:dialog>
+                    <ui:include src="themeAndWidgetsFragment.xhtml"/>
+                    <ui:include src="rolesAndPermissionsFragment.xhtml"/>
 
                     <!-- Publish Confirmation Popup -->
                     <p:confirmDialog message="Are you sure you want to publish your dataverse? Once you do so it must remain 'Published'." header="Publish Dataverse" widgetVar="confirmation">
@@ -543,41 +499,41 @@
                     <ui:fragment rendered="#{DataversePage.editMode == 'THEME'}">
                         <p:panelGrid columns="3">
                             <h:outputLabel value="Logo"/>
-                            <p:inputText id="logo" value="#{DataversePage.dataverse.logo}"/>
+                            <p:inputText id="logo" value="#{DataversePage.dataverse.dataverseTheme.logo}"/>
                             <p:message for="logo"/>
                             <h:outputLabel value="Logo Format"/>
-                            <p:selectOneRadio id="logoFormat" value="#{DataversePage.dataverse.logoFormat}">
+                            <p:selectOneRadio id="logoFormat" value="#{DataversePage.dataverse.dataverseTheme.logoFormat}">
                                 <f:selectItem itemLabel="SQUARE" itemValue="SQUARE"/>
                                 <f:selectItem itemLabel="RECTANGLE" itemValue="RECTANGLE"/>
                             </p:selectOneRadio>
                             <p:message for="logoFormat"/>
                             <h:outputLabel value="Logo Alignment"/>
-                            <p:selectOneMenu id="logoAlignment" value="#{DataversePage.dataverse.logoAlignment}">
+                            <p:selectOneMenu id="logoAlignment" value="#{DataversePage.dataverse.dataverseTheme.logoAlignment}">
                                 <f:selectItem id="left" itemLabel="LEFT" itemValue="LEFT" />
                                 <f:selectItem id="center" itemLabel="CENTER" itemValue="CENTER" />
                                 <f:selectItem id="right" itemLabel="RIGHT" itemValue="RIGHT" />
                             </p:selectOneMenu>
                             <p:message for="logoFormat"/>
                             <h:outputLabel value="Logo Background Color"/>
-                            <p:inputText id="logoBackgroundColor" value="#{DataversePage.dataverse.logoBackgroundColor}"/>
+                            <p:inputText id="logoBackgroundColor" value="#{DataversePage.dataverse.dataverseTheme.logoBackgroundColor}"/>
                             <p:message for="logoBackgroundColor"/>
                             <h:outputLabel value="Tagline"/>
-                            <p:inputText id="tagline" value="#{DataversePage.dataverse.tagline}"/>
+                            <p:inputText id="tagline" value="#{DataversePage.dataverse.dataverseTheme.tagline}"/>
                             <p:message for="tagline"/>
                             <h:outputLabel value="Link URL"/>
-                            <p:inputText id="linkUrl" value="#{DataversePage.dataverse.linkUrl}"/>
+                            <p:inputText id="linkUrl" value="#{DataversePage.dataverse.dataverseTheme.linkUrl}"/>
                             <p:message for="linkUrl"/>
                             <h:outputLabel value="Link Text"/>
-                            <p:inputText id="linkText" value="#{DataversePage.dataverse.linkText}"/>
+                            <p:inputText id="linkText" value="#{DataversePage.dataverse.dataverseTheme.linkText}"/>
                             <p:message for="linkText"/>
                             <h:outputLabel value="Link Color"/>
-                            <p:inputText id="linkColor" value="#{DataversePage.dataverse.linkColor}"/>
+                            <p:inputText id="linkColor" value="#{DataversePage.dataverse.dataverseTheme.linkColor}"/>
                             <p:message for="linkColor"/>
                             <h:outputLabel value="Text Color"/>
-                            <p:inputText id="textColor" value="#{DataversePage.dataverse.textColor}"/>
+                            <p:inputText id="textColor" value="#{DataversePage.dataverse.dataverseTheme.textColor}"/>
                             <p:message for="textColor"/>
                             <h:outputLabel value="Background Color"/>
-                            <p:inputText id="backgroundColor" value="#{DataversePage.dataverse.backgroundColor}"/>
+                            <p:inputText id="backgroundColor" value="#{DataversePage.dataverse.dataverseTheme.backgroundColor}"/>
                             <p:message for="backgroundColor"/>
                         </p:panelGrid>
                     </ui:fragment>
@@ -668,6 +624,11 @@
                             });
                         });
                     }
+
+                    function updateInclude(){
+                       $('button[id$="hiddenRefresh"]').trigger('click');
+                    }
+
 
                     function characterCounter() {
                         $.fn.extend({

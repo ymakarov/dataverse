@@ -36,6 +36,9 @@ public class TemplatePage implements java.io.Serializable {
     @EJB
     EjbDataverseEngine commandEngine;
     
+    @EJB
+    DataverseFieldTypeInputLevelServiceBean dataverseFieldTypeInputLevelService; 
+    
     @Inject
     DataverseSession session;
 
@@ -100,13 +103,36 @@ public class TemplatePage implements java.io.Serializable {
             }
             template.setDataverse(dataverse);
             template.setMetadataValueBlocks();
+            updateDatasetFieldInputLevels();
         } else if (ownerId != null) {
             // create mode for a new template
             dataverse = dataverseService.find(ownerId);
             editMode = TemplatePage.EditMode.CREATE;
             template = new Template(this.dataverse);
+            updateDatasetFieldInputLevels();
         } else {
             throw new RuntimeException("On Template page without id or ownerid."); // improve error handling
+        }
+    }
+    
+    private void updateDatasetFieldInputLevels(){
+        Long dvIdForInputLevel = ownerId;
+        
+        if (!dataverseService.find(ownerId).isMetadataBlockRoot()){
+            dvIdForInputLevel = dataverseService.find(ownerId).getMetadataRootId();
+        }
+        
+        
+        for (DatasetField dsf: template.getFlatDatasetFields()){ 
+           DataverseFieldTypeInputLevel dsfIl = dataverseFieldTypeInputLevelService.findByDataverseIdDatasetFieldTypeId(dvIdForInputLevel, dsf.getDatasetFieldType().getId());
+           if (dsfIl != null){
+               dsf.setRequired(dsfIl.isRequired());
+               dsf.getDatasetFieldType().setRequiredDV(dsfIl.isRequired());               
+               dsf.setInclude(dsfIl.isInclude());
+           } else {
+               dsf.setRequired(dsf.getDatasetFieldType().isRequired());
+               dsf.setInclude(true);
+           } 
         }
     }
 
@@ -149,7 +175,7 @@ public class TemplatePage implements java.io.Serializable {
                 template.setCreateTime(new Timestamp(new Date().getTime()));
                 template.setUsageCount(new Long(0));
                 dataverse.getTemplates().add(template);
-                cmd = new UpdateDataverseCommand(dataverse, null, null, session.getUser());
+                cmd = new UpdateDataverseCommand(dataverse, null, null, session.getUser(), null);
                 commandEngine.submit(cmd);
             } else {
                 cmd = new UpdateDateverseTemplateCommand(dataverse, template, session.getUser());

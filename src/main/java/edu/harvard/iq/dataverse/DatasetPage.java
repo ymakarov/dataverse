@@ -5,6 +5,7 @@
  */
 package edu.harvard.iq.dataverse;
 
+import edu.harvard.iq.dataverse.authorization.Permission;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUser;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUserServiceBean;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
@@ -91,7 +92,7 @@ public class DatasetPage implements java.io.Serializable {
     @EJB
     DataFileServiceBean datafileService;
     @EJB
-    PermissionServiceBean permissionServiceBean;
+    PermissionServiceBean permissionService;
     @EJB
     DataverseServiceBean dataverseService;
     @EJB
@@ -111,7 +112,11 @@ public class DatasetPage implements java.io.Serializable {
     @EJB
     MapLayerMetadataServiceBean mapLayerMetadataService;
     @EJB
-    BuiltinUserServiceBean builtinUserService;      
+    BuiltinUserServiceBean builtinUserService;  
+    @EJB
+    DataverseFieldTypeInputLevelServiceBean dataverseFieldTypeInputLevelService;  
+    @Inject 
+    DatasetVersionUI datasetVersionUI;
     
     private Dataset dataset = new Dataset();
     private EditMode editMode;
@@ -120,7 +125,6 @@ public class DatasetPage implements java.io.Serializable {
     private int selectedTabIndex;
     private List<DataFile> newFiles = new ArrayList();
     private DatasetVersion workingVersion;
-    private DatasetVersionUI datasetVersionUI = new DatasetVersionUI();
     private int releaseRadio = 1;
     private int deaccessionRadio = 0;
     private int deaccessionReasonRadio = 0;
@@ -137,16 +141,6 @@ public class DatasetPage implements java.io.Serializable {
 
     private final Map<Long, MapLayerMetadata> mapLayerMetadataLookup = new HashMap<>();
 
-    /**
-     * @todo ticket to get away from these hard-coded protocol and authority
-     * values: https://github.com/IQSS/dataverse/issues/757
-     */
-    static String fixMeDontHardCodeProtocol = "doi";
-    static String fixMeDontHardCodeAuthority = "10.5072/FK2";
-    
-    public static String getProtocol() { return fixMeDontHardCodeProtocol; }
-    public static String getAuthority() { return fixMeDontHardCodeAuthority; }
-    
     public String getShowVersionList() {
         return showVersionList;
     }
@@ -321,16 +315,35 @@ public class DatasetPage implements java.io.Serializable {
         selectedTemplate = (Template) event.getNewValue();
         if (selectedTemplate != null) {
             workingVersion = dataset.getEditVersion(selectedTemplate);
+            updateDatasetFieldInputLevels();
         } else {
-
             dataset = new Dataset();
-            workingVersion = dataset.getLatestVersion();
-            dataset.setIdentifier(datasetService.generateIdentifierSequence(fixMeDontHardCodeProtocol, fixMeDontHardCodeAuthority));
             dataset.setOwner(dataverseService.find(ownerId));
-
+            workingVersion = dataset.getCreateVersion();
+            updateDatasetFieldInputLevels();
+            dataset.setIdentifier(datasetService.generateIdentifierSequence(datasetService.getProtocol(), datasetService.getAuthority()));
         }
-
         resetVersionUI();
+    }
+    
+    private void updateDatasetFieldInputLevels(){
+        Long dvIdForInputLevel = ownerId;
+        
+        if (!dataverseService.find(ownerId).isMetadataBlockRoot()){
+            dvIdForInputLevel = dataverseService.find(ownerId).getMetadataRootId();
+        }
+        System.out.print(dvIdForInputLevel);
+        for (DatasetField dsf: workingVersion.getFlatDatasetFields()){ 
+           DataverseFieldTypeInputLevel dsfIl = dataverseFieldTypeInputLevelService.findByDataverseIdDatasetFieldTypeId(dvIdForInputLevel, dsf.getDatasetFieldType().getId());
+           if (dsfIl != null){
+               dsf.setRequired(dsfIl.isRequired());
+               dsf.getDatasetFieldType().setRequiredDV(dsfIl.isRequired());               
+               dsf.setInclude(dsfIl.isInclude());
+           } else {
+               dsf.setRequired(dsf.getDatasetFieldType().isRequired());
+               dsf.setInclude(true);
+           } 
+        }
     }
 
     public void handleChange() {
@@ -420,24 +433,34 @@ public class DatasetPage implements java.io.Serializable {
 
     }// A DataFile may have a related MapLayerMetadata object
 
-    public void init() {
+    public String init() {
         if (dataset.getId() != null) { // view mode for a dataset           
             dataset = datasetService.find(dataset.getId());
+            if (dataset == null) {
+                return "/404.xhtml";
+            }
+            // now get the correct version
             if (versionId == null) {
-                workingVersion = dataset.getLatestVersion();
+                // If we don't have a version ID, we will get the latest published version; if not publised, then go ahead and get the latest
+                workingVersion = dataset.getReleasedVersion();
+                if (workingVersion == null) {
+                    workingVersion = dataset.getLatestVersion();
+                }
             } else {
                 workingVersion = datasetVersionService.find(versionId);
             }
+            
+            if (workingVersion == null) {
+                return "/404.xhtml";
+            }  else if (!workingVersion.isReleased() && !permissionService.on(dataset).has(Permission.Discover)) {
+                return "/loginpage.xhtml" + DataverseHeaderFragment.getRedirectPage();
+            }             
+            
             ownerId = dataset.getOwner().getId();
             datasetNextMajorVersion = this.dataset.getNextMajorVersionString();
             datasetNextMinorVersion = this.dataset.getNextMinorVersionString();
-            try {
-                datasetVersionUI = new DatasetVersionUI(workingVersion);
-            } catch (NullPointerException npe) {
-                //This will happen when solr is down and will allow any link to be displayed.
-                throw new RuntimeException("You do not have permission to view this dataset version."); // improve error handling
-            }
-
+            datasetVersionUI = datasetVersionUI.initDatasetVersionUI(workingVersion);
+            updateDatasetFieldInputLevels();
             displayCitation = dataset.getCitation(false, workingVersion);
             setVersionTabList(resetVersionTabList());
             setReleasedVersionTabList(resetReleasedVersionTabList());
@@ -448,6 +471,14 @@ public class DatasetPage implements java.io.Serializable {
         } else if (ownerId != null) {
             // create mode for a new child dataset
             editMode = EditMode.CREATE;
+            dataset.setIdentifier(datasetService.generateIdentifierSequence(datasetService.getProtocol(), datasetService.getAuthority()));
+            dataset.setOwner(dataverseService.find(ownerId));
+            if (dataset.getOwner() == null) {
+                return "/404.xhtml";
+            } else if (!permissionService.on(dataset.getOwner()).has(Permission.AddDataset)) {
+                return "/loginpage.xhtml" + DataverseHeaderFragment.getRedirectPage();
+            }             
+            
             dataverseTemplates = dataverseService.find(ownerId).getTemplates();
             if (dataverseService.find(ownerId).isTemplateRoot()) {
                 dataverseTemplates.addAll(dataverseService.find(ownerId).getParentTemplates());
@@ -461,18 +492,21 @@ public class DatasetPage implements java.io.Serializable {
                     }
                 }
                 workingVersion = dataset.getEditVersion(selectedTemplate);
+                updateDatasetFieldInputLevels();
             } else {
-                workingVersion = dataset.getLatestVersion();
+                workingVersion = dataset.getCreateVersion();
+                updateDatasetFieldInputLevels();
             }
-            dataset.setIdentifier(datasetService.generateIdentifierSequence(fixMeDontHardCodeProtocol, fixMeDontHardCodeAuthority));
-            dataset.setOwner(dataverseService.find(ownerId));
+
             resetVersionUI();
+            
             // FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Add New Dataset", " - Enter metadata to create the dataset's citation. You can add more metadata about this dataset after it's created."));
         } else {
-            throw new RuntimeException("On Dataset page without id or ownerid."); // improve error handling
+            return "/404.xhtml";
         }
+        
+        return null;
     }
-
     private String getUserName(User user) {
         if (user.isAuthenticated()) {
             AuthenticatedUser authUser = (AuthenticatedUser)user;
@@ -482,7 +516,7 @@ public class DatasetPage implements java.io.Serializable {
     }
     
     private void resetVersionUI() {
-        datasetVersionUI = new DatasetVersionUI(workingVersion);
+        datasetVersionUI = datasetVersionUI.initDatasetVersionUI(workingVersion);
         User user = session.getUser();
         
         //Get builtin user to supply default values for contact email author name, etc.
@@ -529,7 +563,8 @@ public class DatasetPage implements java.io.Serializable {
         } else if (editMode == EditMode.FILE) {
             // FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Upload + Edit Dataset Files", " - You can drag and drop your files from your desktop, directly into the upload widget."));
         } else if (editMode == EditMode.METADATA) {
-            datasetVersionUI = new DatasetVersionUI(workingVersion);
+            datasetVersionUI = datasetVersionUI.initDatasetVersionUI(workingVersion);
+            updateDatasetFieldInputLevels();
             FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Edit Dataset Metadata", " - Add more metadata about your dataset to help others easily find it."));
         }
     }
@@ -722,8 +757,8 @@ public class DatasetPage implements java.io.Serializable {
         }
 
         //TODO get real application-wide protocol/authority https://github.com/IQSS/dataverse/issues/757
-        dataset.setProtocol(fixMeDontHardCodeProtocol);
-        dataset.setAuthority(fixMeDontHardCodeAuthority);
+        dataset.setProtocol(datasetService.getProtocol());
+        dataset.setAuthority(datasetService.getAuthority());
 
         /*
          * Save and/or ingest files, if there are any:
@@ -1089,7 +1124,7 @@ public class DatasetPage implements java.io.Serializable {
 
     private boolean canIssueUpdateCommand() {
         try {
-            if (permissionServiceBean.on(dataset).canIssueCommand("UpdateDatasetCommand")) {
+            if (permissionService.on(dataset).canIssueCommand("UpdateDatasetCommand")) {
                 return true;
             } else {
                 return false;

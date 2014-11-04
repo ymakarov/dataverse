@@ -8,6 +8,7 @@ package edu.harvard.iq.dataverse;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -93,23 +94,58 @@ public class MetadataBlock implements Serializable {
     public void setEmpty(boolean empty) {
         this.empty = empty;
     }
-   
+    
+    @Transient
+    private boolean selected;
+
+    public void setSelected(boolean selected) {
+        this.selected = selected;
+    }
+    
+    public boolean isSelected() {         
+        return selected;
+    }
+    
+    @Transient
+    private boolean hasRequired;
+
+    public void setHasRequired(boolean hasRequired) {
+        this.hasRequired = hasRequired;
+    }
+    
+    public boolean isHasRequired() {         
+        return hasRequired;
+    }
+
+    public String getIdString(){
+        return id.toString();
+    }
+
+    @Transient
+    private boolean showDatasetFieldTypes;
+
+    public void setShowDatasetFieldTypes(boolean showDatasetFieldTypes) {
+        this.showDatasetFieldTypes = showDatasetFieldTypes;
+    }
+    
+    public boolean isShowDatasetFieldTypes() {         
+        return showDatasetFieldTypes;
+    }
+    
+    @Override
     public int hashCode() {
         int hash = 0;
         hash += (this.id != null ? this.id.hashCode() : 0);
         return hash;
     }
 
+    @Override
     public boolean equals(Object object) {
-        // TODO: Warning - this method won't work in the case the id fields are not set
         if (!(object instanceof MetadataBlock)) {
             return false;
         }
         MetadataBlock other = (MetadataBlock) object;
-        if (this.id != other.id && (this.id == null || !this.id.equals(other.id))) {
-            return false;
-        }
-        return true;
+        return !(!Objects.equals(this.id, other.id) && (this.id == null || !this.id.equals(other.id)));
     }    
     
     @Override

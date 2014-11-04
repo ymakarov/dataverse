@@ -33,7 +33,7 @@ import javax.xml.stream.XMLStreamWriter;
  */
 @Stateless
 @Named
-public class DatasetServiceBean {
+public class DatasetServiceBean implements java.io.Serializable  {
 
     private static final Logger logger = Logger.getLogger(DatasetServiceBean.class.getCanonicalName());
     @EJB
@@ -92,6 +92,10 @@ public class DatasetServiceBean {
         return foundDataset;
     }
 
+    /**
+     * @todo why is generateIdentifierSequence off by one? (10 vs. 9):
+     * https://github.com/IQSS/dataverse/issues/758
+     */
     public String generateIdentifierSequence(String protocol, String authority) {
 
         String identifier = null;
@@ -350,4 +354,20 @@ public class DatasetServiceBean {
      return study;
      }
      */
+
+    /**
+     * @todo ticket to get away from these hard-coded protocol and authority
+     * values: https://github.com/IQSS/dataverse/issues/757
+     */
+    static String fixMeDontHardCodeProtocol = "doi";
+    static String fixMeDontHardCodeAuthority = "10.5072/FK2";
+
+    public static String getProtocol() {
+        return fixMeDontHardCodeProtocol;
+    }
+
+    public static String getAuthority() {
+        return fixMeDontHardCodeAuthority;
+    }
+
 }
