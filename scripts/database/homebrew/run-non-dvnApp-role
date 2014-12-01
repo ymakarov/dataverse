@@ -1,2 +1,0 @@
-#!/bin/sh
-~/.homebrew/bin/psql dataverse_db -c 'ALTER TABLE filesystemname_seq OWNER TO "dataverse_app";'

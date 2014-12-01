@@ -11,6 +11,7 @@ import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.impl.CreateDatasetCommand;
 import edu.harvard.iq.dataverse.metadataimport.ForeignMetadataImportServiceBean;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.ejb.EJBException;
@@ -48,6 +49,8 @@ public class CollectionDepositManagerImpl implements CollectionDepositManager {
     ForeignMetadataImportServiceBean foreignMetadataImportService;
     @EJB
     SwordServiceBean swordService;
+    @EJB
+    SettingsServiceBean settingsService;
 
     @Override
     public DepositReceipt createNew(String collectionUri, Deposit deposit, AuthCredentials authCredentials, SwordConfiguration config)
@@ -84,10 +87,15 @@ public class CollectionDepositManagerImpl implements CollectionDepositManager {
 
                         Dataset dataset = new Dataset();
                         dataset.setOwner(dvThatWillOwnDataset);
-                        dataset.setProtocol(datasetService.getProtocol());
-                        dataset.setAuthority(datasetService.getAuthority());
-                        dataset.setIdentifier(datasetService.generateIdentifierSequence(datasetService.getProtocol(), datasetService.getAuthority()));
-
+                        String nonNullDefaultIfKeyNotFound = "";
+                        String protocol = settingsService.getValueForKey(SettingsServiceBean.Key.Protocol, nonNullDefaultIfKeyNotFound);
+                        String authority = settingsService.getValueForKey(SettingsServiceBean.Key.Authority, nonNullDefaultIfKeyNotFound);
+                        String separator = settingsService.getValueForKey(SettingsServiceBean.Key.DoiSeparator, nonNullDefaultIfKeyNotFound);
+                        dataset.setProtocol(protocol);
+                        dataset.setAuthority(authority); 
+                        dataset.setDoiSeparator(separator);
+                        dataset.setIdentifier(datasetService.generateIdentifierSequence(protocol, authority, separator));
+                        logger.fine("DS Deposit identifier: " + dataset.getIdentifier());
                         DatasetVersion newDatasetVersion = dataset.getEditVersion();
 
                         String foreignFormat = SwordUtil.DCTERMS;
@@ -103,7 +111,7 @@ public class CollectionDepositManagerImpl implements CollectionDepositManager {
 
                         Dataset createdDataset = null;
                         try {
-                            createdDataset = engineSvc.submit(new CreateDatasetCommand(dataset, user));
+                            createdDataset = engineSvc.submit(new CreateDatasetCommand(dataset, user, false));
                         } catch (EJBException | CommandException ex) {
                             Throwable cause = ex;
                             StringBuilder sb = new StringBuilder();

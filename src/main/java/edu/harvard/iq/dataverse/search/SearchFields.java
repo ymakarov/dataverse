@@ -24,6 +24,7 @@ public class SearchFields {
     public static final String DATAVERSE_NAME = "dvName_en";
     public static final String DATAVERSE_AFFILIATION = "dvAffiliation_en";
     public static final String DATAVERSE_DESCRIPTION = "dvDescription_en";
+    public static final String DATAVERSE_CATEGORY = "dvCategory_s";
     /**
      * @todo: standard Solr "title" field is multivalued. Do we want ours to be?
      */
@@ -60,7 +61,8 @@ public class SearchFields {
 //    public static final String DISTRIBUTOR = DatasetFieldConstant.distributorName + "_s";
     /**
      * @todo: if you search for "pdf" we probably want to return all PDFs...
-     * Could fix this with a copyField in schema.xml (and rename to just "filetype").
+     * Could fix this with a copyField in schema.xml (and rename to just
+     * "filetype").
      */
     public static final String FILE_NAME = "filename_en";
     public static final String FILE_DESCRIPTION = "fileDescription_en";
@@ -91,8 +93,11 @@ public class SearchFields {
     public static final String PUBLICATION_DATE = "publication_date_s";
     public static final String RELEASE_OR_CREATE_DATE = "release_or_create_date_dt";
     public static final String RELEASE_OR_CREATE_DATE_SEARCHABLE_TEXT = "date_en";
-    public static final String GROUPS = "groups_s";
-    public static final String PERMS = "perms_ss";
+
+    public static final String DEFINITION_POINT = "definition_point_s";
+    public static final String DEFINITION_POINT_DVOBJECT_ID = "definition_point_dvobject_id_s";
+    public static final String DISCOVERABLE_BY = "discoverable_by_ss";
+
     public static final String PUBLICATION_STATUS = "published_ss";
     // Used for performance. Why hit the db if solr has the data?
     /**
@@ -104,6 +109,11 @@ public class SearchFields {
     public static final String PARENT_ID = "parentid";
 
     public static final String DATASET_DESCRIPTION = "dsDescription";
+    /**
+     * In contrast to PUBLICATION_DATE, this field applies only to datasets for
+     * more targeted results.
+     */
+    public static final String DATASET_PUBLICATION_DATE = "dsPublicationDate_s";
     public static final String DATASET_VERSION_ID = "dataset_version_id_l";
 
     public static final String VARIABLE_NAME = "variable_name_en";

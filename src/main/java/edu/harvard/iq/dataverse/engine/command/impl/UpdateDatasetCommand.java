@@ -15,16 +15,18 @@ import edu.harvard.iq.dataverse.engine.command.AbstractCommand;
 import edu.harvard.iq.dataverse.engine.command.CommandContext;
 import edu.harvard.iq.dataverse.engine.command.RequiredPermissions;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.sql.Timestamp;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  *
  * @author skraffmiller
  */
-@RequiredPermissions({Permission.UndoableEdit, Permission.EditMetadata})
+@RequiredPermissions(Permission.EditDataset)
 public class UpdateDatasetCommand extends AbstractCommand<Dataset> {
 
     private static final Logger logger = Logger.getLogger(UpdateDatasetCommand.class.getCanonicalName());
@@ -57,16 +59,43 @@ public class UpdateDatasetCommand extends AbstractCommand<Dataset> {
         }
         Timestamp updateTime = new Timestamp(new Date().getTime());
         theDataset.getEditVersion().setLastUpdateTime(updateTime);
+        theDataset.setModificationTime(updateTime);
         for (DataFile dataFile : theDataset.getFiles()) {
             if (dataFile.getCreateDate() == null) {
                 dataFile.setCreateDate(updateTime);
             }
         }
-
+        
+        String nonNullDefaultIfKeyNotFound = "";
+        String    doiProvider = ctxt.settings().getValueForKey(SettingsServiceBean.Key.DoiProvider, nonNullDefaultIfKeyNotFound);
+         
+        if (theDataset.getProtocol().equals("doi") 
+              && doiProvider.equals("EZID") && theDataset.getGlobalIdCreateTime() == null) {
+            String doiRetString = ctxt.doiEZId().createIdentifier(theDataset);
+            if (doiRetString.contains(theDataset.getIdentifier())) {
+                theDataset.setGlobalIdCreateTime(new Timestamp(new Date().getTime()));
+            } else {
+                //try again if identifier exists
+                if (doiRetString.contains("identifier already exists")) {
+                    theDataset.setIdentifier(ctxt.datasets().generateIdentifierSequence(theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()));
+                    doiRetString = ctxt.doiEZId().createIdentifier(theDataset);
+                    if (!doiRetString.contains(theDataset.getIdentifier())) {
+                        // didn't register new identifier
+                    } else {
+                        theDataset.setGlobalIdCreateTime(new Timestamp(new Date().getTime()));
+                    }
+                } else {
+                    //some reason other that duplicate identifier so don't try again
+                    //EZID down possibly
+                }
+            }
+        }
+        
         Dataset savedDataset = ctxt.em().merge(theDataset);
         ctxt.em().flush();
         String indexingResult = ctxt.index().indexDataset(savedDataset);
-        logger.info("during dataset save, indexing result was: " + indexingResult);
+        //String indexingResult = "(Indexing Skipped)";
+        logger.log(Level.INFO, "during dataset save, indexing result was: {0}", indexingResult);
         DatasetVersionUser ddu = ctxt.datasets().getDatasetVersionUser(theDataset.getLatestVersion(), this.getUser());
         
         if (ddu != null){

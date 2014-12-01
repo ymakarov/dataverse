@@ -4,10 +4,13 @@ import edu.harvard.iq.dataverse.authorization.DataverseRole;
 import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.authorization.RoleAssignmentSet;
+import edu.harvard.iq.dataverse.search.IndexResponse;
+import edu.harvard.iq.dataverse.search.SolrIndexServiceBean;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
+import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.inject.Named;
 import javax.persistence.EntityManager;
@@ -21,16 +24,29 @@ import javax.persistence.TypedQuery;
 @Stateless
 @Named
 public class DataverseRoleServiceBean implements java.io.Serializable {
-	
-	@PersistenceContext(unitName = "VDCNet-ejbPU")
+
+    private static final Logger logger = Logger.getLogger(IndexServiceBean.class.getCanonicalName());
+
+    @PersistenceContext(unitName = "VDCNet-ejbPU")
     private EntityManager em;
-	
+      
+    @EJB RoleAssigneeServiceBean roleAssigneeService;
+    @EJB IndexServiceBean indexService;   
+    @EJB SolrIndexServiceBean solrIndexService;
+
 	public DataverseRole save( DataverseRole aRole ) {
 		if ( aRole.getId() == null ) {
 			em.persist(aRole);
+                    /**
+                     * @todo Why would getId be null? Should we call
+                     * indexDefinitionPoint here too?
+                     */
 			return aRole;
 		} else {
-			return em.merge( aRole );
+                    DataverseRole merged = em.merge(aRole);
+                    IndexResponse indexDefinitionPountResult = indexDefinitionPoint(merged.getOwner());
+                    logger.info("aRole getId was not null. Indexing result: " + indexDefinitionPountResult);
+                    return merged;
 		}
 	}
 	
@@ -38,12 +54,23 @@ public class DataverseRoleServiceBean implements java.io.Serializable {
 		if ( assignment.getId() == null ) {
 			em.persist(assignment);
 			em.flush();
-			return assignment;
 		} else {
-			return em.merge( assignment );
+			assignment = em.merge( assignment );
 		}
+            IndexResponse indexDefinitionPountResult = indexDefinitionPoint(assignment.getDefinitionPoint());
+            logger.info("output from indexing operations: " + indexDefinitionPountResult);
+                return assignment;
 	}
-	
+
+    private IndexResponse indexDefinitionPoint(DvObject definitionPoint) {
+        /**
+         * @todo Do something with the index response. Was Solr down? Is
+         * everything ok?
+         */
+        IndexResponse indexResponse = solrIndexService.indexPermissionsOnSelfAndChildren(definitionPoint);
+        return indexResponse;
+    }
+
 	public DataverseRole find( Long id ) {
 		return em.find( DataverseRole.class, id );
 	}
@@ -63,6 +90,19 @@ public class DataverseRoleServiceBean implements java.io.Serializable {
 				.setParameter("ownerId", ownerId)
 				.getResultList();
 	}
+        
+	
+	public List<DataverseRole> findBuiltinRoles() {
+		return em.createNamedQuery("DataverseRole.findBuiltinRoles", DataverseRole.class)
+				.getResultList();
+	}
+        
+	
+	public DataverseRole findBuiltinRoleByAlias(String alias) {
+		return em.createNamedQuery("DataverseRole.findBuiltinRoleByAlias", DataverseRole.class)
+                                .setParameter("alias", alias)
+				.getSingleResult();
+        }
 	
 	public void revoke( Set<DataverseRole> roles, RoleAssignee assignee, DvObject defPoint ) {
 		for ( DataverseRole role : roles ) {
@@ -81,6 +121,8 @@ public class DataverseRoleServiceBean implements java.io.Serializable {
 			ra = em.merge(ra);
 		}
 		em.remove(ra);
+            IndexResponse indexDefinitionPointResult = indexDefinitionPoint(ra.getDefinitionPoint());
+            logger.info("indexing operation results: " + indexDefinitionPointResult);
 	}
 	
 	public RoleAssignmentSet roleAssignments( User user, Dataverse dv ) {
@@ -125,8 +167,7 @@ public class DataverseRoleServiceBean implements java.io.Serializable {
 	
 	public Set<RoleAssignment> rolesAssignments( DvObject dv ) {
 		Set<RoleAssignment> ras = new HashSet<>();
-                // since currently a dataset /datafile is always permission root, we can skip the while loop
-		while ( dv instanceof Dataverse && !((Dataverse) dv).isEffectivlyPermissionRoot() ) {
+		while ( !dv.isEffectivelyPermissionRoot() ) {
 			ras.addAll( em.createNamedQuery("RoleAssignment.listByDefinitionPointId", RoleAssignment.class)
 					.setParameter("definitionPointId", dv.getId() ).getResultList() );
 			dv = dv.getOwner();
@@ -178,15 +219,16 @@ public class DataverseRoleServiceBean implements java.io.Serializable {
 	 * @param dvId The id of dataverse whose available roles we query
 	 * @return map of available roles.
 	 */
-	public LinkedHashMap<Dataverse,Set<DataverseRole>> availableRoles( Long dvId ) {
-		LinkedHashMap<Dataverse,Set<DataverseRole>> roles = new LinkedHashMap<>();
-		Dataverse dv = em.find(Dataverse.class, dvId);
-		roles.put( dv, dv.getRoles() );
-		while( !dv.isEffectivlyPermissionRoot() ) {
+	public Set<DataverseRole> availableRoles( Long dvId ) {              
+                Dataverse dv = em.find(Dataverse.class, dvId);
+                Set<DataverseRole> roles = dv.getRoles(); 
+                roles.addAll(findBuiltinRoles());
+
+		while ( !dv.isEffectivelyPermissionRoot() ) {
 			dv = dv.getOwner();
-			roles.put( dv, dv.getRoles() );
+			roles.addAll( dv.getRoles() );
 		}
 		
 		return roles;
-	}
+	}                
 }

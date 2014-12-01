@@ -79,6 +79,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -151,7 +152,10 @@ public class IngestServiceBean {
     
     private static final String MIME_TYPE_FITS  = "application/fits";
     
+    private static final String MIME_TYPE_ZIP   = "application/zip";
+    
     private static final String MIME_TYPE_UNDETERMINED_DEFAULT = "application/octet-stream";
+    private static final String MIME_TYPE_UNDETERMINED_BINARY = "application/binary";
     
     private static String timeFormat_hmsS = "HH:mm:ss.SSS";
     private static String dateTimeFormat_ymdhmsS = "yyyy-MM-dd HH:mm:ss.SSS";
@@ -188,7 +192,7 @@ public class IngestServiceBean {
         } else {
             throw new IOException ("Temp directory is not configured.");
         }
-        
+        logger.fine("mime type supplied: "+contentType);
         // Let's try our own utilities (Jhove, etc.) to determine the file type 
         // of the uploaded file. (We may already have a mime type supplied for this
         // file - maybe the type that the browser recognized on upload; or, if 
@@ -204,11 +208,18 @@ public class IngestServiceBean {
             if (recognizedType != null && !recognizedType.equals("")) {
                 // is it any better than the type that was supplied to us,
                 // if any?
+                // This is not as trivial a task as one might expect... 
+                // We may need a list of "good" mime types, that should always
+                // be chosen over other choices available. Maybe it should 
+                // even be a weighed list... as in, "application/foo" should 
+                // be chosen over "application/foo-with-bells-and-whistles".
                 if (contentType == null
                         || contentType.equals("")
                         || contentType.equalsIgnoreCase(MIME_TYPE_UNDETERMINED_DEFAULT)
+                        || contentType.equalsIgnoreCase(MIME_TYPE_UNDETERMINED_BINARY)
                         || recognizedType.equals("application/fits-gzipped")
-                        || recognizedType.equals(ShapefileHandler.SHAPEFILE_FILE_TYPE)) {
+                        || recognizedType.equals(ShapefileHandler.SHAPEFILE_FILE_TYPE)
+                        || recognizedType.equals(MIME_TYPE_ZIP)) {
                     finalType = recognizedType;
                 }
             }
@@ -329,6 +340,7 @@ public class IngestServiceBean {
                 // just clear the datafiles list and let 
                 // ingest default to creating a single DataFile out
                 // of the unzipped file. 
+                logger.warning("Unzipping failed; rolling back to saving the file as is.");
                 datafiles.clear();
             } finally {
                 if (unZippedIn != null) {
@@ -521,7 +533,7 @@ public class IngestServiceBean {
         try {
             contentType = FileUtil.determineFileType(fileObject, fileObject.getName());
         } catch (IOException ex) {
-            logger.info("FileUtil.determineFileType failed for file with name: " + fileObject.getName());
+            logger.warning("FileUtil.determineFileType failed for file with name: " + fileObject.getName());
             contentType = null;
         }
 
@@ -544,6 +556,7 @@ public class IngestServiceBean {
     private DataFile createSingleDataFile(DatasetVersion version, InputStream inputStream, String fileName, String contentType) {
 
         DataFile datafile = new DataFile(contentType);
+        datafile.setModificationTime(new Timestamp(new Date().getTime()));
         FileMetadata fmd = new FileMetadata();
         
         fmd.setLabel(checkForDuplicateFileNames(version,fileName));
@@ -903,9 +916,9 @@ public class IngestServiceBean {
         TabularSubsetGenerator subsetGenerator = new TabularSubsetGenerator();
         
         for (int i = 0; i < dataFile.getDataTable().getVarQuantity(); i++) {
-            if ("continuous".equals(dataFile.getDataTable().getDataVariables().get(i).getVariableIntervalType().getName())) {
+            if (dataFile.getDataTable().getDataVariables().get(i).isIntervalContinuous()) {
                 logger.fine("subsetting continuous vector");
-                if ("float".equals(dataFile.getDataTable().getDataVariables().get(i).getFormatSchemaName())) {
+                if ("float".equals(dataFile.getDataTable().getDataVariables().get(i).getFormat())) {
                     Float[] variableVector = subsetGenerator.subsetFloatVector(dataFile, i);
                     logger.fine("Calculating summary statistics on a Float vector;");
                     calculateContinuousSummaryStatistics(dataFile, i, variableVector);
@@ -932,8 +945,8 @@ public class IngestServiceBean {
         TabularSubsetGenerator subsetGenerator = new TabularSubsetGenerator();
         
         for (int i = 0; i < dataFile.getDataTable().getVarQuantity(); i++) {
-            if ("discrete".equals(dataFile.getDataTable().getDataVariables().get(i).getVariableIntervalType().getName()) 
-                    && "numeric".equals(dataFile.getDataTable().getDataVariables().get(i).getVariableFormatType().getName())) {
+            if (dataFile.getDataTable().getDataVariables().get(i).isIntervalDiscrete()
+                    && dataFile.getDataTable().getDataVariables().get(i).isTypeNumeric()) {
                 logger.fine("subsetting discrete-numeric vector");
                 //Double[] variableVector = subsetGenerator.subsetDoubleVector(dataFile, i);
                 Long[] variableVector = subsetGenerator.subsetLongVector(dataFile, i);
@@ -967,7 +980,7 @@ public class IngestServiceBean {
         TabularSubsetGenerator subsetGenerator = new TabularSubsetGenerator();
         
         for (int i = 0; i < dataFile.getDataTable().getVarQuantity(); i++) {
-            if ("character".equals(dataFile.getDataTable().getDataVariables().get(i).getVariableFormatType().getName())) {
+            if (dataFile.getDataTable().getDataVariables().get(i).isTypeCharacter()) {
                 logger.fine("subsetting character vector");
                 String[] variableVector = subsetGenerator.subsetStringVector(dataFile, i);
                 //calculateCharacterSummaryStatistics(dataFile, i, variableVector);
@@ -1061,7 +1074,7 @@ public class IngestServiceBean {
         FacesMessage facesMessage = new FacesMessage("ingest failed");
         PushContext pushContext = PushContextFactory.getDefault().getPushContext();
         pushContext.push("/ingest" + dataset_id, facesMessage);
-        logger.info("sent push (fail) notification to the page.");
+        //logger.info("[PUSH MESSAGING TEMPORARILY DISABLED] sent push (fail) notification to the page.");
     }
     
     public boolean ingestAsTabular(String tempFileLocation, DataFile dataFile) { //throws IOException {
@@ -1086,7 +1099,7 @@ public class IngestServiceBean {
                     + pushContext.toString());
         } else {
             Logger.getLogger(IngestServiceBean.class.getName()).log(Level.SEVERE, "Warning! Could not obtain push context.");
-        }      
+        } 
         
         // Locate ingest plugin for the file format by looking
         // it up with the Ingest Service Provider Registry:
@@ -1101,7 +1114,6 @@ public class IngestServiceBean {
             errorReport.setDataFile(dataFile);
             dataFile.setIngestReport(errorReport);
             dataFile = fileService.save(dataFile);
-            
             FacesMessage facesMessage = new FacesMessage("ingest failed");
             pushContext.push("/ingest"+dataFile.getOwner().getId(), facesMessage);
             Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure: Sent push notification to the page.");
@@ -1126,7 +1138,7 @@ public class IngestServiceBean {
             dataFile = fileService.save(dataFile);
             FacesMessage facesMessage = new FacesMessage("ingest failed");
             pushContext.push("/ingest"+dataFile.getOwner().getId(), facesMessage);
-            Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure (No file produced): Sent push notification to the page.");
+            logger.info("Ingest failure (No file produced); Sent push notification to the page.");
             return false; 
             //throw new IOException("Could not open temp file "+tempFileLocation);
         }
@@ -1146,7 +1158,7 @@ public class IngestServiceBean {
             dataFile = fileService.save(dataFile);
             FacesMessage facesMessage = new FacesMessage("ingest failed");
             pushContext.push("/ingest"+dataFile.getOwner().getId(), facesMessage);
-            Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure (IO Exception): "+ingestEx.getMessage()+ "; Sent push notification to the page.");
+            logger.info("Ingest failure (IO Exception): "+ingestEx.getMessage()+ "; Sent push notification to the page.");
             return false;
         } catch (Exception unknownEx) {
             // this is a bit of a kludge, to make sure no unknown exceptions are
@@ -1162,7 +1174,7 @@ public class IngestServiceBean {
             dataFile = fileService.save(dataFile);
             FacesMessage facesMessage = new FacesMessage("ingest failed");
             pushContext.push("/ingest"+dataFile.getOwner().getId(), facesMessage);
-            Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure (Unknown Exception): "+unknownEx.getMessage()+"; Sent push notification to the page.");
+            logger.info("Ingest failure (Unknown Exception): "+unknownEx.getMessage()+"; Sent push notification to the page.");
             return false;
             
         }
@@ -1209,17 +1221,8 @@ public class IngestServiceBean {
                     dataFile = fileService.save(dataFile);
                     FacesMessage facesMessage = new FacesMessage("ingest done");
                     pushContext.push("/ingest" + dataFile.getOwner().getId(), facesMessage);
-                    Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest (" + dataFile.getFileMetadata().getDescription() + "); sent push notification to the page.");
+                    logger.info("Ingest (" + dataFile.getFileMetadata().getDescription() + "); Sent push notification to the page.");
 
-                //try {
-                    //} catch (IOException sumStatEx) {
-                    //    dataFile.SetIngestProblem();
-                    //    dataFile = fileService.save(dataFile);
-                    //    FacesMessage facesMessage = new FacesMessage("ingest failed");
-                    //    pushContext.push("/ingest"+dataFile.getOwner().getId(), facesMessage);
-                    //    Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure: Sent push notification to the page.");
-                    //    throw new IOException ("Ingest: failed to calculate summary statistics. "+sumStatEx.getMessage());
-                    //}
                     ingestSuccessful = true;
                 }
             } else {
@@ -1238,9 +1241,8 @@ public class IngestServiceBean {
             dataFile.setIngestReport(errorReport);
             
             dataFile = fileService.save(dataFile);
-            FacesMessage facesMessage = new FacesMessage("ingest failed");
-            pushContext.push("/ingest" + dataFile.getOwner().getId(), facesMessage);
-            Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure: post-ingest tasks. Sent push notification to the page.");
+            
+            logger.info("Ingest failure: post-ingest tasks. Sent push notification to the page.");
         } catch (Exception unknownEx) {
             // this probably means that an error occurred while saving the datafile
             // in the database. 
@@ -1271,7 +1273,7 @@ public class IngestServiceBean {
                 ////}
                 FacesMessage facesMessage = new FacesMessage("ingest failed");
                 pushContext.push("/ingest" + dataFile.getOwner().getId(), facesMessage);
-                logger.info("Sent push notification to the page.");
+                logger.info("Unknown excepton saving ingested file; Sent push notification to the page.");
             } else {
                 // ??
             }
@@ -1756,7 +1758,7 @@ public class IngestServiceBean {
         Set<Integer> contVarFields = new LinkedHashSet<Integer>();
 
         for (int i = 0; i < dataFile.getDataTable().getVarQuantity(); i++) {
-            if ("continuous".equals(dataFile.getDataTable().getDataVariables().get(i).getVariableIntervalType().getName())) {
+            if (dataFile.getDataTable().getDataVariables().get(i).isIntervalContinuous()) {
                 contVarFields.add(i);
             }
         }
@@ -1807,8 +1809,8 @@ public class IngestServiceBean {
         
         for (int j = 0; j < variableService.summaryStatisticTypes.length; j++) {
             SummaryStatistic ss = new SummaryStatistic();
-            ss.setType(variableService.findSummaryStatisticTypeByName(variableService.summaryStatisticTypes[j]));
-            if (!"mode".equals(variableService.summaryStatisticTypes[j])) {
+            ss.setTypeByLabel(variableService.summaryStatisticTypes[j]);
+            if (!ss.isTypeMode()) {
                 ss.setValue((new Double(sumStats[j])).toString());
             } else {
                 ss.setValue(".");
@@ -1856,7 +1858,7 @@ public class IngestServiceBean {
         
         if ("time".equals(dataFile.getDataTable().getDataVariables().get(varnum).getFormatCategory())) {
             dateFormats = new String[dataVector.length];
-            String savedDateTimeFormat = dataFile.getDataTable().getDataVariables().get(varnum).getFormatSchemaName();
+            String savedDateTimeFormat = dataFile.getDataTable().getDataVariables().get(varnum).getFormat();
             String timeFormat = null;
             if (savedDateTimeFormat != null && !savedDateTimeFormat.equals("")) {
                 timeFormat = savedDateTimeFormat;
@@ -1915,7 +1917,7 @@ public class IngestServiceBean {
             }
         } else if ("date".equals(dataFile.getDataTable().getDataVariables().get(varnum).getFormatCategory())) {
             dateFormats = new String[dataVector.length];
-            String savedDateFormat = dataFile.getDataTable().getDataVariables().get(varnum).getFormatSchemaName();
+            String savedDateFormat = dataFile.getDataTable().getDataVariables().get(varnum).getFormat();
             for (int i = 0; i < dataVector.length; i++) {
                 if (dataVector[i] != null) {
                     if (savedDateFormat != null && !savedDateFormat.equals("")) {
@@ -2026,10 +2028,10 @@ public class IngestServiceBean {
                     for (int i = 0; i < dataTable.getVarQuantity(); i++) {
                         String vartype = "";
                         
-                        if ("continuous".equals(dataTable.getDataVariables().get(i).getVariableIntervalType().getName())) {
+                        if (dataTable.getDataVariables().get(i).isIntervalContinuous()) {
                             vartype = "numeric-continuous";
                         } else {
-                            if ("numeric".equals(dataTable.getDataVariables().get(i).getVariableFormatType().getName())) {
+                            if (dataTable.getDataVariables().get(i).isTypeNumeric()) {
                                 vartype = "numeric-discrete";
                             } else {
                                 vartype = "character";

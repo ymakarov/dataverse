@@ -1,25 +1,32 @@
 package edu.harvard.iq.dataverse.api;
 
+import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.search.SearchFields;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
+import edu.harvard.iq.dataverse.DvObject;
+import edu.harvard.iq.dataverse.DvObjectServiceBean;
 import edu.harvard.iq.dataverse.FacetCategory;
 import edu.harvard.iq.dataverse.FacetLabel;
+import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.SolrSearchResult;
 import edu.harvard.iq.dataverse.SearchServiceBean;
 import edu.harvard.iq.dataverse.SolrQueryResponse;
 import edu.harvard.iq.dataverse.authorization.users.User;
+import edu.harvard.iq.dataverse.search.DvObjectSolrDoc;
+import edu.harvard.iq.dataverse.search.SolrIndexServiceBean;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.ejb.EJBException;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Response;
 
 @Path("search")
 public class Search extends AbstractApiBean {
@@ -30,12 +37,13 @@ public class Search extends AbstractApiBean {
     SearchServiceBean searchService;
     @EJB
     DataverseServiceBean dataverseService;
+    @EJB
+    DvObjectServiceBean dvObjectService;
+    @EJB
+    SolrIndexServiceBean SolrIndexService;
 
     @GET
-    /**
-     * @todo return errorResponse not error, which is a String.
-     */
-    public String search(@QueryParam("key") String apiToken,
+    public Response search(@QueryParam("key") String apiToken,
             @QueryParam("q") String query,
             @QueryParam("fq") final List<String> filterQueries,
             @QueryParam("sort") String sortField,
@@ -57,14 +65,13 @@ public class Search extends AbstractApiBean {
                 if (apiToken != null) {
                     dataverseUser = findUserByApiToken(apiToken);
                     if (dataverseUser == null) {
-                        /**
-                         * @todo return a 404 here
-                         */
-                        return error("Unable to find a user with API token " + apiToken);
+                        String message = "Unable to find a user with API token provided.";
+                        return errorResponse(Response.Status.FORBIDDEN, message);
                     }
                 }
-                SearchServiceBean.PublishedToggle publishedToggle = SearchServiceBean.PublishedToggle.PUBLISHED;
-                solrQueryResponse = searchService.search(dataverseUser, dataverseService.findRootDataverse(), query, filterQueries, sortField, sortOrder, paginationStart, publishedToggle);
+                boolean dataRelatedToMe = false;
+                int numResultsPerPage = 10;
+                solrQueryResponse = searchService.search(dataverseUser, dataverseService.findRootDataverse(), query, filterQueries, sortField, sortOrder, paginationStart, dataRelatedToMe, numResultsPerPage);
             } catch (EJBException ex) {
                 Throwable cause = ex;
                 StringBuilder sb = new StringBuilder();
@@ -77,7 +84,7 @@ public class Search extends AbstractApiBean {
                 }
                 String message = "Exception running search for [" + query + "] with filterQueries " + filterQueries + " and paginationStart [" + paginationStart + "]: " + sb.toString();
                 logger.info(message);
-                return Util.message2ApiError(message);
+                return errorResponse(Response.Status.INTERNAL_SERVER_ERROR, message);
             }
 
             JsonArrayBuilder itemsArrayBuilder = Json.createArrayBuilder();
@@ -137,23 +144,104 @@ public class Search extends AbstractApiBean {
                 value.add("facets", facets);
             }
             if (solrQueryResponse.getError() != null) {
-                value.add("error", solrQueryResponse.getError());
+                /**
+                 * @todo You get here if you pass only ":" as a query, for
+                 * example. Should we return more or better information?
+                 */
+                return errorResponse(Response.Status.BAD_REQUEST, solrQueryResponse.getError());
             }
-            return Util.jsonObject2prettyString(value.build());
+            return okResponse(value);
         } else {
-            /**
-             * @todo use Util.message2ApiError() instead
-             */
-            JsonObject value = Json.createObjectBuilder()
-                    .add("message", "Validation Failed")
-                    .add("documentation_url", "http://thedata.org")
-                    .add("errors", Json.createArrayBuilder()
-                            .add(Json.createObjectBuilder()
-                                    .add("field", "q")
-                                    .add("code", "missing")))
-                    .build();
-            logger.info("value: " + value);
-            return value.toString();
+            return errorResponse(Response.Status.BAD_REQUEST, "q parameter is missing");
         }
     }
+
+    /**
+     * This method is for integration tests of search and should be disabled
+     * with the boolean within it before release.
+     */
+    @GET
+    @Path("test")
+    public Response searchDebug(
+            @QueryParam("key") String apiToken,
+            @QueryParam("q") String query,
+            @QueryParam("fq") final List<String> filterQueries) {
+
+        boolean searchTestMethodDisabled = false;
+        if (searchTestMethodDisabled) {
+            return errorResponse(Response.Status.BAD_REQUEST, "disabled");
+        }
+
+        User user = findUserByApiToken(apiToken);
+        if (user == null) {
+            return errorResponse(Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiToken + "'");
+        }
+
+        Dataverse subtreeScope = dataverseService.findRootDataverse();
+
+        String sortField = SearchFields.ID;
+        String sortOrder = "asc";
+        int paginationStart = 0;
+        boolean dataRelatedToMe = false;
+        int numResultsPerPage = Integer.MAX_VALUE;
+        SolrQueryResponse solrQueryResponse = searchService.search(user, subtreeScope, query, filterQueries, sortField, sortOrder, paginationStart, dataRelatedToMe, numResultsPerPage);
+
+        JsonArrayBuilder itemsArrayBuilder = Json.createArrayBuilder();
+        List<SolrSearchResult> solrSearchResults = solrQueryResponse.getSolrSearchResults();
+        for (SolrSearchResult solrSearchResult : solrSearchResults) {
+            itemsArrayBuilder.add(solrSearchResult.getType() + ":" + solrSearchResult.getNameSort());
+        }
+
+        return okResponse(itemsArrayBuilder);
+    }
+
+    /**
+     * This method is for integration tests of search and should be disabled
+     * with the boolean within it before release.
+     */
+    @GET
+    @Path("perms")
+    public Response searchPerms(
+            @QueryParam("key") String apiToken,
+            @QueryParam("id") Long dvObjectId) {
+
+        boolean searchTestMethodDisabled = false;
+        if (searchTestMethodDisabled) {
+            return errorResponse(Response.Status.BAD_REQUEST, "disabled");
+        }
+
+        User user = findUserByApiToken(apiToken);
+        if (user == null) {
+            return errorResponse(Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiToken + "'");
+        }
+
+        List<DvObjectSolrDoc> solrDocs = SolrIndexService.determineSolrDocs(dvObjectId);
+
+        JsonObjectBuilder data = Json.createObjectBuilder();
+
+        JsonArrayBuilder permissionsData = Json.createArrayBuilder();
+
+        for (DvObjectSolrDoc solrDoc : solrDocs) {
+            JsonObjectBuilder dataDoc = Json.createObjectBuilder();
+            dataDoc.add(SearchFields.ID, solrDoc.getSolrId());
+            dataDoc.add(SearchFields.NAME_SORT, solrDoc.getNameOrTitle());
+            JsonArrayBuilder perms = Json.createArrayBuilder();
+            for (String perm : solrDoc.getPermissions()) {
+                perms.add(perm);
+            }
+            permissionsData.add(dataDoc);
+        }
+        data.add("perms", permissionsData);
+
+        DvObject dvObject = dvObjectService.findDvObject(dvObjectId);
+        Set<RoleAssignment> roleAssignments = rolesSvc.rolesAssignments(dvObject);
+        JsonArrayBuilder roleAssignmentsData = Json.createArrayBuilder();
+        for (RoleAssignment roleAssignment : roleAssignments) {
+            roleAssignmentsData.add(roleAssignment.getRole() + " has been granted to " + roleAssignment.getAssigneeIdentifier() + " on " + roleAssignment.getDefinitionPoint());
+        }
+        data.add("roleAssignments", roleAssignmentsData);
+
+        return okResponse(data);
+    }
+
 }

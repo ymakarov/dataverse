@@ -5,6 +5,7 @@
  */
 package edu.harvard.iq.dataverse;
 
+import edu.harvard.iq.dataverse.api.Datasets;
 import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseThemeCommand;
@@ -16,17 +17,20 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.logging.Logger;
 import javax.annotation.PreDestroy;
 import javax.ejb.EJB;
 import javax.faces.application.FacesMessage;
 import javax.faces.component.UIComponent;
+import javax.faces.component.html.HtmlInputText;
 import javax.faces.context.FacesContext;
 import javax.faces.validator.ValidatorException;
 import javax.faces.view.ViewScoped;
 import javax.inject.Inject;
 import javax.inject.Named;
+
 import org.apache.commons.lang.StringUtils;
-import org.primefaces.component.tabview.TabView;
+import org.primefaces.context.RequestContext;
 
 import org.primefaces.event.FileUploadEvent;
 import org.primefaces.model.UploadedFile;
@@ -42,37 +46,39 @@ public class ThemeWidgetFragment implements java.io.Serializable {
     static final String DEFAULT_BACKGROUND_COLOR = "F5F5F5";
     static final String DEFAULT_LINK_COLOR = "428BCA";
     static final String DEFAULT_TEXT_COLOR = "888888";
-     
+    private static final Logger logger = Logger.getLogger(ThemeWidgetFragment.class.getCanonicalName());   
     @Inject DataversePage dataversePage;
     private File tempDir;
     private File uploadedFile;
     private Dataverse editDv;
-    private TabView tabView;
+    private HtmlInputText linkUrlInput;
+    private HtmlInputText linkTextInput;
+ 
       @Inject
     DataverseSession session;
     @EJB
     EjbDataverseEngine commandEngine;
     @EJB
     DataverseServiceBean dataverseServiceBean;
-    /**
-     *     create tempDir, needs to be under docroot so that uploaded image is accessible in the page
-     */
-  
-    private boolean testVal;
 
-    public boolean isTestVal() {
-        System.out.println("getting testVal: "+testVal);
-        return testVal;
+    public HtmlInputText getLinkUrlInput() {
+        return linkUrlInput;
     }
 
-    public void setTestVal(boolean testVal) {
-        System.out.println("setting testVal: "+testVal);
-        this.testVal = testVal;
+    public void setLinkUrlInput(HtmlInputText linkUrlInput) {
+        this.linkUrlInput = linkUrlInput;
     }
-    
-    public void testValListener(javax.faces.event.AjaxBehaviorEvent event) throws javax.faces.event.AbortProcessingException {
-        System.out.println("listener clicked, testVal: "+testVal);
+
+    public HtmlInputText getLinkTextInput() {
+        return linkTextInput;
     }
+
+    public void setLinkTextInput(HtmlInputText linkTextInput) {
+        this.linkTextInput = linkTextInput;
+    }
+   
+ 
+   
     
     private  void createTempDir() {
           try {
@@ -104,8 +110,9 @@ public class ThemeWidgetFragment implements java.io.Serializable {
     }
     
     public void checkboxListener() {
-        System.out.println("checkbox clicked, themeRoot value: "+editDv.getThemeRoot());
+        // not sure if this is needed for the ajax component
     }
+   
 
     public void initEditDv(Long dataverseId) {
         editDv = dataverseServiceBean.find(dataverseId);
@@ -116,9 +123,7 @@ public class ThemeWidgetFragment implements java.io.Serializable {
             editDv.setDataverseTheme(initDataverseTheme());
             
         }
-        // When you open the popup, the first tab (widgets) should be active
-        tabView.setActiveIndex(0);
-    }
+     }
     
     private DataverseTheme initDataverseTheme() {
         DataverseTheme dvt = new DataverseTheme();
@@ -138,14 +143,25 @@ public class ThemeWidgetFragment implements java.io.Serializable {
       
           
     }
+    public void validateTagline(FacesContext context, UIComponent component, Object value) throws ValidatorException {
 
+        if (!StringUtils.isEmpty((String) value) && !StringUtils.isAlphanumericSpace((String) value)) {
+
+            FacesMessage msg
+                    = new FacesMessage("Tagline may only contain alphanumeric characters.");
+            msg.setSeverity(FacesMessage.SEVERITY_ERROR);
+
+            throw new ValidatorException(msg);
+        }
+
+    }
+    
 public void validateUrl(FacesContext context, UIComponent component, Object value) throws ValidatorException {
     try {
         if (!StringUtils.isEmpty((String)value)){
             URL test = new URL((String)value);
         }
     } catch(MalformedURLException e) {
-        System.out.println("url validation failed.");
         FacesMessage msg =
               new FacesMessage(" URL validation failed.",
               "Please provide URL.");
@@ -155,13 +171,7 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
     }
     
   }
-    public TabView getTabView() {
-        return tabView;
-    }
-
-    public void setTabView(TabView tabView) {
-        this.tabView = tabView;
-    }
+   
     
     public String getTempDirName() {
         if (tempDir!=null) {
@@ -179,9 +189,11 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
      * Copy filename into Dataverse logo 
      * @param event 
      */
-    public void handleImageFileUpload(FileUploadEvent event) {
+        public void handleImageFileUpload(FileUploadEvent event) {
+            logger.finer("entering fileUpload");
             if (this.tempDir==null) {
                 createTempDir();
+                logger.finer("created tempDir");
             }
             UploadedFile uFile = event.getFile();
         try {         
@@ -189,19 +201,21 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
             if (!uploadedFile.exists()) {
                 uploadedFile.createNewFile();
             }
+            logger.finer("created file");
             Files.copy(uFile.getInputstream(), uploadedFile.toPath(),StandardCopyOption.REPLACE_EXISTING);
+            logger.finer("copied inputstream to file");
             editDv.getDataverseTheme().setLogo(uFile.getFileName());
 
         } catch (IOException e) {
+            logger.finer("caught IOException");
+            logger.throwing("ThemeWidgetFragment", "handleImageFileUpload", e);
             throw new RuntimeException("Error uploading logo file", e); // improve error handling
         }
         // If needed, set the default values for the logo
         if (editDv.getDataverseTheme().getLogoFormat()==null) {
             editDv.getDataverseTheme().setLogoFormat(DataverseTheme.ImageFormat.SQUARE);
         }
-        // Set the active index, so that Theme tab will still display after upload
-        tabView.setActiveIndex(0);
-
+        logger.finer("end handelImageFileUpload");
     }
     
     public void removeLogo() {
@@ -212,12 +226,10 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
 
     public boolean getInheritCustomization() {
         boolean inherit= editDv==null ? true : !editDv.getThemeRoot();
-        System.out.println("returning inherit: "+inherit);
-        return inherit;
+         return inherit;
     }
     
     public void setInheritCustomization(boolean inherit) {
-        System.out.println("setting inherit : "+inherit+", themeRoot = "+!inherit);
         editDv.setThemeRoot(!inherit);
         if (!inherit) {
             if (editDv.getDataverseTheme(true)==null) {
@@ -225,6 +237,16 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
             }
         }
     }
+    public void resetForm() {
+        RequestContext context = RequestContext.getCurrentInstance();
+        context.reset(":dataverseForm:themeWidgetsTabView");
+    }
+    
+    public void cancel() {
+        
+    }
+    
+    
 
     public void save() {
         // If this Dv isn't the root, delete the uploaded file and remove theme
@@ -242,9 +264,10 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
             JH.addMessage(FacesMessage.SEVERITY_ERROR, ex.getMessage());          
         }
         this.cleanupTempDirectory();
-        
+        this.editDv=null;
     }
-}
+    
+ }
 
 
 

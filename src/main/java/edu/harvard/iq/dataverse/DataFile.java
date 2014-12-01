@@ -52,6 +52,8 @@ public class DataFile extends DvObject {
     @Column(nullable=true)
     private Long filesize;      // Number of bytes in file.  Allows 0 and null, negative numbers not permitted
 
+    private boolean restricted;
+    
     /*
         Tabular (formerly "subsettable") data files have DataTable objects
         associated with them:
@@ -88,7 +90,12 @@ public class DataFile extends DvObject {
         this.contentType = contentType;
         this.fileMetadatas = new ArrayList<>();
     }    
-
+    
+    @Override
+    public boolean isEffectivelyPermissionRoot() {
+        return false;
+    }
+    
     public List<DataTable> getDataTables() {
         return dataTables;
     }
@@ -252,6 +259,10 @@ public class DataFile extends DvObject {
      * @return value of property filesize.
      */
     public long getFilesize() {
+        if (this.filesize == null) {
+            // -1 means "unknown"
+            return -1;
+        } 
         return this.filesize;
     }
 
@@ -267,6 +278,22 @@ public class DataFile extends DvObject {
             return;
         }
        this.filesize = filesize;
+    }
+
+    /**
+     * Converts the stored size of the file in bytes to 
+     * a user-friendly value in KB, MB or GB.
+     */
+    public String getFriendlySize() {
+        return FileUtil.getFriendlySize(filesize);
+    }
+
+    public boolean isRestricted() {
+        return restricted;
+    }
+
+    public void setRestricted(boolean restricted) {
+        this.restricted = restricted;
     }
 
 

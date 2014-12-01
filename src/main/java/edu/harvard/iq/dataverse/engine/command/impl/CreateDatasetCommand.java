@@ -4,6 +4,7 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetVersionUser;
 import edu.harvard.iq.dataverse.DatasetField;
+import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
 import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.authorization.Permission;
@@ -12,6 +13,8 @@ import edu.harvard.iq.dataverse.engine.command.AbstractCommand;
 import edu.harvard.iq.dataverse.engine.command.CommandContext;
 import edu.harvard.iq.dataverse.engine.command.RequiredPermissions;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
+import edu.harvard.iq.dataverse.engine.command.exception.IllegalCommandException;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.sql.Timestamp;
 import java.util.Date;
 import java.util.EnumSet;
@@ -27,24 +30,40 @@ import java.util.logging.Logger;
  */
 @RequiredPermissions(Permission.AddDataset)
 public class CreateDatasetCommand extends AbstractCommand<Dataset> {
-
+    
     private static final Logger logger = Logger.getLogger(CreateDatasetCommand.class.getCanonicalName());
 
     private final Dataset theDataset;
+    private final boolean registrationRequired;
 
     public CreateDatasetCommand(Dataset theDataset, User user) {
         super(user, theDataset.getOwner());
         this.theDataset = theDataset;
+        this.registrationRequired = false;
     }
 
+    public CreateDatasetCommand(Dataset theDataset, User user, boolean registrationRequired) {
+        super(user, theDataset.getOwner());
+        this.theDataset = theDataset;
+        this.registrationRequired = registrationRequired;
+    }
+    
     @Override
     public Dataset execute(CommandContext ctxt) throws CommandException {
-        // add creator and create date to dataset
+        
+        // Test for duplicate identifier
+        if (!ctxt.datasets().isUniqueIdentifier(theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()) ) {
+            throw new IllegalCommandException(String.format("Dataset with identifier '%s', protocol '%s' and authority '%s' already exists",
+                                                             theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority()),
+                                                this);
+        }
         
         // FIXME - need to revisit this. Either
         // theDataset.setCreator(getUser());
+        // if, at all, we decide to keep it.
         
         theDataset.setCreateDate(new Timestamp(new Date().getTime()));
+        
         Iterator<DatasetField> dsfIt = theDataset.getEditVersion().getDatasetFields().iterator();
         while (dsfIt.hasNext()) {
             if (dsfIt.next().removeBlankDatasetFieldValues()) {
@@ -55,23 +74,33 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         while (dsfItSort.hasNext()) {
             dsfItSort.next().setValueDisplayOrder();
         }
-        Date createDate = new Timestamp(new Date().getTime());
+        Timestamp createDate = new Timestamp(new Date().getTime());
         theDataset.getEditVersion().setCreateTime(createDate);
         theDataset.getEditVersion().setLastUpdateTime(createDate);
+        theDataset.setModificationTime(createDate);
         for (DataFile dataFile: theDataset.getFiles() ){
             dataFile.setCreateDate(theDataset.getCreateDate());
         }
+        
+        String nonNullDefaultIfKeyNotFound = "";
+        String    protocol = ctxt.settings().getValueForKey(SettingsServiceBean.Key.Protocol, nonNullDefaultIfKeyNotFound);
+        String    doiProvider = ctxt.settings().getValueForKey(SettingsServiceBean.Key.DoiProvider, nonNullDefaultIfKeyNotFound);
+        if (protocol.equals("doi") 
+              && doiProvider.equals("EZID") && theDataset.getGlobalIdCreateTime() == null) {
+            String doiRetString = ctxt.doiEZId().createIdentifier(theDataset);
+            if (doiRetString.contains(theDataset.getIdentifier())) {
+                theDataset.setGlobalIdCreateTime(createDate);
+            } 
+        }
+        
+        if (registrationRequired && theDataset.getGlobalIdCreateTime() == null) {
+            throw new IllegalCommandException("Dataset could not be created.  Registration failed", this);
+               }
               
         Dataset savedDataset = ctxt.em().merge(theDataset);
-                
-        DataverseRole manager = new DataverseRole();
-        manager.addPermissions(EnumSet.allOf(Permission.class));
-        manager.setAlias("manager");
-        manager.setName("Dataset Manager");
-        manager.setDescription("Auto-generated role for the creator of this dataset");
-        manager.setOwner(savedDataset);
-        ctxt.roles().save(manager);
-        ctxt.roles().save(new RoleAssignment(manager, getUser(), savedDataset));
+        
+        // set the role to be default contributor role for its dataverse
+        ctxt.roles().save(new RoleAssignment(savedDataset.getOwner().getDefaultContributorRole(), getUser(), savedDataset));
         
         try {
             // TODO make async

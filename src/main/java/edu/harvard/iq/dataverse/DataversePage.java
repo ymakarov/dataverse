@@ -5,7 +5,6 @@
  */
 package edu.harvard.iq.dataverse;
 
-import edu.harvard.iq.dataverse.PermissionServiceBean.PermissionQuery;
 import edu.harvard.iq.dataverse.UserNotification.Type;
 import edu.harvard.iq.dataverse.authorization.Permission;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
@@ -15,17 +14,16 @@ import edu.harvard.iq.dataverse.engine.command.impl.CreateDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.DeleteDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.PublishDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseCommand;
+import edu.harvard.iq.dataverse.util.JsfHelper;
 import static edu.harvard.iq.dataverse.util.JsfHelper.JH;
 import java.util.List;
 import javax.ejb.EJB;
-import javax.ejb.EJBException;
 import javax.faces.application.FacesMessage;
 import javax.faces.context.FacesContext;
 import javax.faces.event.ActionEvent;
 import javax.faces.view.ViewScoped;
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.persistence.NoResultException;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 import javax.faces.component.UIComponent;
@@ -33,7 +31,9 @@ import javax.faces.component.UIInput;
 import org.primefaces.model.DualListModel;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import javax.ejb.EJBException;
 import javax.faces.model.SelectItem;
+import org.apache.commons.lang.StringUtils;
 
 /**
  *
@@ -112,19 +112,30 @@ public class DataversePage implements java.io.Serializable {
 //        this.treeWidgetRootNode = treeWidgetRootNode;
 //    }
     public String init() {
-        // FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO,"Create Root Dataverse", " - To get started, you need to create your root dataverse."));  
-        if (dataverse.getAlias() != null){
-            dataverse = dataverseService.findByAlias(dataverse.getAlias());
-        }
-        if (dataverse.getId() != null) { // view mode for a dataverse           
-            dataverse = dataverseService.find(dataverse.getId());
+        if (dataverse.getAlias() != null || dataverse.getId() != null || ownerId == null  ){// view mode for a dataverse
+            if (dataverse.getAlias() != null) {
+                dataverse = dataverseService.findByAlias(dataverse.getAlias());
+            } else if (dataverse.getId() != null) {        
+                dataverse = dataverseService.find(dataverse.getId());
+            } else {
+                try {
+                    dataverse = dataverseService.findRootDataverse(); 
+                } catch (EJBException e) {
+                    // @todo handle case with no root dataverse (a fresh installation) with message about using API to create the root 
+                    dataverse = null;
+                }
+            }
+
+            // check if dv exists and user has permission
             if (dataverse == null) {
                 return "/404.xhtml";
-            } else if (!dataverse.isReleased() && !permissionService.on(dataverse).has(Permission.Discover)) {
+            }
+            if (!dataverse.isReleased() && !permissionService.on(dataverse).has(Permission.ViewUnpublishedDataverse)) {
                 return "/loginpage.xhtml" + DataverseHeaderFragment.getRedirectPage();
-            }            
+            } 
+            
             ownerId = dataverse.getOwner() != null ? dataverse.getOwner().getId() : null;
-        } else if (ownerId != null) { // create mode for a new child dataverse
+        } else { // ownerId != null; create mode for a new child dataverse
             editMode = EditMode.INFO;
             dataverse.setOwner(dataverseService.find(ownerId));
             if (dataverse.getOwner() == null) {
@@ -136,9 +147,6 @@ public class DataversePage implements java.io.Serializable {
             dataverse.setAffiliation(session.getUser().getDisplayInfo().getAffiliation());
             dataverse.setFacetRoot(false);
             // FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Create New Dataverse", " - Create a new dataverse that will be a child dataverse of the parent you clicked from. Asterisks indicate required fields."));
-        } else { // view mode for root dataverse)
-            dataverse = dataverseService.findRootDataverse();            
-            // @todo handle case with no root dataverse (a fresh installation) with message about using API to create the root
         }
 
         List<DatasetFieldType> facetsSource = new ArrayList<>();
@@ -366,12 +374,19 @@ public class DataversePage implements java.io.Serializable {
             dataverse.setMetadataBlocks(selectedBlocks);
         }
         
+        if(!dataverse.isFacetRoot()){
+            facets.getTarget().clear();
+        }
+        
         Command<Dataverse> cmd = null;
         //TODO change to Create - for now the page is expecting INFO instead.
+        Boolean create;
         if (dataverse.getId() == null) {
             dataverse.setOwner(ownerId != null ? dataverseService.find(ownerId) : null);
+            create = Boolean.TRUE;
             cmd = new CreateDataverseCommand(dataverse, session.getUser(), facets.getTarget(), listDFTIL);
         } else {
+            create=Boolean.FALSE;
             cmd = new UpdateDataverseCommand(dataverse, facets.getTarget(), featuredDataverses.getTarget(), session.getUser(), listDFTIL);
         }
 
@@ -385,7 +400,9 @@ public class DataversePage implements java.io.Serializable {
             JH.addMessage(FacesMessage.SEVERITY_ERROR, ex.getMessage());
             return null;
         }
-
+        String msg = (create)? "You have successfully created your dataverse.": "You have successfully updated your dataverse.";
+        JsfHelper.addSuccessMessage(msg);
+        
         return "/dataverse.xhtml?id=" + dataverse.getId() + "&faces-redirect=true";
     }
 
@@ -567,22 +584,25 @@ public class DataversePage implements java.io.Serializable {
 
 
     public void validateAlias(FacesContext context, UIComponent toValidate, Object value) {
-        String alias = (String) value;
-        boolean aliasFound = false;
-        Dataverse dv = dataverseService.findByAlias(alias);
-        if (editMode == DataversePage.EditMode.CREATE) {
-            if (dv != null) {
-                aliasFound = true;
+        if (!StringUtils.isEmpty((String)value)) {
+            String alias = (String) value;
+
+            boolean aliasFound = false;
+            Dataverse dv = dataverseService.findByAlias(alias);
+            if (editMode == DataversePage.EditMode.CREATE) {
+                if (dv != null) {
+                    aliasFound = true;
+                }
+            } else {
+                if (dv != null && !dv.getId().equals(dataverse.getId())) {
+                    aliasFound = true;
+                }
             }
-        } else {
-            if (dv != null && !dv.getId().equals(dataverse.getId())) {
-                aliasFound = true;
+            if (aliasFound) {
+                ((UIInput) toValidate).setValid(false);
+                FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_ERROR, "alias", "This Alias is already taken.");
+                context.addMessage(toValidate.getClientId(context), message);
             }
-        }
-        if (aliasFound) {
-            ((UIInput) toValidate).setValid(false);
-            FacesMessage message = new FacesMessage("This Alias is already taken.");
-            context.addMessage(toValidate.getClientId(context), message);
         }
     }
 

@@ -30,8 +30,8 @@ public class CreateDataverseCommand extends AbstractCommand<Dataverse> {
     private final List<DataverseFieldTypeInputLevel> inputLevelList;
     private final List<DatasetFieldType> facetList;
 
-    public CreateDataverseCommand(Dataverse created, 
-       User aUser, List<DatasetFieldType> facetList, List<DataverseFieldTypeInputLevel> inputLevelList) {
+    public CreateDataverseCommand(Dataverse created,
+            User aUser, List<DatasetFieldType> facetList, List<DataverseFieldTypeInputLevel> inputLevelList) {
         super(aUser, created.getOwner());
         this.created = created;
         if (facetList != null) {
@@ -55,11 +55,10 @@ public class CreateDataverseCommand extends AbstractCommand<Dataverse> {
             }
         }
 
-		if ( created.getCreateDate() == null )  {
-			created.setCreateDate( new Timestamp(new Date().getTime()) );
+        if (created.getCreateDate() == null) {
+            created.setCreateDate(new Timestamp(new Date().getTime()));
         }
-        // By default, themeRoot should be true
-        created.setThemeRoot(true);
+        
         if (created.getCreator() == null) {
             // FIXME Is the "creator" concept being carried over from 3.x?
 //			created.setCreator(getUser());
@@ -68,28 +67,25 @@ public class CreateDataverseCommand extends AbstractCommand<Dataverse> {
         if (created.getDataverseType() == null) {
             created.setDataverseType(Dataverse.DataverseType.UNCATEGORIZED);
         }
+        
+        if (created.getDefaultContributorRole() == null) {
+            created.setDefaultContributorRole(ctxt.roles().findBuiltinRoleByAlias(DataverseRole.EDITOR));
+        }
+        
+        // By default, themeRoot should be true
+        created.setThemeRoot(true);
+        // @todo for now we are saying all dataverses are permission root
+        created.setPermissionRoot(true);
 
         // Save the dataverse
         Dataverse managedDv = ctxt.dataverses().save(created);
 
-		// Create the manager role and assign it to the creator. This can't be done using commands,
-        // as no one is allowed to do anything on the newly created dataverse yet.
-        // TODO this can be optimized out if the creating user has full permissions
-        // on the parent dv, and the created dv is not a permission root.
-        DataverseRole managerRole = new DataverseRole();
-	managerRole.addPermissions( EnumSet.allOf(Permission.class) );
+        // Find the built in admin role (currently by alias)
+        DataverseRole adminRole = ctxt.roles().findBuiltinRoleByAlias(DataverseRole.ADMIN);
+        ctxt.roles().save(new RoleAssignment(adminRole, getUser(), managedDv));
 
-        managerRole.setAlias("manager");
-        managerRole.setName("Dataverse Manager");
-        managerRole.setDescription("Auto-generated role for the creator of this dataverse");
-        managerRole.setOwner(managedDv);
-
-        ctxt.roles().save(managerRole);
-
-        ctxt.roles().save(new RoleAssignment(managerRole, getUser(), managedDv));
-        
-        ctxt.index().indexDataverse(managedDv);  
-       if (facetList != null) {
+        ctxt.index().indexDataverse(managedDv);
+        if (facetList != null) {
             ctxt.facets().deleteFacetsFor(managedDv);
             int i = 0;
             for (DatasetFieldType df : facetList) {

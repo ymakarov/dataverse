@@ -1,7 +1,8 @@
 package edu.harvard.iq.dataverse;
 
-import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUser;
+import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.Objects;
 import javax.persistence.*;
 
@@ -24,7 +25,7 @@ import javax.persistence.*;
 // dataverse, dataset and datafile. The ids from the main table will be reused
 // in the child tables. (i.e., the id sequences will be "sparse" in the 3 
 // child tables). Tested, appears to be working properly. -- L.A. Nov. 4 2014
-//@Inheritance(strategy=InheritanceType.JOINED)
+@Inheritance(strategy=InheritanceType.JOINED)
 public abstract class DvObject implements java.io.Serializable {
     
     public static final Visitor<String> NamePrinter = new Visitor<String>(){
@@ -58,8 +59,38 @@ public abstract class DvObject implements java.io.Serializable {
     
     private Timestamp createDate;
 
+    @Column(nullable = false)
+    private Timestamp modificationTime;
+
+    private Timestamp indexTime;
+
+    public Timestamp getModificationTime() {
+        return modificationTime;
+    }
+
+    /**
+     * modificationTime is used for comparison with indexTime so we know if the
+     * Solr index is stale.
+     */
+    public void setModificationTime(Timestamp modificationTime) {
+        this.modificationTime = modificationTime;
+    }
+
+    public Timestamp getIndexTime() {
+        return indexTime;
+    }
+
+    /**
+     * indexTime is used for comparison with modificationTime so we know if the
+     * Solr index is stale.
+     */
+    public void setIndexTime(Timestamp indexTime) {
+        this.indexTime = indexTime;
+    }
+
     @ManyToOne
-    private BuiltinUser creator;
+    private AuthenticatedUser creator;
+
 
     public interface Visitor<T> {
         public T visit(Dataverse dv);
@@ -89,6 +120,11 @@ public abstract class DvObject implements java.io.Serializable {
     public void setId(Long id) {
         this.id = id;
     }
+    
+    /**
+     * @return Whether {@code this} takes no permissions from roles assigned on its parents.
+     */
+    public abstract boolean isEffectivelyPermissionRoot();
 
     public Timestamp getPublicationDate() {
         return publicationDate;
@@ -118,11 +154,11 @@ public abstract class DvObject implements java.io.Serializable {
         this.createDate = createDate;
     }
 
-    public BuiltinUser getCreator() {
+    public AuthenticatedUser getCreator() {
         return creator;
     }
 
-    public void setCreator(BuiltinUser creator) {
+    public void setCreator(AuthenticatedUser creator) {
         this.creator = creator;
     }
     
@@ -153,5 +189,27 @@ public abstract class DvObject implements java.io.Serializable {
     }
     
     public abstract String getDisplayName();
+    
+    // helper method used to mimic instanceof on JSF pge
+    public boolean isInstanceofDataverse() {
+        return this instanceof Dataverse;
+    }        
 
+    public boolean isInstanceofDataset() {
+        return this instanceof Dataset;
+    }
+    
+    public boolean isInstanceofDataFile() {
+        return this instanceof DataFile;
+    }
+    
+    public Dataverse getDataverseContext() {
+        if (this instanceof Dataverse) {
+            return (Dataverse) this;
+        } else if (this.getOwner() != null){
+            return this.getOwner().getDataverseContext();
+        }
+        
+        return null;
+    }    
 }

@@ -6,6 +6,7 @@ import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.search.Highlight;
+import edu.harvard.iq.dataverse.util.SystemConfig;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,12 +38,6 @@ import org.apache.solr.client.solrj.response.SpellCheckResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 
-/**
- * @todo stop indexing with curl (commands below)
- */
-//mkdir data
-//curl http://localhost:8080/api/dataverses > data/dataverses.json
-//curl http://localhost:8983/solr/update/json?commit=true -H 'Content-type:application/json' --data-binary @data/dataverses.json
 @Stateless
 @Named
 public class SearchServiceBean {
@@ -55,31 +50,11 @@ public class SearchServiceBean {
     DataverseServiceBean dataverseService;
     @EJB
     AuthenticationServiceBean authSvc;
+    @EJB
+    SystemConfig systemConfig;
 
-    PublishedToggle publishedToggle = PublishedToggle.PUBLISHED;
-
-    /*
-     * @deprecated The Published/Unpublished toggle was an experiment: https://docs.google.com/a/harvard.edu/document/d/1clGJKOmrH8zhQyG_8vQHui5L4fszdqRjM4t3U6NFJXg/edit?usp=sharing
-     */
-    @Deprecated
-    public enum PublishedToggle {
-
-        PUBLISHED, UNPUBLISHED
-    };
-
-    public SolrQueryResponse search(User user, Dataverse dataverse, String query, List<String> filterQueries, String sortField, String sortOrder, int paginationStart, PublishedToggle publishedToggle) {
-        return search(user, dataverse, query, filterQueries, sortField, sortOrder, paginationStart, false);
-    }
-
-    public SolrQueryResponse search(User user, Dataverse dataverse, String query, List<String> filterQueries, String sortField, String sortOrder, int paginationStart, boolean onlyDatatRelatedToMe) {//        if (publishedToggle.equals(PublishedToggle.PUBLISHED)) {//        if (publishedToggle.equals(PublishedToggle.PUBLISHED)) {
-//            filterQueries.add(SearchFields.PUBLICATION_STATUS + ":" + IndexServiceBean.getPUBLISHED_STRING());
-//        } else {
-//            filterQueries.add(SearchFields.PUBLICATION_STATUS + ":" + IndexServiceBean.getUNPUBLISHED_STRING());
-//        }
-        /**
-         * @todo make "localhost" and port number a config option
-         */
-        SolrServer solrServer = new HttpSolrServer("http://localhost:8983/solr");
+    public SolrQueryResponse search(User user, Dataverse dataverse, String query, List<String> filterQueries, String sortField, String sortOrder, int paginationStart, boolean onlyDatatRelatedToMe, int numResultsPerPage) {
+        SolrServer solrServer = new HttpSolrServer("http://" + systemConfig.getSolrHostColonPort() + "/solr");
         SolrQuery solrQuery = new SolrQuery();
         solrQuery.setQuery(query);
 //        SortClause foo = new SortClause("name", SolrQuery.ORDER.desc);
@@ -101,6 +76,7 @@ public class SearchServiceBean {
         solrFieldsToHightlightOnMap.put(SearchFields.VARIABLE_NAME, "Variable Name");
         solrFieldsToHightlightOnMap.put(SearchFields.VARIABLE_LABEL, "Variable Label");
         solrFieldsToHightlightOnMap.put(SearchFields.FILE_TYPE_SEARCHABLE, "File Type");
+        solrFieldsToHightlightOnMap.put(SearchFields.DATASET_PUBLICATION_DATE, "Publication Date");
         /**
          * @todo: show highlight on file card?
          * https://redmine.hmdc.harvard.edu/issues/3848
@@ -127,7 +103,8 @@ public class SearchServiceBean {
             solrQuery.addFilterQuery(filterQuery);
         }
 
-        String publicOnly = "{!join from=" + SearchFields.GROUPS + " to=" + SearchFields.PERMS + "}id:" + IndexServiceBean.getPublicGroupString();
+        String publicOnly = "{!join from=" + SearchFields.DEFINITION_POINT + " to=id}" + SearchFields.DISCOVERABLE_BY + ":(" + IndexServiceBean.getPublicGroupString() + ")";
+//        String publicOnly = "{!join from=" + SearchFields.GROUPS + " to=" + SearchFields.PERMS + "}id:" + IndexServiceBean.getPublicGroupString();
         // initialize to public only to be safe
         String permissionFilterQuery = publicOnly;
         if (user instanceof GuestUser) {
@@ -136,45 +113,60 @@ public class SearchServiceBean {
             // Non-guests might get more than public stuff with an OR or two
             AuthenticatedUser au = (AuthenticatedUser) user;
             solrQuery.addFacetField(SearchFields.PUBLICATION_STATUS);
+
+            /**
+             * @todo all this code needs cleanup and clarification.
+             */
             /**
              * Every AuthenticatedUser is part of a "User Private Group" (UGP),
              * a concept we borrow from RHEL:
              * https://access.redhat.com/site/documentation/en-US/Red_Hat_Enterprise_Linux/6/html/Deployment_Guide/ch-Managing_Users_and_Groups.html#s2-users-groups-private-groups
              */
-            String publicPlusUserPrivateGroup = "("
-                    + (onlyDatatRelatedToMe ? "" : (publicOnly + " OR "))
-                    + "{!join from=" + SearchFields.GROUPS + " to=" + SearchFields.PERMS + "}id:" + IndexServiceBean.getGroupPerUserPrefix() + au.getId() + ")";
             /**
-             * @todo: replace this with a real group... look up the user's
-             * groups (once you can)
+             * @todo rename this from publicPlusUserPrivateGroup. Confusing
              */
-            // Michael - commenting this out, should be impleneted by permissions.
-//                if (dataverseUser.getPosition().equals("Signals Intelligence")) {
-//                    String publicPlusUserPrivateGroupPlusNSA = "("
-//                            + (onlyDatatRelatedToMe ? "" : (publicOnly + " OR "))
-//                            + "{!join from=" + SearchFields.GROUPS + " to=" + SearchFields.PERMS + "}id:" + IndexServiceBean.getGroupPerUserPrefix() + dataverseUser.getId()
-//                            + " OR {!join from=" + SearchFields.GROUPS + " to=" + SearchFields.PERMS + "}id:" + IndexServiceBean.getGroupPrefix() + IndexServiceBean.getTmpNsaGroupId()
-//                            + ")";
-//                    permissionFilterQuery = publicPlusUserPrivateGroupPlusNSA;
-//                } else {
-            // not part of any particular group 
+            // safe default: public only
+            String publicPlusUserPrivateGroup = publicOnly;
+//                    + (onlyDatatRelatedToMe ? "" : (publicOnly + " OR "))
+//                    + "{!join from=" + SearchFields.GROUPS + " to=" + SearchFields.PERMS + "}id:" + IndexServiceBean.getGroupPerUserPrefix() + au.getId() + ")";
+
+//            /**
+//             * @todo add onlyDatatRelatedToMe option into the experimental JOIN
+//             * before enabling it.
+//             */
+            if (true) {
+                /**
+                 * @todo get rid of "experimental" in name
+                 */
+                String experimentalJoin = "{!join from=" + SearchFields.DEFINITION_POINT + " to=id}" + SearchFields.DISCOVERABLE_BY + ":(" + IndexServiceBean.getPublicGroupString() + " OR " + IndexServiceBean.getGroupPerUserPrefix() + au.getId() + ")";
+                if (onlyDatatRelatedToMe) {
+                    /**
+                     * @todo make this a variable called "String
+                     * dataRelatedToMeFilterQuery" or something
+                     */
+                    experimentalJoin = "{!join from=" + SearchFields.DEFINITION_POINT + " to=id}" + SearchFields.DISCOVERABLE_BY + ":(" + IndexServiceBean.getGroupPerUserPrefix() + au.getId() + ")";
+                }
+                publicPlusUserPrivateGroup = experimentalJoin;
+            }
+
             permissionFilterQuery = publicPlusUserPrivateGroup;
+
+            if (au.isSuperuser()) {
+                // dangerous because this user will be able to see
+                // EVERYTHING in Solr with no regard to permissions!
+                String dangerZoneNoSolrJoin = null;
+                permissionFilterQuery = dangerZoneNoSolrJoin;
+            }
+
         } else {
             logger.info("Should never reach here. A User must be an AuthenticatedUser or a Guest");
         }
 
-        /**
-         * @todo: Remove! Or at least keep this commented out! Very dangerous!
-         * If you pass in "null" for permissionFilterQuery then everyone, even
-         * guest, has "NSA Nick" privs and can see everything! This override
-         * should only be used during dev.
-         */
-//        String dangerZone = null;
-//        permissionFilterQuery = dangerZone;
         solrQuery.addFilterQuery(permissionFilterQuery);
 
 //        solrQuery.addFacetField(SearchFields.HOST_DATAVERSE);
 //        solrQuery.addFacetField(SearchFields.AUTHOR_STRING);
+        solrQuery.addFacetField(SearchFields.DATAVERSE_CATEGORY);
         solrQuery.addFacetField(SearchFields.AFFILIATION);
         solrQuery.addFacetField(SearchFields.PUBLICATION_DATE);
 //        solrQuery.addFacetField(SearchFields.CATEGORY);
@@ -236,12 +228,8 @@ public class SearchServiceBean {
          */
 //        solrQuery.addNumericRangeFacet(SearchFields.PRODUCTION_DATE_YEAR_ONLY, citationYearRangeStart, citationYearRangeEnd, citationYearRangeSpan);
 //        solrQuery.addNumericRangeFacet(SearchFields.DISTRIBUTION_DATE_YEAR_ONLY, citationYearRangeStart, citationYearRangeEnd, citationYearRangeSpan);
-        /**
-         * @todo: make the number of results per page configurable?
-         */
-        int numResultsPerPage = 10;
         solrQuery.setRows(numResultsPerPage);
-        logger.info("Solr query:" + solrQuery);
+        logger.fine("Solr query:" + solrQuery);
 
         QueryResponse queryResponse;
         try {

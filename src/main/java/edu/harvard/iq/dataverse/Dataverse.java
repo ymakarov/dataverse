@@ -43,6 +43,7 @@ public class Dataverse extends DvObjectContainer {
     public enum DataverseType {
         RESEARCHERS, RESEARCH_PROJECTS, JOURNALS, ORGANIZATIONS_INSTITUTIONS, TEACHING_COURSES, UNCATEGORIZED
     };
+    
     private static final long serialVersionUID = 1L;
 
     @NotBlank(message = "Please enter a name.")
@@ -73,7 +74,26 @@ public class Dataverse extends DvObjectContainer {
     public void setDataverseType(DataverseType dataverseType) {
         this.dataverseType = dataverseType;
     }
-
+    
+    public String getFriendlyCategoryName(){
+       switch (this.dataverseType) {
+            case RESEARCHERS:
+                return "Researchers";
+            case RESEARCH_PROJECTS:
+                return "Research Projects";
+            case JOURNALS:
+                return "Journals";            
+            case ORGANIZATIONS_INSTITUTIONS:
+                return "Organizations & Institutions";            
+            case TEACHING_COURSES:
+                return "Teaching Courses";            
+            case UNCATEGORIZED:
+                return "Uncategorized";
+            default:
+                return "";
+        }    
+    }
+    
     private String affiliation;
 
 	// Note: We can't have "Remove" here, as there are role assignments that refer
@@ -82,12 +102,19 @@ public class Dataverse extends DvObjectContainer {
             fetch = FetchType.LAZY,
             mappedBy = "owner")
     private Set<DataverseRole> roles;
+    
+    @ManyToOne
+    @JoinColumn(nullable = false)
+    private DataverseRole defaultContributorRole;
 
-    /**
-     * When {@code true}, users are not granted permissions the got for parent
-     * dataverses.
-     */
-    private boolean permissionRoot;
+    public DataverseRole getDefaultContributorRole() {
+        return defaultContributorRole;
+    }
+
+    public void setDefaultContributorRole(DataverseRole defaultContributorRole) {
+        this.defaultContributorRole = defaultContributorRole;
+    }
+   
     private boolean metadataBlockRoot;
     private boolean facetRoot;
     private boolean themeRoot;
@@ -115,7 +142,6 @@ public class Dataverse extends DvObjectContainer {
     public List<DataverseFieldTypeInputLevel> getDataverseFieldTypeInputLevels() {
         return dataverseFieldTypeInputLevels;
     }
-
 
     private boolean templateRoot;
  
@@ -248,7 +274,7 @@ public class Dataverse extends DvObjectContainer {
         if(facetRoot || getOwner() == null){
             return this.getId();
         } else { 
-            return getOwner().getMetadataRootId();
+            return getOwner().getFacetRootId();
         }        
     }
 
@@ -294,18 +320,6 @@ public class Dataverse extends DvObjectContainer {
 
     public void setAffiliation(String affiliation) {
         this.affiliation = affiliation;
-    }
-
-    public boolean isEffectivlyPermissionRoot() {
-        return isPermissionRoot() || (getOwner() == null);
-    }
-
-    public boolean isPermissionRoot() {
-        return permissionRoot;
-    }
-
-    public void setPermissionRoot(boolean permissionRoot) {
-        this.permissionRoot = permissionRoot;
     }
 
     public boolean isMetadataBlockRoot() {

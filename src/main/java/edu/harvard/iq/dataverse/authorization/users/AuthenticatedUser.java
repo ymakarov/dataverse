@@ -5,7 +5,9 @@ import edu.harvard.iq.dataverse.authorization.AuthenticatedUserLookup;
 import edu.harvard.iq.dataverse.authorization.RoleAssigneeDisplayInfo;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinAuthenticationProvider;
 import java.io.Serializable;
+import java.sql.Timestamp;
 import java.util.List;
+import java.util.Objects;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -21,6 +23,8 @@ import javax.validation.constraints.NotNull;
 @NamedQueries({
     @NamedQuery( name="AuthenticatedUser.findAll",
                 query="select au from AuthenticatedUser au"),
+    @NamedQuery( name="AuthenticatedUser.findSuperUsers",
+                query="SELECT au FROM AuthenticatedUser au WHERE au.superuser = TRUE"),
     @NamedQuery( name="AuthenticatedUser.findByIdentifier",
                 query="select au from AuthenticatedUser au WHERE au.userIdentifier=:identifier"),
     @NamedQuery( name="AuthenticatedUser.countOfIdentifier",
@@ -42,6 +46,12 @@ public class AuthenticatedUser implements User, Serializable {
     private String name;
     private String email;
     private String affiliation;
+    private boolean superuser;
+
+    @Column(nullable = false)
+    private Timestamp modificationTime;
+
+    private Timestamp indexTime;
 
     @Override
     public String getIdentifier() {
@@ -63,7 +73,7 @@ public class AuthenticatedUser implements User, Serializable {
     
     @Override
     public RoleAssigneeDisplayInfo getDisplayInfo() {
-        return new RoleAssigneeDisplayInfo(name, email);
+        return new RoleAssigneeDisplayInfo(name, email, affiliation);
     }
     
     /**
@@ -119,6 +129,22 @@ public class AuthenticatedUser implements User, Serializable {
         this.affiliation = affiliation;
     }
 
+    public boolean isSuperuser() {
+        return superuser;
+    }
+
+    public void setSuperuser(boolean superuser) {
+        this.superuser = superuser;
+    }
+
+    public void setModificationTime(Timestamp modificationTime) {
+        this.modificationTime = modificationTime;
+    }
+
+    public void setIndexTime(Timestamp indexTime) {
+        this.indexTime = indexTime;
+    }
+
     public boolean isBuiltInUser() {
         String authProviderString = authenticatedUserLookup.getId().getAuthenticationProviderId();
         if (authProviderString != null) {
@@ -142,6 +168,23 @@ public class AuthenticatedUser implements User, Serializable {
     public void setAuthenticatedUserLookup(AuthenticatedUserLookup authenticatedUserLookup) {
         this.authenticatedUserLookup = authenticatedUserLookup;
     }
+    
+    @Override
+    public int hashCode() {
+        int hash = 0;
+        hash += (id != null ? id.hashCode() : 0);
+        return hash;
+    }    
+    
+    @Override
+    public boolean equals(Object object) {
+        // TODO: Warning - this method won't work in the case the id fields are not set
+        if (!(object instanceof AuthenticatedUser)) {
+            return false;
+        }
+        AuthenticatedUser other = (AuthenticatedUser) object;
+        return Objects.equals(getId(), other.getId());
+    }    
     
     
 }

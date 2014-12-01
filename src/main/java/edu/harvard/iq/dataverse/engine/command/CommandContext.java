@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse.engine.command;
 
+import edu.harvard.iq.dataverse.DOIEZIdServiceBean;
 import edu.harvard.iq.dataverse.DataFileServiceBean;
 import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.DataverseFacetServiceBean;
@@ -14,6 +15,9 @@ import edu.harvard.iq.dataverse.PermissionServiceBean;
 import edu.harvard.iq.dataverse.SearchServiceBean;
 import edu.harvard.iq.dataverse.TemplateServiceBean;
 import edu.harvard.iq.dataverse.engine.DataverseEngine;
+import edu.harvard.iq.dataverse.search.SolrIndexServiceBean;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
+import javax.ejb.EJB;
 import javax.persistence.EntityManager;
 
 /**
@@ -39,6 +43,8 @@ public interface CommandContext {
 	public BuiltinUserServiceBean users();
 	
 	public IndexServiceBean index();
+
+        public SolrIndexServiceBean solrIndex();
 	
 	public SearchServiceBean search();
 	
@@ -53,5 +59,9 @@ public interface CommandContext {
         public TemplateServiceBean templates();
         
         public DataverseFieldTypeInputLevelServiceBean fieldTypeInputLevels();
+                   
+        public DOIEZIdServiceBean doiEZId();
+        
+        public SettingsServiceBean settings();       
 	
 }

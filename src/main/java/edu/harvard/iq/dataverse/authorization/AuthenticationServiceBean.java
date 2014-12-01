@@ -9,6 +9,7 @@ import edu.harvard.iq.dataverse.authorization.providers.AuthenticationProviderRo
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinAuthenticationProviderFactory;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUserServiceBean;
 import edu.harvard.iq.dataverse.authorization.providers.echo.EchoAuthenticationProviderFactory;
+import edu.harvard.iq.dataverse.authorization.providers.shib.ShibAuthenticationProvider;
 import edu.harvard.iq.dataverse.authorization.users.ApiToken;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import java.sql.Timestamp;
@@ -26,7 +27,9 @@ import javax.ejb.EJB;
 import javax.ejb.Singleton;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
+import javax.persistence.NonUniqueResultException;
 import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
 
 /**
  * The AuthenticationManager is responsible for registering and listing
@@ -60,8 +63,10 @@ public class AuthenticationServiceBean {
         try {
             registerProviderFactory( new BuiltinAuthenticationProviderFactory(builtinUserServiceBean) );
             registerProviderFactory( new EchoAuthenticationProviderFactory() );
-            // TODO register shib provider factory here
-            
+            /**
+             * Register shib provider factory here. Test enable/disable via Admin API, etc.
+             */
+            new ShibAuthenticationProvider();
         } catch (AuthorizationSetupException ex) {
             logger.log(Level.SEVERE, "Exception setting up the authentication provider factories: " + ex.getMessage(), ex);
         }
@@ -202,6 +207,18 @@ public class AuthenticationServiceBean {
         }
     }
     
+    public ApiToken findApiTokenByUser(AuthenticatedUser au) {
+        ApiToken apiToken = null;
+        TypedQuery<ApiToken> typedQuery = em.createQuery("SELECT OBJECT(o) FROM ApiToken AS o WHERE o.authenticatedUser = :user", ApiToken.class);
+        typedQuery.setParameter("user", au);
+        try {
+            apiToken = typedQuery.getSingleResult();
+        } catch (NoResultException | NonUniqueResultException ex) {
+            logger.log(Level.INFO, "When looking up API token for {0} caught {1}", new Object[]{au, ex});
+        }
+        return apiToken;
+    }
+
     public AuthenticatedUser lookupUser( String apiToken ) {
         ApiToken tkn = findApiToken(apiToken);
         if ( tkn == null ) return null;
@@ -218,12 +235,14 @@ public class AuthenticationServiceBean {
     }
     
     public AuthenticatedUser save( AuthenticatedUser user ) {
+        user.setModificationTime(getCurrentTimestamp());
         em.persist(user);
         em.flush();
         return user;
     }
     
     public AuthenticatedUser update( AuthenticatedUser user ) {
+        user.setModificationTime(getCurrentTimestamp());
         return em.merge(user);
     }
     
@@ -250,6 +269,7 @@ public class AuthenticationServiceBean {
         
         // we now select a username
         // TODO make a better username selection
+            // Better - throw excpetion to the provider, which has a better chance of getting this right.
         // TODO should lock table authenticated users for write here
         if ( identifierExists(authPrvUserPersistentId) ) {
             int i=1;
@@ -266,7 +286,6 @@ public class AuthenticationServiceBean {
         AuthenticatedUserLookup auusLookup = new AuthenticatedUserLookup(authPrvUserPersistentId, authenticationProviderId, auus);
         em.persist( auusLookup );
         auus.setAuthenticatedUserLookup(auusLookup);
-        indexService.indexUser(auus);
         return auus;
     }
     
@@ -284,9 +303,18 @@ public class AuthenticationServiceBean {
     public List<AuthenticatedUser> findAllAuthenticatedUsers() {
         return em.createNamedQuery("AuthenticatedUser.findAll", AuthenticatedUser.class).getResultList();
     }
+
+    public List<AuthenticatedUser> findSuperUsers() {
+        return em.createNamedQuery("AuthenticatedUser.findSuperUsers", AuthenticatedUser.class).getResultList();
+    }
     
     
     public Set<AuthenticationProviderFactory> listProviderFactories() {
         return new HashSet<>( providerFactories.values() ); 
     }
+    
+    public Timestamp getCurrentTimestamp() {
+        return new Timestamp(new Date().getTime());
+    }
+
 }

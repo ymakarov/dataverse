@@ -7,19 +7,28 @@ import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
 import edu.harvard.iq.dataverse.IndexServiceBean;
+import edu.harvard.iq.dataverse.search.IndexResponse;
+import edu.harvard.iq.dataverse.search.SolrIndexServiceBean;
+import java.util.List;
 import javax.ejb.EJB;
 import javax.ejb.EJBException;
+import javax.json.Json;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonObjectBuilder;
 import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.core.Response;
 
 @Path("index")
-public class Index {
+public class Index extends AbstractApiBean {
 
     @EJB
     IndexServiceBean indexService;
+    @EJB
+    SolrIndexServiceBean solrIndexService;
     @EJB
     DataverseServiceBean dataverseService;
     @EJB
@@ -86,7 +95,7 @@ public class Index {
         } catch (EJBException ex) {
             Throwable cause = ex;
             StringBuilder sb = new StringBuilder();
-            sb.append("Problem indexing " + type + "/" +id + ": ");
+            sb.append("Problem indexing " + type + "/" + id + ": ");
             sb.append(ex + " ");
             while (cause.getCause() != null) {
                 cause = cause.getCause();
@@ -115,30 +124,44 @@ public class Index {
     }
 
     @GET
-    @Path("{type}")
-    public String indexTypeById(@PathParam("type") String type) {
-        try {
-            if (type.equals("test")) {
-                return "test\n";
-//                return indexService.test() + "\n";
-            } else {
-                return Util.message2ApiError("illegal type: " + type);
-            }
-        } catch (EJBException ex) {
-            Throwable cause = ex;
-            StringBuilder sb = new StringBuilder();
-            sb.append(ex + " ");
-            while (cause.getCause() != null) {
-                cause = cause.getCause();
-                sb.append(cause.getClass().getCanonicalName() + " ");
-                if (cause instanceof ConstraintViolationException) {
-                    ConstraintViolationException constraintViolationException = (ConstraintViolationException) cause;
-                    for (ConstraintViolation<?> violation : constraintViolationException.getConstraintViolations()) {
-                        sb.append("(invalid value: <<<" + violation.getInvalidValue() + ">>> for " + violation.getPropertyPath() + " at " + violation.getLeafBean() + " - " + violation.getMessage() + ")");
-                    }
-                }
-            }
-            return Util.message2ApiError(sb.toString());
-        }
+    @Path("perms")
+    public Response indexAllPermissions() {
+        IndexResponse indexResponse = solrIndexService.indexAllPermissions();
+        return okResponse(indexResponse.getMessage());
     }
+
+    @GET
+    @Path("perms/{id}")
+    public Response indexPermissions(@PathParam("id") Long id) {
+        IndexResponse indexResponse = solrIndexService.indexPermissionsForOneDvObject(id);
+        return okResponse(indexResponse.getMessage());
+    }
+
+    @GET
+    @Path("status")
+    public Response indexStatus() {
+        List<Dataverse> staleDataverses = indexService.findStaleDataverses();
+        List<Dataset> staleDatasets = indexService.findStaleDatasets();
+
+        JsonObjectBuilder staleCounts = Json.createObjectBuilder()
+                .add("dataverses", staleDataverses.size())
+                .add("datasets", staleDatasets.size());
+
+        JsonArrayBuilder staleDataverseIds = Json.createArrayBuilder();
+        for (Dataverse staleDataverse : staleDataverses) {
+            staleDataverseIds.add(staleDataverse.getId());
+        }
+        JsonArrayBuilder staleDatasetIds = Json.createArrayBuilder();
+        for (Dataset staleDataset : staleDatasets) {
+            staleDatasetIds.add(staleDataset.getId());
+        }
+
+        JsonObjectBuilder data = Json.createObjectBuilder()
+                .add("staleCounts", staleCounts)
+                .add("staleDataverseIds", staleDataverseIds)
+                .add("staleDatasetIds", staleDatasetIds);
+
+        return okResponse(data);
+    }
+
 }

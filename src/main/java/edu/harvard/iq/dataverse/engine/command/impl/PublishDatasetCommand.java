@@ -9,6 +9,7 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetVersionUser;
 import edu.harvard.iq.dataverse.DatasetVersion;
+import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.authorization.Permission;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.AbstractCommand;
@@ -17,6 +18,8 @@ import edu.harvard.iq.dataverse.engine.command.RequiredPermissions;
 import edu.harvard.iq.dataverse.engine.command.RequiredPermissionsMap;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.exception.IllegalCommandException;
+import edu.harvard.iq.dataverse.search.IndexResponse;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.sql.Timestamp;
 import java.util.Date;
 
@@ -25,7 +28,7 @@ import java.util.Date;
  * @author skraffmiller
  */
 @RequiredPermissionsMap({
-    @RequiredPermissions(dataverseName = "", value = Permission.Publish)
+    @RequiredPermissions(dataverseName = "", value = Permission.PublishDataset)
 })
 public class PublishDatasetCommand extends AbstractCommand<Dataset> {
 
@@ -43,6 +46,34 @@ public class PublishDatasetCommand extends AbstractCommand<Dataset> {
 
         if (!theDataset.getOwner().isReleased()) {
             throw new IllegalCommandException("This dataset may not be published because its host dataverse (" + theDataset.getOwner().getAlias() + ") has not been published.", this);
+        }
+        /* make an attempt to register if not registered*/
+        String nonNullDefaultIfKeyNotFound = "";
+        String    protocol = theDataset.getProtocol();
+        String    doiProvider = ctxt.settings().getValueForKey(SettingsServiceBean.Key.DoiProvider, nonNullDefaultIfKeyNotFound);
+        String    authority = theDataset.getAuthority();        
+        if (theDataset.getGlobalIdCreateTime() == null) {
+            if (protocol.equals("doi")
+                    && doiProvider.equals("EZID")) {
+                String doiRetString = ctxt.doiEZId().createIdentifier(theDataset);               
+                if (doiRetString.contains(theDataset.getIdentifier())) {
+                    theDataset.setGlobalIdCreateTime(new Timestamp(new Date().getTime()));
+                } else {
+                    if (doiRetString.contains("identifier already exists")){
+                        theDataset.setIdentifier(ctxt.datasets().generateIdentifierSequence(protocol, authority, theDataset.getDoiSeparator()));
+                        doiRetString = ctxt.doiEZId().createIdentifier(theDataset);
+                        if(!doiRetString.contains(theDataset.getIdentifier())){
+                            throw new IllegalCommandException("This dataset may not be published because it has not been registered. Please contact thedata.org for assistance.", this);
+                        } else{
+                            theDataset.setGlobalIdCreateTime(new Timestamp(new Date().getTime()));
+                        }
+                    } else {
+                          throw new IllegalCommandException("This dataset may not be published because it has not been registered. Please contact thedata.org for assistance.", this);
+                    }
+                }
+            } else {
+                 throw new IllegalCommandException("This dataset may not be published because it has not been registered. Please contact thedata.org for assistance.", this);
+            }
         }
 
         if (theDataset.getLatestVersion().isReleased()) {
@@ -76,6 +107,7 @@ public class PublishDatasetCommand extends AbstractCommand<Dataset> {
         Timestamp updateTime = new Timestamp(new Date().getTime());
         theDataset.getEditVersion().setReleaseTime(updateTime);
         theDataset.getEditVersion().setLastUpdateTime(updateTime);
+        theDataset.setModificationTime(updateTime);
         theDataset.getEditVersion().setVersionState(DatasetVersion.VersionState.RELEASED);
 
         for (DataFile dataFile : theDataset.getFiles()) {
@@ -87,6 +119,13 @@ public class PublishDatasetCommand extends AbstractCommand<Dataset> {
         Dataset savedDataset = ctxt.em().merge(theDataset);
 
         ctxt.index().indexDataset(savedDataset);
+        /**
+         * @todo consider also ctxt.solrIndex().indexPermissionsOnSelfAndChildren(theDataset);
+         */
+        /**
+         * @todo what should we do with the indexRespose?
+         */
+        IndexResponse indexResponse = ctxt.solrIndex().indexPermissionsForOneDvObject(savedDataset.getId());
 
         DatasetVersionUser ddu = ctxt.datasets().getDatasetVersionUser(savedDataset.getLatestVersion(), this.getUser());
 
@@ -102,6 +141,7 @@ public class PublishDatasetCommand extends AbstractCommand<Dataset> {
             ctxt.em().merge(datasetDataverseUser);
         }
 
+        ctxt.doiEZId().publicizeIdentifier(savedDataset);
         return savedDataset;
     }
 
