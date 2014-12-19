@@ -6,6 +6,7 @@
 package edu.harvard.iq.dataverse.authorization.providers.builtin;
 
 import edu.harvard.iq.dataverse.DatasetServiceBean;
+import edu.harvard.iq.dataverse.DataverseHeaderFragment;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
 import edu.harvard.iq.dataverse.DataverseSession;
 import edu.harvard.iq.dataverse.PasswordEncryption;
@@ -15,9 +16,11 @@ import edu.harvard.iq.dataverse.UserNotificationServiceBean;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.passwordreset.PasswordValidator;
+import edu.harvard.iq.dataverse.util.JsfHelper;
 import java.sql.Timestamp;
 import java.util.Date;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.faces.application.FacesMessage;
 import javax.faces.component.UIComponent;
@@ -38,9 +41,11 @@ import org.primefaces.event.TabChangeEvent;
 @Named("DataverseUserPage")
 public class BuiltinUserPage implements java.io.Serializable {
 
+    private static final Logger logger = Logger.getLogger(BuiltinUserPage.class.getCanonicalName());
+
     public enum EditMode {
 
-        CREATE, EDIT, CHANGE, FORGOT
+        CREATE, EDIT, CHANGE_PASSWORD, FORGOT
     };
 
     @Inject
@@ -73,6 +78,9 @@ public class BuiltinUserPage implements java.io.Serializable {
     private int activeIndex;
     private String selectTab = "somedata";
 
+    public EditMode getChangePasswordMode () {
+        return EditMode.CHANGE_PASSWORD;
+    }
 
     public AuthenticatedUser getCurrentUser() {
         return currentUser;
@@ -152,7 +160,16 @@ public class BuiltinUserPage implements java.io.Serializable {
         this.selectTab = selectTab;
     }
 
-    public void init() {
+    public String init() {
+        if (editMode == EditMode.CREATE) {
+            if (!session.getUser().isAuthenticated()) { // in create mode for new user
+                builtinUser = new BuiltinUser();
+                return "";
+            } else {
+                editMode = null; // we can't be in create mode for an existing user
+            }
+        }
+        
         if ( session.getUser().isAuthenticated() ) {
             currentUser = (AuthenticatedUser) session.getUser();
             notificationsList = userNotificationService.findByUser(((AuthenticatedUser)currentUser).getId());
@@ -173,10 +190,10 @@ public class BuiltinUserPage implements java.io.Serializable {
             }            
             
         } else {
-            // if user is not logged in, go to sign up page
-            editMode = EditMode.CREATE;
-            builtinUser = new BuiltinUser();           
+            return "/loginpage.xhtml" + DataverseHeaderFragment.getRedirectPage();
         }
+        
+        return "";
     }
 
     public void edit(ActionEvent e) {
@@ -184,7 +201,7 @@ public class BuiltinUserPage implements java.io.Serializable {
     }
 
     public void changePassword(ActionEvent e) {
-        editMode = EditMode.CHANGE;
+        editMode = EditMode.CHANGE_PASSWORD;
     }
 
     public void forgotPassword(ActionEvent e) {
@@ -271,9 +288,11 @@ public class BuiltinUserPage implements java.io.Serializable {
     }
 
     public String save() {
-        if (editMode == EditMode.CREATE || editMode == EditMode.CHANGE) {
+        boolean passwordChanged = false;
+        if (editMode == EditMode.CREATE || editMode == EditMode.CHANGE_PASSWORD) {
             if (inputPassword != null) {
                 builtinUser.setEncryptedPassword(builtinUserService.encryptPassword(inputPassword));
+                passwordChanged = true;
             }
         }
         builtinUser = builtinUserService.save(builtinUser);
@@ -288,6 +307,12 @@ public class BuiltinUserPage implements java.io.Serializable {
         } else {
             authSvc.updateAuthenticatedUser(currentUser, builtinUser.createDisplayInfo());
             editMode = null;
+            logger.info("edit mode: " + editMode);
+            String msg = "Your account information has been successfully updated.";
+            if (passwordChanged) {
+                msg = "Your account password has been successfully changed.";
+            }
+            JsfHelper.addFlashMessage(msg);
             return null;            
         }
     }

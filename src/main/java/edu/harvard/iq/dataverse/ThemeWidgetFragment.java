@@ -9,6 +9,7 @@ import edu.harvard.iq.dataverse.api.Datasets;
 import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseThemeCommand;
+import edu.harvard.iq.dataverse.util.JsfHelper;
 import static edu.harvard.iq.dataverse.util.JsfHelper.JH;
 import java.io.File;
 import java.io.IOException;
@@ -47,10 +48,11 @@ public class ThemeWidgetFragment implements java.io.Serializable {
     static final String DEFAULT_LINK_COLOR = "428BCA";
     static final String DEFAULT_TEXT_COLOR = "888888";
     private static final Logger logger = Logger.getLogger(ThemeWidgetFragment.class.getCanonicalName());   
+
     @Inject DataversePage dataversePage;
     private File tempDir;
     private File uploadedFile;
-    private Dataverse editDv;
+    private Dataverse editDv= new Dataverse();
     private HtmlInputText linkUrlInput;
     private HtmlInputText linkTextInput;
  
@@ -114,8 +116,8 @@ public class ThemeWidgetFragment implements java.io.Serializable {
     }
    
 
-    public void initEditDv(Long dataverseId) {
-        editDv = dataverseServiceBean.find(dataverseId);
+    public void initEditDv() {
+        editDv = dataverseServiceBean.find(editDv.getId());
         if (editDv.getOwner()==null) {
             editDv.setThemeRoot(true);
         }
@@ -189,7 +191,9 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
      * Copy filename into Dataverse logo 
      * @param event 
      */
-        public void handleImageFileUpload(FileUploadEvent event) {
+
+    public void handleImageFileUpload(FileUploadEvent event) {
+
             logger.finer("entering fileUpload");
             if (this.tempDir==null) {
                 createTempDir();
@@ -242,13 +246,14 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
         context.reset(":dataverseForm:themeWidgetsTabView");
     }
     
-    public void cancel() {
-        
+    public String cancel() {
+         return "dataverse?faces-redirect=true&alias="+editDv.getAlias();  // go to dataverse page 
     }
     
+   
     
 
-    public void save() {
+    public String save() {
         // If this Dv isn't the root, delete the uploaded file and remove theme
         // before saving.
         if (!editDv.isThemeRoot()) {
@@ -263,9 +268,11 @@ public void validateUrl(FacesContext context, UIComponent component, Object valu
         } catch (CommandException ex) {
             JH.addMessage(FacesMessage.SEVERITY_ERROR, ex.getMessage());          
         }
+        JsfHelper.addFlashMessage("You have successfully updated the theme for this dataverse!");
         this.cleanupTempDirectory();
-        this.editDv=null;
+        return "dataverse?faces-redirect=true&alias="+editDv.getAlias();  // go to dataverse page 
     }
+   
     
  }
 

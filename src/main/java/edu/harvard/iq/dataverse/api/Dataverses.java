@@ -4,6 +4,7 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.Dataverse;
+import edu.harvard.iq.dataverse.DataverseContact;
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
 import edu.harvard.iq.dataverse.DvObject;
 import edu.harvard.iq.dataverse.MetadataBlock;
@@ -29,12 +30,12 @@ import edu.harvard.iq.dataverse.engine.command.impl.PublishDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.RevokeRoleCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseMetadataBlocksCommand;
 import edu.harvard.iq.dataverse.util.json.JsonParseException;
+import edu.harvard.iq.dataverse.util.json.JsonParser;
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.brief;
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.json;
 import java.io.StringReader;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.EJBException;
@@ -67,16 +68,26 @@ public class Dataverses extends AbstractApiBean {
 	private static final Logger logger = Logger.getLogger(Dataverses.class.getName());
 	
 	@POST
-	public Response addRoot( Dataverse d, @QueryParam("key") String apiKey ) {
-		return addDataverse(d, "", apiKey);
+	public Response addRoot( JsonObject body, @QueryParam("key") String apiKey ) {
+        logger.info("Creating root dataverse");
+		return addDataverse( body, "", apiKey);
 	}
 	
 	@POST
 	@Path("{identifier}")
-	public Response addDataverse( Dataverse d, @PathParam("identifier") String parentIdtf, @QueryParam("key") String apiKey) {
+	public Response addDataverse( JsonObject dvJson, @PathParam("identifier") String parentIdtf, @QueryParam("key") String apiKey) {
 		User u = findUserByApiToken(apiKey);
 		if ( u == null ) return errorResponse(Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
-		
+        
+        Dataverse d;
+        try {
+            d = JsonParser.parseDataverse(dvJson);
+        } catch (JsonParseException ex) {
+            Logger.getLogger(Dataverses.class.getName()).log(Level.SEVERE, "Error parsing dataverse from json: " + ex.getMessage(), ex);
+            return errorResponse( Response.Status.BAD_REQUEST,
+                    "Error parsing the POSTed json into a dataverse: " + ex.getMessage() );
+        }
+        
 		if ( ! parentIdtf.isEmpty() ) {
 			Dataverse owner = findDataverse(parentIdtf);
 			if ( owner == null ) {
@@ -84,32 +95,41 @@ public class Dataverses extends AbstractApiBean {
 			}
 			d.setOwner(owner);
 		}
+                
+        // set the dataverse - contact relationship in the contacts
+        for (DataverseContact dc : d.getDataverseContacts()) {
+            dc.setDataverse(d);
+        }
 		
 		try {
-			d = engineSvc.submit( new CreateDataverseCommand(d, u, null, null) );
-			return okResponse( json(d) );
-		} catch (CommandException ex) {
-			logger.log(Level.SEVERE, "Error creating dataverse", ex);
-			return errorResponse( Response.Status.INTERNAL_SERVER_ERROR, "Error creating dataverse: " + ex.getMessage() );
+            d = execCommand( new CreateDataverseCommand(d, u, null, null), "Creating Dataverse" );
+			return createdResponse( "/dvs/"+d.getAlias(), json(d) );
+        } catch ( WrappedResponse ww ) {
+            return ww.getResponse();
+            
         } catch (EJBException ex) {
-                Throwable cause = ex;
-                StringBuilder sb = new StringBuilder();
-                sb.append("Error creating dataverse.");
-                while (cause.getCause() != null) {
-                    cause = cause.getCause();
-                    if (cause instanceof ConstraintViolationException) {
-                        ConstraintViolationException constraintViolationException = (ConstraintViolationException) cause;
-                        for (ConstraintViolation<?> violation : constraintViolationException.getConstraintViolations()) {
-                            sb.append(" Invalid value: <<<").append(violation.getInvalidValue()).append(">>> for ")
-                                    .append(violation.getPropertyPath()).append(" at ")
-                                    .append(violation.getLeafBean()).append(" - ")
-                                    .append(violation.getMessage());
-                        }
+            Throwable cause = ex;
+            StringBuilder sb = new StringBuilder();
+            sb.append("Error creating dataverse.");
+            while (cause.getCause() != null) {
+                cause = cause.getCause();
+                if (cause instanceof ConstraintViolationException) {
+                    ConstraintViolationException constraintViolationException = (ConstraintViolationException) cause;
+                    for (ConstraintViolation<?> violation : constraintViolationException.getConstraintViolations()) {
+                        sb.append(" Invalid value: <<<").append(violation.getInvalidValue()).append(">>> for ")
+                                .append(violation.getPropertyPath()).append(" at ")
+                                .append(violation.getLeafBean()).append(" - ")
+                                .append(violation.getMessage());
                     }
                 }
-                logger.log(Level.SEVERE, sb.toString());
-                return errorResponse( Response.Status.INTERNAL_SERVER_ERROR, "Error creating dataverse: " + sb.toString() );
             }
+            logger.log(Level.SEVERE, sb.toString());
+            return errorResponse( Response.Status.INTERNAL_SERVER_ERROR, "Error creating dataverse: " + sb.toString() );
+        } catch ( Exception ex ) {
+			logger.log(Level.SEVERE, "Error creating dataverse", ex);
+			return errorResponse( Response.Status.INTERNAL_SERVER_ERROR, "Error creating dataverse: " + ex.getMessage() );
+            
+        }
 	}
     
     @POST

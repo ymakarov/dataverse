@@ -56,7 +56,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Dataverse'
-copyright = u'1997-2014, President & Fellows Harvard University'
+copyright = u'2014, The President & Fellows of Harvard College'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -195,7 +195,7 @@ html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> Documentation".
-#html_title = None
+html_title = 'Dataverse.org'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #html_short_title = None
@@ -248,7 +248,7 @@ html_sidebars = {'sidebar': ['localtoc.html', 'sourcelink.html', 'searchbox.html
 #html_show_sourcelink = True
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
-#html_show_sphinx = True
+html_show_sphinx = False
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 #html_show_copyright = True

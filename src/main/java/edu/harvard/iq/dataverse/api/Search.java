@@ -11,15 +11,16 @@ import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.SolrSearchResult;
 import edu.harvard.iq.dataverse.SearchServiceBean;
 import edu.harvard.iq.dataverse.SolrQueryResponse;
+import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.search.DvObjectSolrDoc;
+import edu.harvard.iq.dataverse.search.SearchException;
 import edu.harvard.iq.dataverse.search.SolrIndexServiceBean;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
-import javax.ejb.EJBException;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObjectBuilder;
@@ -53,11 +54,11 @@ public class Search extends AbstractApiBean {
         if (query != null) {
             if (sortField == null) {
                 // predictable default
-                sortField = SearchFields.ID;
+                sortField = SearchFields.RELEVANCE;
             }
             if (sortOrder == null) {
                 // asc for alphabetical by default despite GitHub using desc by default: "The sort order if sort parameter is provided. One of asc or desc. Default: desc" -- http://developer.github.com/v3/search/
-                sortOrder = "asc";
+                sortOrder = "desc"; // descending for Relevance
             }
             SolrQueryResponse solrQueryResponse;
             try {
@@ -68,11 +69,13 @@ public class Search extends AbstractApiBean {
                         String message = "Unable to find a user with API token provided.";
                         return errorResponse(Response.Status.FORBIDDEN, message);
                     }
+                } else {
+                    dataverseUser = new GuestUser();
                 }
                 boolean dataRelatedToMe = false;
                 int numResultsPerPage = 10;
                 solrQueryResponse = searchService.search(dataverseUser, dataverseService.findRootDataverse(), query, filterQueries, sortField, sortOrder, paginationStart, dataRelatedToMe, numResultsPerPage);
-            } catch (EJBException ex) {
+            } catch (SearchException ex) {
                 Throwable cause = ex;
                 StringBuilder sb = new StringBuilder();
                 sb.append(cause + " ");
@@ -184,7 +187,12 @@ public class Search extends AbstractApiBean {
         int paginationStart = 0;
         boolean dataRelatedToMe = false;
         int numResultsPerPage = Integer.MAX_VALUE;
-        SolrQueryResponse solrQueryResponse = searchService.search(user, subtreeScope, query, filterQueries, sortField, sortOrder, paginationStart, dataRelatedToMe, numResultsPerPage);
+        SolrQueryResponse solrQueryResponse;
+        try {
+            solrQueryResponse = searchService.search(user, subtreeScope, query, filterQueries, sortField, sortOrder, paginationStart, dataRelatedToMe, numResultsPerPage);
+        } catch (SearchException ex) {
+            return errorResponse(Response.Status.INTERNAL_SERVER_ERROR, ex.getLocalizedMessage() + ": " + ex.getCause().getLocalizedMessage());
+        }
 
         JsonArrayBuilder itemsArrayBuilder = Json.createArrayBuilder();
         List<SolrSearchResult> solrSearchResults = solrQueryResponse.getSolrSearchResults();

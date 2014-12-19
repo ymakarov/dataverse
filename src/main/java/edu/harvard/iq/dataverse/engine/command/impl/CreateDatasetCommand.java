@@ -4,8 +4,7 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetVersionUser;
 import edu.harvard.iq.dataverse.DatasetField;
-import edu.harvard.iq.dataverse.Dataverse;
-import edu.harvard.iq.dataverse.authorization.DataverseRole;
+import edu.harvard.iq.dataverse.DatasetVersionUI;
 import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.authorization.Permission;
 import edu.harvard.iq.dataverse.authorization.users.User;
@@ -16,12 +15,15 @@ import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.exception.IllegalCommandException;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Objects;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
 
 /**
  * Creates a {@link Dataset} in the passed {@link CommandContext}.
@@ -35,29 +37,52 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
 
     private final Dataset theDataset;
     private final boolean registrationRequired;
+    private final boolean migrate;
 
     public CreateDatasetCommand(Dataset theDataset, User user) {
         super(user, theDataset.getOwner());
         this.theDataset = theDataset;
         this.registrationRequired = false;
+        this.migrate=false;
     }
 
     public CreateDatasetCommand(Dataset theDataset, User user, boolean registrationRequired) {
         super(user, theDataset.getOwner());
         this.theDataset = theDataset;
         this.registrationRequired = registrationRequired;
+        this.migrate=false;
     }
-    
+      public CreateDatasetCommand(Dataset theDataset, User user, boolean registrationRequired, boolean migrate) {
+        super(user, theDataset.getOwner());
+        this.theDataset = theDataset;
+        this.registrationRequired = registrationRequired;
+        this.migrate=migrate;
+    }
     @Override
     public Dataset execute(CommandContext ctxt) throws CommandException {
-        
-        // Test for duplicate identifier
-        if (!ctxt.datasets().isUniqueIdentifier(theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()) ) {
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd-hh.mm.ss");
+        logger.log(Level.INFO, "start "  + formatter.format(new Date().getTime()));
+        // If this is not a migrated dataset, Test for duplicate identifier
+        if (!migrate && !ctxt.datasets().isUniqueIdentifier(theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()) ) {
             throw new IllegalCommandException(String.format("Dataset with identifier '%s', protocol '%s' and authority '%s' already exists",
                                                              theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority()),
                                                 this);
         }
-        
+
+        // validate
+        // @todo for now we run through an initFields method that creates empty fields for anything without a value
+        // that way they can be checked for required
+        theDataset.getEditVersion().setDatasetFields(theDataset.getEditVersion().initDatasetFields());
+        Set<ConstraintViolation> constraintViolations = theDataset.getEditVersion().validate();
+        if (!constraintViolations.isEmpty()) {
+            String validationFailedString = "Validation failed:";
+            for (ConstraintViolation constraintViolation : constraintViolations) {
+                validationFailedString += " " + constraintViolation.getMessage();
+            }
+            throw new IllegalCommandException(validationFailedString, this);
+        }
+                
+        logger.log(Level.INFO, "after validation "  + formatter.format(new Date().getTime()));
         // FIXME - need to revisit this. Either
         // theDataset.setCreator(getUser());
         // if, at all, we decide to keep it.
@@ -81,7 +106,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         for (DataFile dataFile: theDataset.getFiles() ){
             dataFile.setCreateDate(theDataset.getCreateDate());
         }
-        
+        logger.log(Level.INFO,"after datascrub "  + formatter.format(new Date().getTime()));        
         String nonNullDefaultIfKeyNotFound = "";
         String    protocol = ctxt.settings().getValueForKey(SettingsServiceBean.Key.Protocol, nonNullDefaultIfKeyNotFound);
         String    doiProvider = ctxt.settings().getValueForKey(SettingsServiceBean.Key.DoiProvider, nonNullDefaultIfKeyNotFound);
@@ -96,12 +121,15 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         if (registrationRequired && theDataset.getGlobalIdCreateTime() == null) {
             throw new IllegalCommandException("Dataset could not be created.  Registration failed", this);
                }
-              
+        logger.log(Level.INFO,"after doi "  + formatter.format(new Date().getTime()));          
         Dataset savedDataset = ctxt.em().merge(theDataset);
-        
+         logger.log(Level.INFO,"after db update "  + formatter.format(new Date().getTime()));       
         // set the role to be default contributor role for its dataverse
         ctxt.roles().save(new RoleAssignment(savedDataset.getOwner().getDefaultContributorRole(), getUser(), savedDataset));
         
+        savedDataset.setPermissionModificationTime(new Timestamp(new Date().getTime()));
+        savedDataset = ctxt.em().merge(savedDataset);
+
         try {
             // TODO make async
             String indexingResult = ctxt.index().indexDataset(savedDataset);
@@ -109,7 +137,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         } catch ( RuntimeException e ) {
             logger.log(Level.WARNING, "Exception while indexing:" + e.getMessage(), e);
         }
-        
+          logger.log(Level.INFO,"after index "  + formatter.format(new Date().getTime()));      
         DatasetVersionUser datasetVersionDataverseUser = new DatasetVersionUser();        
         datasetVersionDataverseUser.setUserIdentifier(getUser().getIdentifier());
         datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());
@@ -120,7 +148,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
             datasetVersionDataverseUser.setDatasetversionid(savedDataset.getLatestVersion().getId().intValue());
         }       
         ctxt.em().merge(datasetVersionDataverseUser); 
-        
+           logger.log(Level.INFO,"after create version user "  + formatter.format(new Date().getTime()));       
         return savedDataset;
     }
 
