@@ -23,8 +23,6 @@ import javax.ws.rs.core.Response;
 
 import static edu.harvard.iq.dataverse.util.json.NullSafeJsonBuilder.jsonObjectBuilder;
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.*;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.Stateless;
@@ -50,15 +48,11 @@ public class Admin extends AbstractApiBean {
         return okResponse(bld);
     }
     
-    @Path("settings/{name}/{content}")
+    @Path("settings/{name}")
     @PUT
-    public Response addSetting( @PathParam("name") String name, @PathParam("content") String content ) {
-        try {
-            Setting s = settingsSvc.set(name, URLDecoder.decode(content, "UTF-8"));
-            return okResponse( jsonObjectBuilder().add(s.getName(), s.getContent()) );
-        } catch (UnsupportedEncodingException ex) {
-            return errorResponse(Response.Status.INTERNAL_SERVER_ERROR, ex.getMessage());
-        }
+    public Response putSetting( @PathParam("name") String name, String content ) {
+        Setting s = settingsSvc.set(name, content);
+        return okResponse( jsonObjectBuilder().add(s.getName(), s.getContent()) );
     }
     
     @Path("settings/{name}")
@@ -83,8 +77,7 @@ public class Admin extends AbstractApiBean {
     @GET
     public Response listAuthProviderFactories() {
         JsonArrayBuilder arb = Json.createArrayBuilder();
-        for ( AuthenticationProviderFactory f :
-                authSvc.listProviderFactories() ){
+        for ( AuthenticationProviderFactory f : authSvc.listProviderFactories() ){
             arb.add( jsonObjectBuilder()
                         .add("alias", f.getAlias() )
                         .add("info", f.getInfo() ));
@@ -122,9 +115,8 @@ public class Admin extends AbstractApiBean {
                 authSvc.deregisterProvider(provider.getId());
                 authSvc.registerProvider(provider);
             }
-            return Response.created( new URI("/s/authenticationProviders/"+managed.getId()))
-                    .build();
-        } catch ( AuthorizationSetupException | URISyntaxException e ) {
+            return createdResponse("/s/authenticationProviders/"+managed.getId(), json(managed));
+        } catch ( AuthorizationSetupException e ) {
             return errorResponse(Response.Status.INTERNAL_SERVER_ERROR, e.getMessage() );
         }
     }
@@ -196,6 +188,17 @@ public class Admin extends AbstractApiBean {
                             ? "WARNING: no enabled authentication providers left." : ""));
     }
     
+    @DELETE
+    @Path("authenticatedUsers/{identifier}/")
+    public Response deleteAuthenticatedUser(@PathParam("identifier") String identifier) {
+        AuthenticatedUser user = authSvc.getAuthenticatedUser(identifier);
+        if (user!=null) {
+            authSvc.deleteAuthenticatedUser(user.getId());
+            return okResponse("AuthenticatedUser " +identifier + " deleted. ");
+        }
+        return errorResponse(Response.Status.BAD_REQUEST, "User "+ identifier+" not found.");
+    }
+    
     @Path("roles")
     @POST
     public Response createNewBuiltinRole(RoleDTO roleDto) {
@@ -206,11 +209,23 @@ public class Admin extends AbstractApiBean {
         }
     }
     
-    @Path("superuser/{identifier}")
+    @Path("roles")
     @GET
-    public Response toggleSuperuser(@PathParam("identifier") String identifier) {
+    public Response listBuiltinRoles() {
         try {
-            AuthenticatedUser user = authSvc.getAuthenticatedUser(identifier);
+            return okResponse( rolesToJson(rolesSvc.findBuiltinRoles()) );
+        } catch (Exception e) {
+            return errorResponse(Response.Status.INTERNAL_SERVER_ERROR, e.getMessage());
+        }
+    }
+    
+    
+    @Path("superuser/{identifier}")
+    @POST
+    public Response toggleSuperuser(@PathParam("identifier") String identifier) {
+       try {
+          AuthenticatedUser user = authSvc.getAuthenticatedUser(identifier);
+          
             user.setSuperuser(!user.isSuperuser());
             
             return okResponse("User " + user.getIdentifier() + " " + (user.isSuperuser() ? "set": "removed") + " as a superuser.");

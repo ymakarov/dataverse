@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
@@ -49,6 +44,9 @@ public class Dataverse extends DvObjectContainer {
     @NotBlank(message = "Please enter a name.")
     private String name;
 
+    /**
+     * @todo add @Column(nullable = false) for the database to enforce non-null
+     */
     @NotBlank(message = "Please enter an alias.")
     @Size(max = 60, message = "Alias must be at most 60 characters.")
     @Pattern(regexp = "[a-zA-Z0-9\\_\\-]*", message = "Found an illegal character(s). Valid characters are a-Z, 0-9, '_', and '-'.")
@@ -123,9 +121,8 @@ public class Dataverse extends DvObjectContainer {
     private boolean displayByType;
     private boolean displayFeatured;
     
-    @OneToOne(cascade={ CascadeType.REMOVE, CascadeType.MERGE,CascadeType.PERSIST}, orphanRemoval=true)
-    @JoinColumn(name="dataversetheme_id")
-    private DataverseTheme dataverseTheme;
+    @OneToOne(mappedBy = "dataverse",cascade={ CascadeType.REMOVE, CascadeType.MERGE,CascadeType.PERSIST}, orphanRemoval=true)
+      private DataverseTheme dataverseTheme;
 
     @OneToMany(mappedBy = "dataverse",cascade={ CascadeType.REMOVE, CascadeType.MERGE,CascadeType.PERSIST}, orphanRemoval=true)
     @OrderBy("displayOrder")

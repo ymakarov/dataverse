@@ -10,6 +10,7 @@ import edu.harvard.iq.dataverse.DatasetFieldCompoundValue;
 import edu.harvard.iq.dataverse.DatasetFieldServiceBean;
 import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetFieldValue;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.io.StringReader;
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.JsonReader;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -34,6 +36,7 @@ import org.junit.Test;
 public class JsonParserTest {
     
     MockDatasetFieldSvc datasetFieldTypeSvc = null;
+    MockSettingsSvc settingsSvc = null;
     DatasetFieldType keywordType;
     DatasetFieldType descriptionType;
     DatasetFieldType subjectType;
@@ -84,10 +87,10 @@ public class JsonParserTest {
             t.setParentDatasetFieldType(compoundSingleType);
         }
         compoundSingleType.setChildDatasetFieldTypes(childTypes);
-        sut = new JsonParser(datasetFieldTypeSvc, null);
+        sut = new JsonParser(datasetFieldTypeSvc, null, settingsSvc);
     }
     
-    @Test
+    @Test 
     public void testCompoundRepeatsRoundtrip() throws JsonParseException {
         DatasetField expected = new DatasetField();
         expected.setDatasetFieldType( datasetFieldTypeSvc.findByName("coordinate") );
@@ -138,11 +141,41 @@ public class JsonParserTest {
                  fieldType.getControlledVocabularyValue("law"),
                  fieldType.getControlledVocabularyValue("cs")));
         
-        JsonObject json = JsonPrinter.json(expected);
+        JsonObject json = JsonPrinter.json(expected);      
         DatasetField actual = sut.parseField(json);
         assertFieldsEqual(expected, actual);
         
     }
+    
+    
+    @Test(expected=JsonParseException.class)
+     public void testChildValidation() throws JsonParseException {
+        // This Json String is a compound field that contains the wrong
+        // fieldType as a child ("description" is not a child of "coordinate").
+        // It should throw a JsonParseException when it encounters the invalid child.
+        String compoundString = "{ " +
+"            \"typeClass\": \"compound\"," +
+"            \"multiple\": true," +
+"            \"typeName\": \"coordinate\"," +
+"            \"value\": [" +
+"              {" +
+"                \"description\": {" +
+"                  \"value\": \"0\"," +
+"                  \"typeClass\": \"primitive\"," +
+"                  \"multiple\": false," +
+"                  \"typeName\": \"description\"" +
+"                }" +
+"              }" +
+"            ]" +
+"            " +
+"          }"; 
+   
+        String text = compoundString;
+        JsonReader jsonReader = Json.createReader(new StringReader(text));
+        JsonObject obj = jsonReader.readObject();
+
+        sut.parseField(obj);
+       }
     
     
     @Test
@@ -226,6 +259,20 @@ public class JsonParserTest {
         }
         
         throw new IllegalArgumentException("Unknown dataset field type '" + ex.getDatasetFieldType() + "'");
+    }
+    
+    static class MockSettingsSvc extends SettingsServiceBean {
+        @Override
+        public String getValueForKey( Key key, String defaultValue ) {
+            if (key.equals(SettingsServiceBean.Key.Authority)) {
+                return "10.5072/FK2";
+            } else if (key.equals(SettingsServiceBean.Key.Protocol)) {
+                return "doi";
+            } else if( key.equals(SettingsServiceBean.Key.DoiSeparator)) {
+                return "/";
+            }
+             return null;
+        }
     }
     
     static class MockDatasetFieldSvc extends DatasetFieldServiceBean {

@@ -43,7 +43,7 @@ public class Dataset extends DvObjectContainer {
     @NotBlank(message = "Please enter an identifier for your dataset.")
     private String identifier;
     @OneToMany(mappedBy = "dataset", orphanRemoval = true, cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST})
-    @OrderBy("id DESC")
+    @OrderBy("versionNumber DESC, minorVersionNumber DESC")
     private List<DatasetVersion> versions = new ArrayList();
     @OneToOne(mappedBy = "dataset", cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST})
     private DatasetLock datasetLock;
@@ -178,6 +178,20 @@ public class Dataset extends DvObjectContainer {
         }
         return false;
     }
+    
+    public boolean isDeaccessioned() {
+        // return true, if all published versions were deaccessioned
+        boolean hasDeaccessionedVersions = false;
+        for (DatasetVersion testDsv : getVersions()) {
+            if (testDsv.isReleased()) {
+                return false;  
+            }
+            if (testDsv.isDeaccessioned()) {
+                hasDeaccessionedVersions = true;
+            }
+        }
+        return hasDeaccessionedVersions; // since any published version would have already returned
+    }    
 
     public DatasetVersion getLatestVersion() {
         return getVersions().get(0);
@@ -203,6 +217,7 @@ public class Dataset extends DvObjectContainer {
     private DatasetVersion createNewDatasetVersion(Template template) {
         DatasetVersion dsv = new DatasetVersion();
         dsv.setVersionState(DatasetVersion.VersionState.DRAFT);
+        dsv.setFileMetadatas(new ArrayList());        
         DatasetVersion latestVersion = null;
 
         //if the latest version has values get them copied over
@@ -210,15 +225,28 @@ public class Dataset extends DvObjectContainer {
             if (!template.getDatasetFields().isEmpty()) {
                 dsv.setDatasetFields(dsv.copyDatasetFields(template.getDatasetFields()));
             }
+            dsv.setLicense(DatasetVersion.License.CC0); 
         } else {
             latestVersion = getLatestVersionForCopy();
             if (latestVersion.getDatasetFields() != null && !latestVersion.getDatasetFields().isEmpty()) {
                 dsv.setDatasetFields(dsv.copyDatasetFields(latestVersion.getDatasetFields()));
             }
-        }
+            dsv.setTermsOfUse(latestVersion.getTermsOfUse());
+            dsv.setTermsOfAccess(latestVersion.getTermsOfAccess());
+            dsv.setConfidentialityDeclaration(latestVersion.getConfidentialityDeclaration());
+            dsv.setSpecialPermissions(latestVersion.getSpecialPermissions());
+            dsv.setRestrictions(latestVersion.getRestrictions());
+            dsv.setCitationRequirements(latestVersion.getCitationRequirements());
+            dsv.setDepositorRequirements(latestVersion.getDepositorRequirements());
+            dsv.setConditions(latestVersion.getConditions());
+            dsv.setDisclaimer(latestVersion.getDisclaimer());
+            dsv.setDataAccessPlace(latestVersion.getDataAccessPlace());
+            dsv.setOriginalArchive(latestVersion.getOriginalArchive());
+            dsv.setAvailabilityStatus(latestVersion.getAvailabilityStatus());
+            dsv.setContactForAccess(latestVersion.getContactForAccess());
+            dsv.setSizeOfCollection(latestVersion.getSizeOfCollection());
+            dsv.setStudyCompletion(latestVersion.getStudyCompletion());
 
-        dsv.setFileMetadatas(new ArrayList());
-        if (latestVersion != null) {
             for (FileMetadata fm : latestVersion.getFileMetadatas()) {
                 FileMetadata newFm = new FileMetadata();
                 // TODO: 
@@ -230,10 +258,12 @@ public class Dataset extends DvObjectContainer {
                 newFm.setCategories(fm.getCategories());
                 newFm.setDescription(fm.getDescription());
                 newFm.setLabel(fm.getLabel());
+                newFm.setRestricted(fm.isRestricted());                
                 newFm.setDataFile(fm.getDataFile());
                 newFm.setDatasetVersion(dsv);
-                dsv.getFileMetadatas().add(newFm);
+                dsv.getFileMetadatas().add(newFm);                
             }
+            dsv.setLicense(latestVersion.getLicense());
         }
 
         // I'm adding the version to the list so it will be persisted when
@@ -339,7 +369,7 @@ public class Dataset extends DvObjectContainer {
             }
         }
     }
-    
+    /*
     public void addCategoryByName(String newCategoryName) {
         if (newCategoryName != null && !newCategoryName.equals("")) {
             Collection<String> oldCategoryNames = getCategoryNames();
@@ -350,15 +380,17 @@ public class Dataset extends DvObjectContainer {
                 this.addFileCategory(newCategory);
             }
         }
-    }
+    }*/
     
     public DataFileCategory getCategoryByName(String categoryName) {
         if (categoryName != null && !categoryName.equals("")) {
-            for (int i = 0; i < dataFileCategories.size(); i++) {
-                if (categoryName.equals(dataFileCategories.get(i).getName())) {
-                    return dataFileCategories.get(i);
-                }
-            } 
+            if (dataFileCategories != null) {
+                for (int i = 0; i < dataFileCategories.size(); i++) {
+                    if (categoryName.equals(dataFileCategories.get(i).getName())) {
+                        return dataFileCategories.get(i);
+                    }
+                } 
+            }
             
             DataFileCategory newCategory = new DataFileCategory();
             newCategory.setName(categoryName);

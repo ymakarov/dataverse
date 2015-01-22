@@ -15,6 +15,7 @@ import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
 import edu.harvard.iq.dataverse.UserServiceBean;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.RoleAssignee;
+import edu.harvard.iq.dataverse.authorization.groups.GroupServiceBean;
 import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.IpGroupsServiceBean;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.UserRequestMetadata;
@@ -97,7 +98,7 @@ public abstract class AbstractApiBean {
     protected PermissionServiceBean permissionSvc;
     
     @EJB
-    protected IpGroupsServiceBean ipGroupsSvc;
+    protected GroupServiceBean groupSvc;
     
 	@PersistenceContext(unitName = "VDCNet-ejbPU")
 	protected EntityManager em;
@@ -116,7 +117,7 @@ public abstract class AbstractApiBean {
     private final LazyRef<JsonParser> jsonParserRef = new LazyRef<>(new Callable<JsonParser>() {
         @Override
         public JsonParser call() throws Exception {
-            return new JsonParser(datasetFieldSvc, metadataBlockSvc);
+            return new JsonParser(datasetFieldSvc, metadataBlockSvc,settingsSvc);
         }
     });
     
@@ -200,9 +201,9 @@ public abstract class AbstractApiBean {
     }
     
     protected Response okResponse( JsonArrayBuilder bld ) {
-        return Response.ok( Json.createObjectBuilder()
+        return Response.ok(Json.createObjectBuilder()
             .add("status", "OK")
-            .add("data", bld).build() ).build();
+            .add("data", bld).build()).build();
     }
     
     protected Response okResponse(JsonArrayBuilder bld, Format format) {
@@ -245,9 +246,9 @@ public abstract class AbstractApiBean {
      * @return a HTTP OK response with the passed value as data.
      */
     protected Response okResponseWithValue( String value ) {
-        return Response.ok().entity(Json.createObjectBuilder()
+        return Response.ok(Util.jsonObject2prettyString(Json.createObjectBuilder()
             .add("status", "OK")
-            .add("data", value).build() ).build();
+            .add("data", value).build()), MediaType.APPLICATION_JSON_TYPE ).build();
     }
 
     protected Response okResponseWithValue( boolean value ) {

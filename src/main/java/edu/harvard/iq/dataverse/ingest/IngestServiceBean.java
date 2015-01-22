@@ -65,7 +65,8 @@ import edu.harvard.iq.dataverse.util.MD5Checksum;
 import edu.harvard.iq.dataverse.util.ShapefileHandler;
 import edu.harvard.iq.dataverse.util.SumStatCalculator;
 import edu.harvard.iq.dataverse.util.SystemConfig;
-import edu.harvard.iq.dvn.unf.*;
+//import edu.harvard.iq.dvn.unf.*;
+import org.dataverse.unf.*;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -141,6 +142,9 @@ public class IngestServiceBean {
     Queue queue;
     @Resource(mappedName = "jms/IngestQueueConnectionFactory")
     QueueConnectionFactory factory;
+    
+    // TODO: [in process!]
+    // move all the type-related lookups into the file service (L.A.)
     
     private static final String MIME_TYPE_STATA = "application/x-stata";
     private static final String MIME_TYPE_STATA13 = "application/x-stata-13";
@@ -223,7 +227,7 @@ public class IngestServiceBean {
                         || contentType.equalsIgnoreCase(MIME_TYPE_UNDETERMINED_DEFAULT)
                         || contentType.equalsIgnoreCase(MIME_TYPE_UNDETERMINED_BINARY)
                         || recognizedType.equals("application/fits-gzipped")
-                        || recognizedType.equals(ShapefileHandler.SHAPEFILE_FILE_TYPE)
+                        || recognizedType.equalsIgnoreCase(ShapefileHandler.SHAPEFILE_FILE_TYPE)
                         || recognizedType.equals(MIME_TYPE_ZIP)) {
                     finalType = recognizedType;
                 }
@@ -378,7 +382,7 @@ public class IngestServiceBean {
                 return datafiles;
             }
             
-        } else if (finalType.equals(ShapefileHandler.SHAPEFILE_FILE_TYPE)) {
+        } else if (finalType.equalsIgnoreCase(ShapefileHandler.SHAPEFILE_FILE_TYPE)) {
             // Shape files may have to be split into multiple files, 
             // one zip archive per each complete set of shape files:
                        
@@ -450,11 +454,7 @@ public class IngestServiceBean {
             }
         
             if (warningMessage != null) {
-                IngestReport errorReport = new IngestReport();
-                errorReport.setFailure();
-                errorReport.setReport(warningMessage);
-                errorReport.setDataFile(datafile);
-                datafile.setIngestReport(errorReport);
+                createIngestFailureReport(datafile, warningMessage);
                 datafile.SetIngestProblem();
             }
             datafiles.add(datafile);
@@ -962,22 +962,6 @@ public class IngestServiceBean {
         }
     }
     
-    /*
-    public void startIngestJobs (DatasetVersion datasetVersion) {
-        for (FileMetadata fileMetadata : datasetVersion.getFileMetadatas()) {
-            DataFile dataFile = fileMetadata.getDataFile();
-            
-            if (dataFile != null && dataFile.isIngestScheduled()) {
-                dataFile.SetIngestInProgress();
-                dataFile = fileService.save(dataFile);
-                logger.info("Attempting to queue the file " + dataFile.getFileMetadata().getLabel() + "(" + dataFile.getFileMetadata().getDescription() + ") for ingest.");
-                asyncIngestAsTabular(dataFile);
-            }
-        }
-
-    }
-    */
-    
     public void produceSummaryStatistics(DataFile dataFile) throws IOException {
         /*
         logger.info("Skipping summary statistics and UNF.");
@@ -987,6 +971,7 @@ public class IngestServiceBean {
         produceCharacterSummaryStatistics(dataFile);
         
         recalculateDataFileUNF(dataFile);
+        recalculateDatasetVersionUNF(dataFile.getFileMetadata().getDatasetVersion());
     }
     
     public void produceContinuousSummaryStatistics(DataFile dataFile) throws IOException {
@@ -1091,9 +1076,11 @@ public class IngestServiceBean {
         }
         
         try {
-            fileUnfValue = UNF5Util.calculateUNF(unfValues);
+            fileUnfValue = UNFUtil.calculateUNF(unfValues);
         } catch (IOException ex) {
             logger.warning("Failed to recalculate the UNF for the datafile id="+dataFile.getId());
+        } catch (UnfException uex) {
+                logger.warning("UNF Exception: Failed to recalculate the UNF for the dataset version id="+dataFile.getId());
         }
         
         if (fileUnfValue != null) {
@@ -1101,55 +1088,43 @@ public class IngestServiceBean {
         }
     }
     
-    /*
-    public boolean asyncIngestAsTabular(DataFile dataFile) {
-        boolean ingestSuccessful = true;
-
-        QueueConnection conn = null;
-        QueueSession session = null;
-        QueueSender sender = null;
-        try {
-            conn = factory.createQueueConnection();
-            session = conn.createQueueSession(false, 0);
-            sender = session.createSender(queue);
-
-            IngestMessage ingestMessage = new IngestMessage(IngestMessage.INGEST_MESAGE_LEVEL_INFO);
-            //ingestMessage.addFile(new File(tempFileLocation));
-            ingestMessage.addFileId(dataFile.getId());
-            
-            Message message = session.createObjectMessage(ingestMessage);
-
-            try {
-                sender.send(message);
-            } catch (Exception ex) {
-                ingestSuccessful = false; 
-                ex.printStackTrace();
-            }
-
-        } catch (JMSException ex) {
-            ingestSuccessful = false;
-            ex.printStackTrace();
-        } finally {
-            try {
-
-                if (sender != null) {
-                    sender.close();
-                }
-                if (session != null) {
-                    session.close();
-                }
-                if (conn != null) {
-                    conn.close();
-                }
-            } catch (JMSException ex) {
-                ingestSuccessful = false;
-                ex.printStackTrace();
+    public void recalculateDatasetVersionUNF(DatasetVersion version) {
+        String[] unfValues = new String[0];
+        String datasetUnfValue = null; 
+        List<String> unfValueList = new ArrayList<>();
+        
+        logger.fine("recalculating UNF for dataset version.");
+        Iterator<FileMetadata> itfm = version.getFileMetadatas().iterator();
+        while (itfm.hasNext()) {            
+            FileMetadata fileMetadata = itfm.next();
+            if (fileMetadata != null &&
+                    fileMetadata.getDataFile() != null &&
+                    fileMetadata.getDataFile().isTabularData() &&
+                    fileMetadata.getDataFile().getUnf() != null) {
+                String varunf = fileMetadata.getDataFile().getUnf();
+                unfValueList.add(varunf);
             }
         }
-
-        return ingestSuccessful;
+        
+        if (unfValueList.size() > 0) {
+            unfValues = unfValueList.toArray(unfValues);
+        
+            logger.fine("Attempting to calculate new UNF from total of " + unfValueList.size() + " file-level signatures.");
+            try {
+                datasetUnfValue = UNFUtil.calculateUNF(unfValues);
+            } catch (IOException ex) {
+                logger.warning("IO Exception: Failed to recalculate the UNF for the dataset version id="+version.getId());
+            } catch (UnfException uex) {
+                logger.warning("UNF Exception: Failed to recalculate the UNF for the dataset version id="+version.getId());
+            }        
+        
+            if (datasetUnfValue != null) {
+                version.setUNF(datasetUnfValue);
+                logger.fine("Recalculated the UNF for the dataset version id="+version.getId()+", new signature: "+datasetUnfValue);
+            }
+        }
     }
-    */
+    
     public boolean ingestAsTabular(Long datafile_id) { //DataFile dataFile) throws IOException {
         DataFile dataFile = fileService.find(datafile_id);
         if (dataFile != null) {
@@ -1178,7 +1153,6 @@ public class IngestServiceBean {
         // -- L.A. 12 Aug. 2014
         
         boolean ingestSuccessful = false;
-        IngestReport errorReport = null;
         Long datafile_id = dataFile == null ? null : dataFile.getId();
 
         PushContext pushContext = PushContextFactory.getDefault().getPushContext();
@@ -1196,31 +1170,24 @@ public class IngestServiceBean {
 
         if (ingestPlugin == null) {
             dataFile.SetIngestProblem();
-            errorReport = new IngestReport();
-            errorReport.setFailure();
-            errorReport.setReport("No ingest plugin found for file type "+dataFile.getContentType());
-            errorReport.setDataFile(dataFile);
-            dataFile.setIngestReport(errorReport);
+            createIngestFailureReport(dataFile, "No ingest plugin found for file type "+dataFile.getContentType());
             dataFile = fileService.save(dataFile);
             FacesMessage facesMessage = new FacesMessage("ingest failed");
             pushContext.push("/ingest"+dataFile.getOwner().getId(), facesMessage);
-            Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure: Sent push notification to the page.");
+            logger.info("Ingest failure: Sent push notification to the page.");
             //throw new IOException("Could not find ingest plugin for the file " + fileName);
             return false; 
         }
 
         FileInputStream tempFileInputStream = null; 
+        File additionalData = null; 
         
         try {
             tempFileInputStream = new FileInputStream(new File(tempFileLocation));
         } catch (FileNotFoundException notfoundEx) {
             dataFile.SetIngestProblem();
             
-            errorReport = new IngestReport();
-            errorReport.setFailure();
-            errorReport.setReport("IO Exception occured while trying to open the file for reading.");
-            errorReport.setDataFile(dataFile);
-            dataFile.setIngestReport(errorReport);
+            createIngestFailureReport(dataFile, "IO Exception occured while trying to open the file for reading.");
             dataFile = fileService.save(dataFile);
             
             dataFile = fileService.save(dataFile);
@@ -1231,16 +1198,28 @@ public class IngestServiceBean {
             //throw new IOException("Could not open temp file "+tempFileLocation);
         }
         
+        IngestRequest ingestRequest = dataFile.getIngestRequest();
+        if (ingestRequest != null) {
+            if (ingestRequest.getTextEncoding() != null 
+                    && !ingestRequest.getTextEncoding().equals("") ) {
+                logger.fine("Setting language encoding to "+ingestRequest.getTextEncoding());
+                ingestPlugin.setDataLanguageEncoding(ingestRequest.getTextEncoding());
+            }
+            if (ingestRequest.getLabelsFile() != null) {
+                additionalData = new File(ingestRequest.getLabelsFile());
+            }
+        } 
+        
         TabularDataIngest tabDataIngest = null; 
         try {
-            tabDataIngest = ingestPlugin.read(new BufferedInputStream(tempFileInputStream), null);
+            if (additionalData != null) {
+                tabDataIngest = ingestPlugin.read(new BufferedInputStream(tempFileInputStream), additionalData);
+            } else {
+                tabDataIngest = ingestPlugin.read(new BufferedInputStream(tempFileInputStream), null);
+            }
         } catch (IOException ingestEx) {
             dataFile.SetIngestProblem();
-            errorReport = new IngestReport();
-            errorReport.setFailure();
-            errorReport.setReport(ingestEx.getMessage());
-            errorReport.setDataFile(dataFile);
-            dataFile.setIngestReport(errorReport);
+            createIngestFailureReport(dataFile, ingestEx.getMessage());
             dataFile = fileService.save(dataFile);
             
             dataFile = fileService.save(dataFile);
@@ -1252,11 +1231,7 @@ public class IngestServiceBean {
             // this is a bit of a kludge, to make sure no unknown exceptions are
             // left uncaught.
             dataFile.SetIngestProblem();
-            errorReport = new IngestReport();
-            errorReport.setFailure();
-            errorReport.setReport(unknownEx.getMessage());
-            errorReport.setDataFile(dataFile);
-            dataFile.setIngestReport(errorReport);
+            createIngestFailureReport(dataFile, unknownEx.getMessage());
             dataFile = fileService.save(dataFile);
             
             dataFile = fileService.save(dataFile);
@@ -1275,10 +1250,10 @@ public class IngestServiceBean {
                         && tabFile != null
                         && tabFile.exists()) {
 
-                    Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Tabular data successfully ingested; DataTable with "
+                    logger.info("Tabular data successfully ingested; DataTable with "
                             + tabDataIngest.getDataTable().getVarQuantity() + " variables produced.");
 
-                    Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Tab-delimited file produced: " + tabFile.getAbsolutePath());
+                    logger.info("Tab-delimited file produced: " + tabFile.getAbsolutePath());
 
                     if (MIME_TYPE_CSV_ALT.equals(dataFile.getContentType())) {
                         tabDataIngest.getDataTable().setOriginalFileFormat(MIME_TYPE_CSV);
@@ -1290,7 +1265,7 @@ public class IngestServiceBean {
                     try {
                         saveIngestedOriginal(dataFile, new FileInputStream(new File(tempFileLocation)));
                     } catch (IOException iox) {
-                        Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Failed to save the ingested original! " + iox.getMessage());
+                        logger.info("Failed to save the ingested original! " + iox.getMessage());
                     }
 
                     Files.copy(Paths.get(tabFile.getAbsolutePath()), dataFile.getFileSystemLocation(), StandardCopyOption.REPLACE_EXISTING);
@@ -1306,6 +1281,11 @@ public class IngestServiceBean {
                     produceSummaryStatistics(dataFile);
 
                     dataFile.setIngestDone();
+                    // delete the ingest request, if exists:
+                    if (dataFile.getIngestRequest() != null) {
+                        dataFile.getIngestRequest().setDataFile(null);
+                        dataFile.setIngestRequest(null);
+                    }
                     dataFile = fileService.save(dataFile);
                     FacesMessage facesMessage = new FacesMessage("ingest done");
                     pushContext.push("/ingest" + dataFile.getOwner().getId(), facesMessage);
@@ -1314,7 +1294,7 @@ public class IngestServiceBean {
                     ingestSuccessful = true;
                 }
             } else {
-                Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failed to produce data obect; notification NOT sent to the page.");
+                logger.info("Ingest failed to produce data obect; notification NOT sent to the page.");
             }
         } catch (IOException postIngestEx) {
             // TODO: 
@@ -1322,11 +1302,7 @@ public class IngestServiceBean {
             // from file save errors;
             // -- L.A. Aug. 2014
             dataFile.SetIngestProblem();
-            errorReport = new IngestReport();
-            errorReport.setFailure();
-            errorReport.setReport("Ingest failed to produce Summary Statistics and/or UNF signatures; "+postIngestEx.getMessage());
-            errorReport.setDataFile(dataFile);
-            dataFile.setIngestReport(errorReport);
+            createIngestFailureReport(dataFile, "Ingest failed to produce Summary Statistics and/or UNF signatures; "+postIngestEx.getMessage());
             
             dataFile = fileService.save(dataFile);
             
@@ -1334,18 +1310,14 @@ public class IngestServiceBean {
         } catch (Exception unknownEx) {
             // this probably means that an error occurred while saving the datafile
             // in the database. 
-            Logger.getLogger(IngestServiceBean.class.getName()).log(Level.INFO, "Ingest failure: Failed to save tabular data (datatable, datavariables, etc.) in the database. Clearing the datafile object.");
+            logger.info("Ingest failure: Failed to save tabular data (datatable, datavariables, etc.) in the database. Clearing the datafile object.");
 
             dataFile = null; 
             dataFile = fileService.find(datafile_id);
             
             if (dataFile != null) {
                 dataFile.SetIngestProblem();
-                errorReport = new IngestReport();
-                errorReport.setFailure();
-                errorReport.setReport("Ingest produced tabular data, but failed to save it in the database; " + unknownEx.getMessage() + " No further information is available.");
-                errorReport.setDataFile(dataFile);
-                dataFile.setIngestReport(errorReport);
+                createIngestFailureReport(dataFile, "Ingest produced tabular data, but failed to save it in the database; " + unknownEx.getMessage() + " No further information is available.");
 
                 // blank the datatable that may have already been attached to the
                 // datafile (it may have something "unsave-able" in it!)
@@ -1354,11 +1326,7 @@ public class IngestServiceBean {
                     tabDataIngest.getDataTable().setDataFile(null);
                 }
 
-                ////try {
                 dataFile = fileService.save(dataFile);
-                ////} catch (Exception unknownEx2) {
-                ////    logger.info("Another unknown exception occured while saving the datafile.");
-                ////}
                 FacesMessage facesMessage = new FacesMessage("ingest failed");
                 pushContext.push("/ingest" + dataFile.getOwner().getId(), facesMessage);
                 logger.info("Unknown excepton saving ingested file; Sent push notification to the page.");
@@ -1371,6 +1339,19 @@ public class IngestServiceBean {
         return ingestSuccessful;
     }
 
+    private void createIngestFailureReport(DataFile dataFile, String message) {
+        createIngestReport(dataFile, IngestReport.INGEST_STATUS_FAILURE, message);
+    }
+    
+    private void createIngestReport (DataFile dataFile, int status, String message) {
+        IngestReport errorReport = new IngestReport();
+        if (status == IngestReport.INGEST_STATUS_FAILURE) {
+                errorReport.setFailure();
+                errorReport.setReport(message);
+                errorReport.setDataFile(dataFile);
+                dataFile.setIngestReport(errorReport);
+        }
+    }
     public boolean ingestableAsTabular(DataFile dataFile) {
         /* 
          * In the final 4.0 we'll be doing real-time checks, going through the 
@@ -1912,10 +1893,13 @@ public class IngestServiceBean {
     private void calculateUNF(DataFile dataFile, int varnum, Double[] dataVector) {
         String unf = null;
         try {
-            unf = UNF5Util.calculateUNF(dataVector);
+            unf = UNFUtil.calculateUNF(dataVector);
         } catch (IOException iex) {
             logger.warning("exception thrown when attempted to calculate UNF signature for (numeric, continuous) variable " + varnum);
+        } catch (UnfException uex) {
+            logger.warning("UNF Exception: thrown when attempted to calculate UNF signature for (numeric, continuous) variable " + varnum);
         }
+        
         if (unf != null) {
             dataFile.getDataTable().getDataVariables().get(varnum).setUnf(unf);
         } else {
@@ -1926,10 +1910,13 @@ public class IngestServiceBean {
     private void calculateUNF(DataFile dataFile, int varnum, Long[] dataVector) {
         String unf = null;
         try {
-            unf = UNF5Util.calculateUNF(dataVector);
+            unf = UNFUtil.calculateUNF(dataVector);
         } catch (IOException iex) {
             logger.warning("exception thrown when attempted to calculate UNF signature for (numeric, discrete) variable " + varnum);
+        }  catch (UnfException uex) {
+            logger.warning("UNF Exception: thrown when attempted to calculate UNF signature for (numeric, discrete) variable " + varnum);
         }
+        
         if (unf != null) {
             dataFile.getDataTable().getDataVariables().get(varnum).setUnf(unf);
         } else {
@@ -2020,13 +2007,16 @@ public class IngestServiceBean {
         try {
             if (dateFormats == null) {
                 logger.fine("calculating the UNF value for string vector; first value: "+dataVector[0]);
-                unf = UNF5Util.calculateUNF(dataVector);
+                unf = UNFUtil.calculateUNF(dataVector);
             } else {
-                unf = UNF5Util.calculateUNF(dataVector, dateFormats);
+                unf = UNFUtil.calculateUNF(dataVector, dateFormats);
             }
         } catch (IOException iex) {
-            logger.warning("exception thrown when attempted to calculate UNF signature for (character) variable " + varnum);
+            logger.warning("IO exception thrown when attempted to calculate UNF signature for (character) variable " + varnum);
+        } catch (UnfException uex) {
+            logger.warning("UNF Exception: thrown when attempted to calculate UNF signature for (character) variable " + varnum);
         }
+        
         if (unf != null) {
             dataFile.getDataTable().getDataVariables().get(varnum).setUnf(unf);
         } else {
@@ -2045,10 +2035,13 @@ public class IngestServiceBean {
     private void calculateUNF(DataFile dataFile, int varnum, Float[] dataVector) {
         String unf = null;
         try {
-            unf = UNF5Util.calculateUNF(dataVector);
+            unf = UNFUtil.calculateUNF(dataVector);
         } catch (IOException iex) {
             logger.warning("exception thrown when attempted to calculate UNF signature for numeric, \"continuous\" (float) variable " + varnum);
+        } catch (UnfException uex) {
+            logger.warning("UNF Exception: thrown when attempted to calculate UNF signature for numeric, \"continuous\" (float) variable" + varnum);
         }
+        
         if (unf != null) {
             dataFile.getDataTable().getDataVariables().get(varnum).setUnf(unf);
         } else {

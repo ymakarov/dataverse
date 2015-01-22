@@ -11,14 +11,14 @@ import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseContact;
 import edu.harvard.iq.dataverse.MetadataBlockServiceBean;
-import edu.harvard.iq.dataverse.api.AbstractApiBean;
 import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.IpGroup;
 import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.ip.IpAddress;
 import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.ip.IpAddressRange;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
+import static edu.harvard.iq.dataverse.util.json.JsonPrinter.json;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedList;
@@ -40,10 +40,12 @@ public class JsonParser {
   
     DatasetFieldServiceBean datasetFieldSvc;
     MetadataBlockServiceBean blockService;
+    SettingsServiceBean settingsService;
 
-    public JsonParser(DatasetFieldServiceBean datasetFieldSvc, MetadataBlockServiceBean blockService) {
+    public JsonParser(DatasetFieldServiceBean datasetFieldSvc, MetadataBlockServiceBean blockService, SettingsServiceBean settingsService) {
         this.datasetFieldSvc = datasetFieldSvc;
         this.blockService = blockService;
+        this.settingsService = settingsService;
     }
     
     public static Dataverse parseDataverse( JsonObject jobj ) throws JsonParseException {
@@ -83,9 +85,9 @@ public class JsonParser {
         if ( obj.containsKey("id") ) {
             retVal.setId( Long.valueOf(obj.getString("id")) );
         }
-        retVal.setName( obj.getString("name",null) );
+        retVal.setDisplayName( obj.getString("name",null) );
         retVal.setDescription( obj.getString("description",null) );
-        retVal.setAlias( obj.getString("alias", null) );
+        retVal.setPersistedGroupAlias( obj.getString("alias", null) );
         
         JsonArray rangeArray = obj.getJsonArray("ranges");
         for ( JsonValue range : rangeArray ) {
@@ -106,12 +108,10 @@ public class JsonParser {
     
     public Dataset parseDataset(JsonObject obj) throws JsonParseException {
         Dataset dataset = new Dataset();
-        // EMK TODO: 
-        // set datasetvalues from obj; Do we need to set anything else?
-        dataset.setAuthority(obj.getString("authority", null));
-        dataset.setIdentifier(obj.getString("identifier", null));
-        dataset.setProtocol(obj.getString("protocol", null));
-        dataset.setDoiSeparator(obj.getString("doiSeparator",null));
+      
+        dataset.setAuthority( obj.getString("authority", null)==null ? settingsService.getValueForKey(SettingsServiceBean.Key.Protocol): obj.getString("authority") );
+        dataset.setProtocol(  obj.getString("protocol", null)==null ? settingsService.getValueForKey(SettingsServiceBean.Key.Protocol): obj.getString("protocol") );
+        dataset.setDoiSeparator(  obj.getString("doiSeparator", null)==null ? settingsService.getValueForKey(SettingsServiceBean.Key.Protocol): obj.getString("doiSeparator") );    
         DatasetVersion dsv = parseDatasetVersion(obj.getJsonObject("datasetVersion"));
         LinkedList<DatasetVersion> versions = new LinkedList<>();
         versions.add(dsv);
@@ -128,7 +128,7 @@ public class JsonParser {
             if ( archiveNote != null ) dsv.setArchiveNote( archiveNote );
             
             dsv.setDeaccessionLink( obj.getString("deaccessionLink", null) );
-            dsv.setVersionNumber( parseLong(obj.getString("versionNumber", null)) );
+            dsv.setVersionNumber( (long)obj.getInt("versionNumber", -1) );
             dsv.setMinorVersionNumber( parseLong(obj.getString("minorVersionNumber", null)) );
             dsv.setId( parseLong(obj.getString("id", null)) );
             
@@ -141,7 +141,23 @@ public class JsonParser {
             dsv.setLastUpdateTime( parseTime(obj.getString("lastUpdateTime", null)) );
             dsv.setCreateTime( parseTime(obj.getString("createTime", null)) );
             dsv.setArchiveTime( parseTime(obj.getString("archiveTime", null)) );
-            
+            // Terms of Use related fields
+            dsv.setTermsOfUse(obj.getString("termsOfUse", null) );
+            dsv.setTermsOfAccess(obj.getString("termsOfAccess",null));
+            dsv.setConfidentialityDeclaration(obj.getString("confidentialityDeclaration",null));
+            dsv.setSpecialPermissions(obj.getString("specialPermissions",null));
+            dsv.setRestrictions(obj.getString("restrictions",null));
+            dsv.setCitationRequirements(obj.getString("citationRequirements",null));
+            dsv.setDepositorRequirements(obj.getString("depositorRequirements",null));
+            dsv.setConditions(obj.getString("conditions",null));
+            dsv.setDisclaimer(obj.getString("disclaimer",null));
+            dsv.setDataAccessPlace(obj.getString("dataAccessPlace",null));
+            dsv.setOriginalArchive(obj.getString("originalArchive",null));
+            dsv.setAvailabilityStatus(obj.getString("availabilityStatus",null));
+            dsv.setContactForAccess(obj.getString("contactForAccess",null));
+            dsv.setSizeOfCollection(obj.getString("sizeOfCollection",null));
+            dsv.setStudyCompletion(obj.getString("studyCompletion",null));
+                    
             dsv.setDatasetFields( parseMetadataBlocks(obj.getJsonObject("metadataBlocks")) );
             
             return dsv;
@@ -221,7 +237,7 @@ public class JsonParser {
     }
     
     public List<DatasetFieldCompoundValue> parseCompoundValue( DatasetFieldType compoundType, JsonObject json ) throws JsonParseException {
-       
+        
         if ( json.getBoolean("multiple") ) {
             List<DatasetFieldCompoundValue> vals = new LinkedList<>();
             
@@ -231,6 +247,9 @@ public class JsonParser {
                 for ( String fieldName: obj.keySet() ) {
                     JsonObject childFieldJson = obj.getJsonObject(fieldName);
                     DatasetField f = parseField( childFieldJson );
+                    if (!compoundType.getChildDatasetFieldTypes().contains(f.getDatasetFieldType())) {
+                        throw new JsonParseException("field "+f.getDatasetFieldType().getName()+" is not a child of "+ compoundType.getName());
+                    }
                     f.setParentDatasetFieldCompoundValue(cv);
                     fields.add( f );
                 }

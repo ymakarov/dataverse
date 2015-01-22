@@ -21,13 +21,14 @@
                     </p:commandLink>
                     <p:remoteCommand name="submitsearch" action="#{SearchIncludeFragment.searchRedirect(dataverseRedirectPage)}"/>                  
                     <h:outputLink id="advsearchlink" value="/search/advanced.xhtml" target="#{showFacets == true ? '_self' : '_blank'}" rendered="#{showAdvancedSearchLink}">
+                      <f:param name="dataverseIdentifier" value="#{SearchIncludeFragment.dataverse.alias}"/>
                         <h:outputText value="Advanced Search"/>
                         <!--<f:param name="q" value="#{SearchIncludeFragment.query}" disable="#{empty SearchIncludeFragment.query}"/>-->
                     </h:outputLink>
                 </h:form>
             </ui:fragment>
             
-            <o:importFunctions type="edu.harvard.iq.dataverse.authorization.groups.impl.AuthenticatedUsers" />
+            <o:importFunctions type="edu.harvard.iq.dataverse.authorization.groups.impl.builtin.AuthenticatedUsers" />
             <ui:fragment rendered="#{!dataverseSession.user.authenticated and (permissionServiceBean.userOn(AuthenticatedUsers:get(),SearchIncludeFragment.dataverse).canIssueCommand('CreateDataverseCommand')
                                      or permissionServiceBean.userOn(AuthenticatedUsers:get(),SearchIncludeFragment.dataverse).canIssueCommand('CreateDatasetCommand'))}">
                 
@@ -38,8 +39,11 @@
                 </div>
                 <p:confirmDialog header="Add Data" widgetVar="addData_popup">                                           
                     <f:facet name="message">
-                        You need to <a href="/dataverseuser.xhtml#{dataverseHeaderFragment.loginRedirectPage}&amp;editMode=CREATE">Sign Up</a>
-                        or <a href="/loginpage.xhtml#{dataverseHeaderFragment.loginRedirectPage}">Log In</a> to create a dataverse or add a dataset.
+                        You need to 
+                        <ui:fragment rendered="#{dataverseHeaderFragment.signupAllowed}">
+                            <a href="/dataverseuser.xhtml#{dataverseHeaderFragment.loginRedirectPage}&amp;editMode=CREATE">Sign Up</a> or 
+                        </ui:fragment>
+                        <a href="/loginpage.xhtml#{dataverseHeaderFragment.loginRedirectPage}">Log In</a> to create a dataverse or add a dataset.
                     </f:facet>
                 </p:confirmDialog>  
             </ui:fragment>
@@ -312,12 +316,12 @@
                                                 </li>
                                                 <c:forEach begin="#{Math:max(1,SearchIncludeFragment.page-Math:max(2,SearchIncludeFragment.page-SearchIncludeFragment.totalPages+4))}"
                                                            end="#{Math:min(SearchIncludeFragment.totalPages,SearchIncludeFragment.page+Math:max(2,5-SearchIncludeFragment.page))}"
-                                                           var="pageListItem">
-                                                    <li class="#{SearchIncludeFragment.page == pageListItem ? 'active' : ''}">
+                                                           varStatus="pageStatus">
+                                                    <li class="#{SearchIncludeFragment.page == pageStatus.index ? 'active' : ''}">
                                                         <h:outputLink>
-                                                            <h:outputText value="#{pageListItem}"/>
-                                                            <span class="#{SearchIncludeFragment.page == pageListItem ? 'sr-only' : ''}">
-                                                                <h:outputText value="#{SearchIncludeFragment.page == pageListItem ? ' (current)' : ''}"/>
+                                                            <h:outputText value="#{pageStatus.index}"/>
+                                                            <span class="#{SearchIncludeFragment.page == pageStatus.index ? 'sr-only' : ''}">
+                                                                <h:outputText value="#{SearchIncludeFragment.page == pageStatus.index ? ' (current)' : ''}"/>
                                                             </span>
                                                             <f:param name="id" value="#{SearchIncludeFragment.dataverseId}"/>
                                                             <f:param name="q" value="#{SearchIncludeFragment.query}"/>
@@ -327,7 +331,7 @@
                                                             <f:param name="types" value="#{SearchIncludeFragment.selectedTypesString}"/>
                                                             <f:param name="sort" value="#{SearchIncludeFragment.sortField}"/>
                                                             <f:param name="order" value="#{SearchIncludeFragment.sortOrder}"/>
-                                                            <f:param name="page" value="#{pageListItem}"/>
+                                                            <f:param name="page" value="#{pageStatus.index}"/>
                                                         </h:outputLink>
                                                     </li>
                                                 </c:forEach>
@@ -509,18 +513,17 @@
                                     <ui:fragment rendered="#{result.datasets.size() > 0}">
                                         <div style="clear:left;">
                                             <a data-toggle="collapse" data-parent="#accordion" href="#childDatasetBlock#{result.entityId}" value="javascript:void(0)">
-                                                Preview Recently Released Datasets [+]
+                                                Preview Recently Published Datasets [+]
                                             </a>
                                             <div class="panel-collapse collapse" id="childDatasetBlock#{result.entityId}">
                                                 <p:dataTable id="childDatasetTable" value="#{result.datasets}" var="dataset" rows="3" scrollable="true">
                                                     <p:column headerText="Title" style="font-size: smaller; width: 90%">
                                                         <img src="/resources/images/icon_dataset.png" style="width:18px;margin:0 4px 0 0;vertical-align:bottom;" border="0" alt="Dataset" />
-                                                        <h:outputLink value="/dataset.xhtml?id=#{dataset.id}" target="#{showFacets == true ? '_self' : '_blank'}">
-                                                            <h:outputText value="#{dataset.getLatestVersion().getTitle()}" />
-                                                        </h:outputLink>
+                                                        <a href="/dataset.xhtml?globalId=#{dataset.globalId}" target="#{showFacets == true ? '_self' : '_blank'}">
+                                                            <h:outputText value="#{dataset.releasedVersion.title}" /></a>
                                                     </p:column>
                                                     <p:column headerText="Files" style="font-size: smaller; width: 10%; text-align: right">
-                                                        <h:outputText value="#{dataset.getFiles().size()} #{dataset.getFiles().size() == 0 or dataset.getFiles().size() > 1 ? 'Files' : 'File'}" />
+                                                        <h:outputText value="#{dataset.releasedVersion.fileMetadatas.size()} #{dataset.releasedVersion.fileMetadatas.size() == 0 or dataset.releasedVersion.fileMetadatas.size() > 1 ? 'Files' : 'File'}" />
                                                     </p:column>
                                                     <f:facet name="footer">  
                                                         <h:outputLink value="#{dataversePage}?id=#{result.entityId}" target="#{showFacets == true ? '_self' : '_blank'}" style="font-weight:normal; font-size: smaller;">
@@ -535,11 +538,10 @@
                                 <!--DATASET CARDS-->
                                 <ui:fragment rendered="#{result.type == 'datasets'}">
                                     <div>
-                                        <h:outputLink value="#{result.datasetUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
+                                        <a href="#{result.datasetUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
                                             <h:outputText value="#{result.title}" style="padding:4px 0;" rendered="#{result.titleHighlightSnippet == null}"/>
                                             <h:outputText value="#{result.titleHighlightSnippet}" style="padding:4px 0;" rendered="#{result.titleHighlightSnippet != null}" escape="false"/>
-                                            <h:outputText value=" (#{result.status})" style="padding:4px 0;" rendered="#{SearchIncludeFragment.debug == true}"/>
-                                        </h:outputLink>
+                                            <h:outputText value=" (#{result.status})" style="padding:4px 0;" rendered="#{SearchIncludeFragment.debug == true}"/></a>
                                         <h:outputText value="#{SearchIncludeFragment.DRAFT}" styleClass="label label-warning" rendered="#{result.draftState}"/>
                                         <h:outputText value="#{SearchIncludeFragment.UNPUBLISHED}" styleClass="label label-danger" rendered="#{result.unpublishedState}"/>
                                         <h:outputText value="#{SearchIncludeFragment.DEACCESSIONED}" styleClass="label label-info" rendered="#{result.deaccessionedState}"/>
@@ -547,9 +549,9 @@
                                     <!--<span class="label label-default">Default</span>-->
                                     <div style="width:48px; float:left; margin:4px 12px 6px 0;">
                                         <!-- img src="/resources/images/icon_dataset.png" style="width:48px;" border="0" alt="Dataset"/ -->
-                                        <h:outputLink value="#{result.datasetUrl}" target="#{showFacets == true ? '_self' : '_blank'}" style="display:block; clear:left; margin-bottom: .5em;">
+                                        <a href="#{result.datasetUrl}" target="#{showFacets == true ? '_self' : '_blank'}" style="display:block; clear:left; margin-bottom: .5em;">
                                             <p:graphicImage value="/api/access/dsPreview/#{result.datasetVersionId}"/>
-                                        </h:outputLink>
+                                        </a>
                                     </div>
 
                                     <h:outputText styleClass="text-muted" value="#{result.dateToDisplayOnCard}"/>
@@ -593,26 +595,24 @@
                                 <!--FILE CARDS-->
                                 <ui:fragment rendered="#{result.type == 'files'}">
                                     <div>
-                                        <h:outputLink value="#{result.fileUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
+                                        <a href="#{result.fileUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
                                             <h:outputText value="#{result.name}" style="padding:4px 0;" rendered="#{result.nameHighlightSnippet == null}"/>
                                             <h:outputText value="#{result.nameHighlightSnippet}" style="padding:4px 0;" rendered="#{result.nameHighlightSnippet != null}" escape="false"/>
-                                            <h:outputText value=" (#{result.status})" style="padding:4px 0;" rendered="#{SearchIncludeFragment.debug == true}"/>
-                                        </h:outputLink>
+                                            <h:outputText value=" (#{result.status})" style="padding:4px 0;" rendered="#{SearchIncludeFragment.debug == true}"/></a>
                                         <h:outputText value="#{SearchIncludeFragment.DRAFT}" styleClass="label label-warning" rendered="#{result.draftState}"/>
                                         <h:outputText value="#{SearchIncludeFragment.UNPUBLISHED}" styleClass="label label-danger" rendered="#{result.unpublishedState}"/>
                                     </div>
                                     <div style="width:48px; float:left; margin:4px 12px 6px 0">
                                         <!-- img src="/resources/images/icon_file.png" style="width:48px;" border="0" alt="Data File"/ -->
-                                        <h:outputLink value="#{result.fileUrl}" target="#{showFacets == true ? '_self' : '_blank'}" style="display:block; clear:left; margin-bottom: .5em;">
+                                        <a href="#{result.fileUrl}" target="#{showFacets == true ? '_self' : '_blank'}" style="display:block; clear:left; margin-bottom: .5em;">
                                             <p:graphicImage value="/api/access/preview/#{result.entityId}"/>
-                                        </h:outputLink>
+                                        </a>
                                     </div>
                                     
                                     <h:outputText styleClass="text-muted" value="#{result.dateToDisplayOnCard} - "/>
 
-                                    <h:outputLink value="#{result.fileUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
-                                        <h:outputText value="#{result.parent.get('name')}"/>
-                                    </h:outputLink>
+                                    <a href="#{result.fileUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
+                                        <h:outputText value="#{result.parent.get('name')}"/></a>
                                     
                                     <ui:fragment>
                                         <br/>
@@ -692,12 +692,12 @@
                                         </li>
                                         <c:forEach begin="#{Math:max(1,SearchIncludeFragment.page-Math:max(2,SearchIncludeFragment.page-SearchIncludeFragment.totalPages+4))}"
                                                    end="#{Math:min(SearchIncludeFragment.totalPages,SearchIncludeFragment.page+Math:max(2,5-SearchIncludeFragment.page))}"
-                                                   var="pageListItem">
-                                            <li class="#{SearchIncludeFragment.page == pageListItem ? 'active' : ''}">
+                                                   varStatus="pageStatus">
+                                            <li class="#{SearchIncludeFragment.page == pageStatus.index ? 'active' : ''}">
                                                 <h:outputLink>
-                                                    <h:outputText value="#{pageListItem}"/>
-                                                    <span class="#{SearchIncludeFragment.page == pageListItem ? 'sr-only' : ''}">
-                                                        <h:outputText value="#{SearchIncludeFragment.page == pageListItem ? ' (current)' : ''}"/>
+                                                    <h:outputText value="#{pageStatus.index}"/>
+                                                    <span class="#{SearchIncludeFragment.page == pageStatus.index ? 'sr-only' : ''}">
+                                                        <h:outputText value="#{SearchIncludeFragment.page == pageStatus.index ? ' (current)' : ''}"/>
                                                     </span>
                                                     <f:param name="id" value="#{SearchIncludeFragment.dataverseId}"/>
                                                     <f:param name="q" value="#{SearchIncludeFragment.query}"/>
@@ -707,7 +707,7 @@
                                                     <f:param name="types" value="#{SearchIncludeFragment.selectedTypesString}"/>
                                                     <f:param name="sort" value="#{SearchIncludeFragment.sortField}"/>
                                                     <f:param name="order" value="#{SearchIncludeFragment.sortOrder}"/>
-                                                    <f:param name="page" value="#{pageListItem}"/>
+                                                    <f:param name="page" value="#{pageStatus.index}"/>
                                                 </h:outputLink>
                                             </li>
                                         </c:forEach>

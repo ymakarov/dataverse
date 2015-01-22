@@ -12,6 +12,7 @@ import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.impl.CreateDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.DeleteDatasetCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.DeleteDatasetVersionCommand;
+import edu.harvard.iq.dataverse.engine.command.impl.DestroyDatasetCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.GetDatasetCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.GetSpecificPublishedDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.GetDraftDatasetVersionCommand;
@@ -102,6 +103,25 @@ public class Datasets extends AbstractApiBean {
 		}
 		
 	}
+        
+	@DELETE
+	@Path("{id}/destroy")
+	public Response destroyDataset( @PathParam("id") Long id, @QueryParam("key") String apiKey ) {
+		
+		try {
+            User u = findUserOrDie(apiKey);
+            if ( u == null ) return errorResponse( Response.Status.UNAUTHORIZED, "Invalid apikey '" + apiKey + "'");
+
+            Dataset ds = datasetService.find(id);
+            if (ds == null) return errorResponse( Response.Status.NOT_FOUND, "dataset not found");
+			execCommand( new DestroyDatasetCommand(ds, u), "Destroy dataset " + id);
+			return okResponse("Dataset " + id + " destroyed");
+			
+		} catch (WrappedResponse ex) {
+			return ex.getResponse();
+		}
+		
+	}        
 	
 	@GET
 	@Path("{id}/versions")
@@ -238,14 +258,21 @@ public class Datasets extends AbstractApiBean {
             Dataset ds = datasetService.find(id);
             if ( ds == null ) return notFound("Can't find dataset with id '" + id + "'");
             JsonObject json = Json.createReader(rdr).readObject();
-            DatasetVersion version = jsonParser().parseDatasetVersion(json);
+            DatasetVersion incomingVersion = jsonParser().parseDatasetVersion(json);
             
-            version.setDataset(ds);
-
+            // clear possibly stale fields from the incoming dataset version.
+            // creation and modification dates are updated by the commands.
+            incomingVersion.setId(null);
+            incomingVersion.setVersionNumber(null);
+            incomingVersion.setMinorVersionNumber(null);
+            incomingVersion.setVersionState(DatasetVersion.VersionState.DRAFT);
+            incomingVersion.setDataset(ds);
+            incomingVersion.setCreateTime(null);
+            incomingVersion.setLastUpdateTime(null);
             boolean updateDraft = ds.getLatestVersion().isDraft();
             DatasetVersion managedVersion = engineSvc.submit( updateDraft
-                                                                ? new UpdateDatasetVersionCommand(u, version)
-                                                                : new CreateDatasetVersionCommand(u, ds, version) );
+                                                                ? new UpdateDatasetVersionCommand(u, incomingVersion)
+                                                                : new CreateDatasetVersionCommand(u, ds, incomingVersion) );
             return okResponse( json(managedVersion) );
                     
         } catch (CommandException ex) {
