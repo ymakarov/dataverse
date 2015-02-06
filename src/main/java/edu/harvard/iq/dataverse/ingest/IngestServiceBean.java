@@ -77,6 +77,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -93,6 +94,8 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
@@ -112,7 +115,11 @@ import org.primefaces.push.PushContextFactory;
 import javax.faces.application.FacesMessage;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
+import javax.annotation.PostConstruct;
+import javax.ejb.Singleton;
+import javax.ejb.Startup;
 import org.apache.commons.io.FileUtils;
 
 /**
@@ -122,8 +129,9 @@ import org.apache.commons.io.FileUtils;
  * New service for handling ingest tasks
  * 
  */
-@ManagedBean
-@Stateless
+//@Stateless
+@Startup
+@Singleton
 @Named
 public class IngestServiceBean {
     private static final Logger logger = Logger.getLogger(IngestServiceBean.class.getCanonicalName());
@@ -167,7 +175,35 @@ public class IngestServiceBean {
     private static String timeFormat_hmsS = "HH:mm:ss.SSS";
     private static String dateTimeFormat_ymdhmsS = "yyyy-MM-dd HH:mm:ss.SSS";
     private static String dateFormat_ymd = "yyyy-MM-dd";
-      
+    
+    
+    @PostConstruct
+    public void init() {
+        logger.info("Initializing the Ingest Service.");
+        List<DataFile> ingestsInProgress = fileService.findIngestsInProgress();
+        if (ingestsInProgress != null && ingestsInProgress.size() > 0) {
+            logger.info("Ingest Service: " + ingestsInProgress.size()+" files are in the queue.");
+            // go through the queue, remove the "ingest in progress" flags and the 
+            // any dataset locks found:
+            Iterator dfit = ingestsInProgress.iterator();
+            while (dfit.hasNext()) {
+                DataFile datafile = (DataFile)dfit.next();
+                logger.info("Ingest Service: removing ingest-in-progress status on datafile "+datafile.getId());
+                datafile.setIngestDone();
+                datafile = fileService.save(datafile);
+                
+                if (datafile.getOwner() != null && datafile.getOwner().isLocked()) {
+                    if (datafile.getOwner().getId() != null) {
+                        logger.fine("Ingest Servioce: removing lock on dataset "+datafile.getOwner().getId());
+                        datasetService.removeDatasetLock(datafile.getOwner().getId());
+                    }
+                }
+            }
+        } else {
+            logger.info("Ingest Service: zero files in the ingest queue.");
+        }
+    }
+    
     @Deprecated
     // All the parts of the app should use the createDataFiles() method instead, 
     // that returns a list of DataFiles. 
@@ -297,10 +333,53 @@ public class IngestServiceBean {
             int fileNumberLimit = systemConfig.getZipUploadFilesLimit();
             
             try {
-                unZippedIn = new ZipInputStream(new FileInputStream(tempFile.toFile()));
-                int counter = 0; 
-
-                while ((zipEntry = unZippedIn.getNextEntry()) != null) {
+                Charset charset = null;
+                /*
+                TODO: (?)
+                We may want to investigate somehow letting the user specify 
+                the charset for the filenames in the zip file...
+                - otherwise, ZipInputStream bails out if it encounteres a file 
+                name that's not valid in the current charest (i.e., UTF-8, in 
+                our case). It would be a bit trickier than what we're doing for 
+                SPSS tabular ingests - with the lang. encoding pulldown menu - 
+                because this encoding needs to be specified *before* we upload and
+                attempt to unzip the file. 
+                        -- L.A. 4.0 beta12
+                logger.info("default charset is "+Charset.defaultCharset().name());
+                if (Charset.isSupported("US-ASCII")) {
+                    logger.info("charset US-ASCII is supported.");
+                    charset = Charset.forName("US-ASCII");
+                    if (charset != null) {
+                        logger.info("was able to obtain charset for US-ASCII");
+                    }
+                    
+                }
+                */
+                
+                if (charset != null) {
+                    unZippedIn = new ZipInputStream(new FileInputStream(tempFile.toFile()), charset);
+                } else {
+                    unZippedIn = new ZipInputStream(new FileInputStream(tempFile.toFile()));
+                } 
+                                                
+                while (true) { 
+                    try {
+                        zipEntry = unZippedIn.getNextEntry();
+                    } catch (IllegalArgumentException iaex) {
+                        // Note: 
+                        // ZipInputStream documentation doesn't even mention that 
+                        // getNextEntry() throws an IllegalArgumentException!
+                        // but that's what happens if the file name of the next
+                        // entry is not valid in the current CharSet. 
+                        //      -- L.A.
+                        warningMessage = "Failed to unpack Zip file. (Unknown Character Set used in a file name?) Saving the file as is.";
+                        logger.warning(warningMessage);
+                        throw new IOException();
+                    } 
+                    
+                    if (zipEntry == null) {
+                        break;
+                    }
                     // Note that some zip entries may be directories - we 
                     // simply skip them:
                     
@@ -351,6 +430,7 @@ public class IngestServiceBean {
                         }
                     }
                     unZippedIn.closeEntry(); 
+                    
                 }
                 
             } catch (IOException ioex) {
@@ -358,6 +438,9 @@ public class IngestServiceBean {
                 // ingest default to creating a single DataFile out
                 // of the unzipped file. 
                 logger.warning("Unzipping failed; rolling back to saving the file as is.");
+                if (warningMessage == null) {
+                    warningMessage = "Failed to unzip the file. Saving the file as is.";
+                }
                 
                 datafiles.clear();
             } finally {
@@ -899,17 +982,18 @@ public class IngestServiceBean {
     // -- L.A. 4.0 post-beta. 
     public void startIngestJobs(Dataset dataset, AuthenticatedUser user) {
         int count = 0;
+        List<DataFile> scheduledFiles = new ArrayList<>();
+        
         IngestMessage ingestMessage = null;
+        
         for (DataFile dataFile : dataset.getFiles()) {
             if (dataFile.isIngestScheduled()) {
                 dataFile.SetIngestInProgress();
                 dataFile = fileService.save(dataFile);
 
-                if (ingestMessage == null) {
-                    ingestMessage = new IngestMessage(IngestMessage.INGEST_MESAGE_LEVEL_INFO);
-                }
-                ingestMessage.addFileId(dataFile.getId());
-                logger.info("Attempting to queue the file " + dataFile.getFileMetadata().getLabel() + "(" + dataFile.getFileMetadata().getDescription() + ") for ingest.");
+                scheduledFiles.add(dataFile);
+                
+                logger.fine("Attempting to queue the file " + dataFile.getFileMetadata().getLabel() + " for ingest.");
                 //asyncIngestAsTabular(dataFile);
                 count++;
             }
@@ -917,12 +1001,33 @@ public class IngestServiceBean {
 
         if (count > 0) {
             String info = "Attempting to ingest " + count + " tabular data file(s).";
+            logger.info(info);
             if (user != null) {
                 datasetService.addDatasetLock(dataset.getId(), user.getId(), info);
             } else {
                 datasetService.addDatasetLock(dataset.getId(), null, info);
             }
 
+            DataFile[] scheduledFilesArray = (DataFile[])scheduledFiles.toArray(new DataFile[count]);
+            scheduledFiles = null; 
+            
+            // Sort ingest jobs by file size: 
+            Arrays.sort(scheduledFilesArray, new Comparator<DataFile>() {
+                @Override
+                public int compare(DataFile d1, DataFile d2) {
+                    long a = d1.getFilesize();
+                    long b = d2.getFilesize();
+                    return Long.valueOf(a).compareTo(b);
+                }
+            });
+            
+            ingestMessage = new IngestMessage(IngestMessage.INGEST_MESAGE_LEVEL_INFO);
+            
+            for (int i = 0; i < count; i++) {
+                ingestMessage.addFileId(scheduledFilesArray[i].getId());
+                logger.fine("Sorted order: "+i+" (size="+scheduledFilesArray[i].getFilesize()+")");
+            }
+            
             QueueConnection conn = null;
             QueueSession session = null;
             QueueSender sender = null;

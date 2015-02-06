@@ -160,6 +160,53 @@ Deletes the role with ``id``::
   DELETE http://$SERVER/api/roles/$id
 
 
+Explicit Groups
+~~~~~~~~~~~~~~~
+Explicit groups list their members explicitly. These groups are defined in dataverses, which is why their API endpoint is under ``api/dvn/$id/``, where ``$id`` is the id of the dataverse.
+
+  
+Create a new explicit group under dataverse ``$id``::
+  
+  POST http://$server/api/dvs/$id/groups
+
+Data being POSTed is json-formatted description of the group::
+
+  {
+   "description":"Describe the group here",
+   "displayName":"Close Collaborators",
+   "aliasInOwner":"ccs"
+  }
+
+List explicit groups under dataverse ``$id``::
+
+  GET http://$server/api/dvs/$id/groups
+
+Show group ``$groupAlias`` under dataverse ``$dv``::
+
+  GET http://$server/api/dvs/$dv/groups/$groupAlias
+
+Update group ``$groupAlias`` under dataverse ``$dv``. The request body is the same as the create group one, except that the group alias cannot be changed. Thus, the field ``aliasInOwner`` is ignored. ::
+
+  PUT http://$server/api/dvs/$dv/groups/$groupAlias
+
+Delete group ``$groupAlias`` under dataverse ``$dv``::
+
+  DELETE http://$server/api/dvs/$dv/groups/$groupAlias
+
+Bulk add role assignees to an explicit group. The request body is a JSON array of role assignee identifiers, such as ``@admin``, ``&ip/localhosts`` or ``:authenticated-users``::
+
+  POST http://$server/api/dvs/$dv/groups/$groupAlias/roleAssignees
+
+Add a single role assignee to a group. Request body is ignored::
+
+  PUT http://$server/api/dvs/$dv/groups/$groupAlias/roleAssignees/$roleAssigneeIdentifier
+
+Remove a single role assignee from an explicit group::
+  
+  DELETE http://$server/api/dvs/$dv/groups/$groupAlias/roleAssignees/$roleAssigneeIdentifier
+
+
+
 Metadata Blocks
 ~~~~~~~~~~~~~~~
 

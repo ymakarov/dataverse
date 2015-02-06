@@ -14,6 +14,7 @@ import edu.harvard.iq.dataverse.authorization.providers.shib.ShibAuthenticationP
 import edu.harvard.iq.dataverse.authorization.users.ApiToken;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,6 +27,7 @@ import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
 import javax.ejb.EJB;
 import javax.ejb.Singleton;
+import javax.faces.application.FacesMessage;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.NonUniqueResultException;
@@ -160,16 +162,39 @@ public class AuthenticationServiceBean {
         }
         return (AuthenticatedUser) em.find(AuthenticatedUser.class, pk);
     }
-            
+
+    /**
+     * Use with care! This method was written primarily for developers
+     * interested in API testing who want to:
+     * 
+     * 1. Create a temporary user and get an API token.
+     * 
+     * 2. Do some work with that API token.
+     * 
+     * 3. Delete all the stuff that was created with the API token.
+     * 
+     * 4. Delete the temporary user.
+     * 
+     * Before calling this method, make sure you've deleted all the stuff tied
+     * to the user, including stuff they've created, role assignments, group
+     * assignments, etc.
+     * 
+     * Longer term, the intention is to have a "disableAuthenticatedUser"
+     * method/command.
+     */
     public void deleteAuthenticatedUser(Object pk) {
         AuthenticatedUser user = em.find(AuthenticatedUser.class, pk);
         
         
         if (user!=null) {
             ApiToken apiToken = findApiTokenByUser(user);
-            em.remove(apiToken);
-            BuiltinUser builtin = builtinUserServiceBean.findByUserName(user.getUserIdentifier());
-            em.remove(builtin);
+            if (apiToken != null) {
+                em.remove(apiToken);
+            }
+            if (user.isBuiltInUser()) {
+                BuiltinUser builtin = builtinUserServiceBean.findByUserName(user.getUserIdentifier());
+                em.remove(builtin);
+            }
             em.remove(user.getAuthenticatedUserLookup());         
             em.remove(user);
         }
@@ -224,6 +249,9 @@ public class AuthenticationServiceBean {
    
     
     public ApiToken findApiTokenByUser(AuthenticatedUser au) {
+        if (au == null) {
+            return null;
+        }
         ApiToken apiToken = null;
         TypedQuery<ApiToken> typedQuery = em.createQuery("SELECT OBJECT(o) FROM ApiToken AS o WHERE o.authenticatedUser = :user", ApiToken.class);
         typedQuery.setParameter("user", au);
@@ -231,7 +259,32 @@ public class AuthenticationServiceBean {
             apiToken = typedQuery.getSingleResult();
         } catch (NoResultException | NonUniqueResultException ex) {
             logger.log(Level.INFO, "When looking up API token for {0} caught {1}", new Object[]{au, ex});
+            apiToken = null;
         }
+        
+        return apiToken;
+    }
+    
+    
+    // A method for generating a new API token;
+    // TODO: this is a simple, one-size-fits-all solution; we'll need
+    // to expand this system, to be able to generate tokens with different
+    // lifecycles/valid for specific actions only, etc. 
+    // -- L.A. 4.0 beta12
+    public ApiToken generateApiTokenForUser(AuthenticatedUser au) {
+        if (au == null) {
+            return null;
+        }
+
+        ApiToken apiToken = new ApiToken();
+        apiToken.setTokenString(java.util.UUID.randomUUID().toString());
+        apiToken.setAuthenticatedUser(au);
+        Calendar c = Calendar.getInstance();
+        apiToken.setCreateTime(new Timestamp(c.getTimeInMillis()));
+        c.roll(Calendar.YEAR, 1);
+        apiToken.setExpireTime(new Timestamp(c.getTimeInMillis()));
+        save(apiToken);
+        
         return apiToken;
     }
 
@@ -272,40 +325,62 @@ public class AuthenticationServiceBean {
     }
 
     /**
-     * Creates an authenticated user based on the passed {@code userDisplayInfo}, and 
-     * creates a lookup entry for them based on the authP and persistent id.
+     * Creates an authenticated user based on the passed
+     * {@code userDisplayInfo}, and creates a lookup entry (within the passed
+     * authenticationProviderId) and an internal user identifier for them both
+     * based on the passed authPrvUserPersistentId.
+     *
      * @param authenticationProviderId
      * @param authPrvUserPersistentId
      * @param userDisplayInfo 
      * @return the newly created user.
      */
     public AuthenticatedUser createAuthenticatedUser(String authenticationProviderId, String authPrvUserPersistentId, RoleAssigneeDisplayInfo userDisplayInfo) {
+        UserIdentifier userIdentifier = new UserIdentifier(authPrvUserPersistentId, authPrvUserPersistentId);
+        return createAuthenticatedUserWithDecoupledIdentifiers(authenticationProviderId, userIdentifier, userDisplayInfo);
+    }
+
+    /**
+     * Creates an authenticated user based on the passed
+     * {@code userDisplayInfo}, a lookup entry for them based
+     * UserIdentifier.getLookupStringPerAuthProvider (within the supplied
+     * authentication provider), and internal user identifier (used for role
+     * assignments, etc.) based on UserIdentifier.getInternalUserIdentifer.
+     *
+     * @param authenticationProviderId
+     * @param userIdentifier
+     * @param userDisplayInfo
+     * @return the newly created user.
+     */
+    public AuthenticatedUser createAuthenticatedUserWithDecoupledIdentifiers(String authenticationProviderId, UserIdentifier userIdentifier, RoleAssigneeDisplayInfo userDisplayInfo) {
         AuthenticatedUser auus = new AuthenticatedUser();
         auus.applyDisplayInfo(userDisplayInfo);
+        String internalUserIdentifer = userIdentifier.getInternalUserIdentifer();
         
         // we now select a username
         // TODO make a better username selection
             // Better - throw excpetion to the provider, which has a better chance of getting this right.
         // TODO should lock table authenticated users for write here
-        if ( identifierExists(authPrvUserPersistentId) ) {
+        if ( identifierExists(internalUserIdentifer) ) {
             int i=1;
-            String identifier = authPrvUserPersistentId + i;
+            String identifier = internalUserIdentifer + i;
             while ( identifierExists(identifier) ) {
                 i += 1;
             }
             auus.setUserIdentifier(identifier);
         } else {
-            auus.setUserIdentifier(authPrvUserPersistentId);
+            auus.setUserIdentifier(internalUserIdentifer);
         }
         auus = save( auus );
         // TODO should unlock table authenticated users for write here
-        AuthenticatedUserLookup auusLookup = new AuthenticatedUserLookup(authPrvUserPersistentId, authenticationProviderId, auus);
+        String lookupStringPerAuthProvider = userIdentifier.getLookupStringPerAuthProvider();
+        AuthenticatedUserLookup auusLookup = new AuthenticatedUserLookup(lookupStringPerAuthProvider, authenticationProviderId, auus);
         em.persist( auusLookup );
         auus.setAuthenticatedUserLookup(auusLookup);
         return auus;
     }
     
-    private boolean identifierExists( String idtf ) {
+    public boolean identifierExists( String idtf ) {
         return em.createNamedQuery("AuthenticatedUser.countOfIdentifier", Number.class)
                 .setParameter("identifier", idtf)
                 .getSingleResult().intValue() > 0;

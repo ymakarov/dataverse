@@ -166,6 +166,12 @@ public class IndexServiceBean {
             solrInputDocument.addField(SearchFields.AFFILIATION, dataverse.getAffiliation());
             solrInputDocument.addField(SearchFields.DATAVERSE_AFFILIATION, dataverse.getAffiliation());
         }
+        for (ControlledVocabularyValue dataverseSubject : dataverse.getDataverseSubjects()) {
+            String subject = dataverseSubject.getStrValue();
+            solrInputDocument.addField(SearchFields.DATAVERSE_SUBJECT, subject);
+            // collapse into shared "subject" field used as a facet
+            solrInputDocument.addField(SearchFields.SUBJECT, subject);
+        }
         // checking for NPE is important so we can create the root dataverse
         if (rootDataverse != null && !dataverse.equals(rootDataverse)) {
             // important when creating root dataverse
@@ -649,7 +655,29 @@ public class IndexServiceBean {
         List<String> filesIndexed = new ArrayList<>();
         if (datasetVersion != null) {
             List<FileMetadata> fileMetadatas = datasetVersion.getFileMetadatas();
+            boolean checkForDuplicateMetadata = false; 
+            if (datasetVersion.isDraft() && dataset.isReleased()) {
+                checkForDuplicateMetadata = true; 
+                logger.fine("We are indexing a draft version of a dataset that has a released version. We'll be checking file metadatas if they are exact clones of the released versions.");
+            }
+
             for (FileMetadata fileMetadata : fileMetadatas) {
+                boolean indexThisMetadata = true; 
+                if (checkForDuplicateMetadata) {
+                    logger.fine("Checking if this file metadata is a duplicate.");
+                    for (FileMetadata releasedFileMetadata : dataset.getReleasedVersion().getFileMetadatas()) {
+                        if (fileMetadata.getDataFile() != null && fileMetadata.getDataFile().equals(releasedFileMetadata.getDataFile())) {
+                            if (fileMetadata.contentEquals(releasedFileMetadata)) {
+                                indexThisMetadata = false;
+                                logger.fine("This file metadata hasn't changed since the released version; skipping indexing.");
+                            } else {
+                                logger.fine("This file metadata has changed since the released version; we want to index it!");
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (indexThisMetadata) {
                 SolrInputDocument datafileSolrInputDocument = new SolrInputDocument();
                 Long fileEntityId = fileMetadata.getDataFile().getId();
                 datafileSolrInputDocument.addField(SearchFields.ENTITY_ID, fileEntityId);
@@ -795,6 +823,7 @@ public class IndexServiceBean {
                     filesIndexed.add(fileSolrDocId);
                     docs.add(datafileSolrInputDocument);
                 }
+            }
             }
         }
 

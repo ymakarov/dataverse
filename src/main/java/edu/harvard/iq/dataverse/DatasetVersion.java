@@ -73,6 +73,11 @@ public class DatasetVersion implements Serializable {
         NONE, CC0
     }
 
+    /**
+     * @todo What does the GUI use for a default license? What does the "native"
+     * API use? See also https://github.com/IQSS/dataverse/issues/1385
+     */
+    public static DatasetVersion.License defaultLicense = DatasetVersion.License.CC0;
 
     public DatasetVersion() {
 
@@ -230,6 +235,15 @@ public class DatasetVersion implements Serializable {
     
     @Column(columnDefinition="TEXT") 
     private String studyCompletion;
+    
+    private boolean inReview;
+    public void setInReview(boolean inReview){
+        this.inReview = inReview;
+    }
+
+    public boolean isInReview() {
+        return inReview;
+    }
 
     public String getStudyCompletion() {
         return studyCompletion;
@@ -537,10 +551,6 @@ public class DatasetVersion implements Serializable {
 
     public boolean isReleased() {
         return versionState.equals(VersionState.RELEASED);
-    }
-
-    public boolean isInReview() {
-        return versionState.equals(VersionState.IN_REVIEW);
     }
 
     public boolean isDraft() {

@@ -74,10 +74,34 @@ public class DatasetVersionUI implements Serializable {
             //Special Handling for various fields displayed above tabs in dataset page view.
             if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.title)) {
                 setTitle(dsf);
-            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.descriptionText)) {
-                setDescription(dsf);
+            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.description)) {
+                //setDescription(dsf);
+                //setKeyword(dsf.getCompoundDisplayValue());
+                String descriptionString = "";
+                if(dsf.getDatasetFieldCompoundValues() != null && dsf.getDatasetFieldCompoundValues().get(0) != null){
+                    DatasetFieldCompoundValue descriptionValue = dsf.getDatasetFieldCompoundValues().get(0);               
+                    for (DatasetField subField : descriptionValue.getChildDatasetFields()) {
+                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.descriptionText)) {                          
+                                descriptionString = subField.getValue();                             
+                        }
+                    }
+                }                 
+                setDescriptionDisplay(descriptionString);
             } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.keyword)) {
-                setKeyword(dsf);
+                //setKeyword(dsf.getCompoundDisplayValue());
+                String keywordString = "";
+                for (DatasetFieldCompoundValue keywordValue : dsf.getDatasetFieldCompoundValues()) {
+                    for (DatasetField subField : keywordValue.getChildDatasetFields()) {
+                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.keywordValue)) {
+                            if (keywordString.isEmpty()){
+                                keywordString = subField.getValue();
+                            } else {
+                                keywordString += ", " +  subField.getValue();
+                            }                               
+                        }
+                    }
+                } 
+                setKeywordDisplay(keywordString);
             } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.subject)) {
                 setSubject(dsf);
             } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.notesText)) {
@@ -148,7 +172,25 @@ public class DatasetVersionUI implements Serializable {
     private DatasetField description;
     private DatasetField keyword;
     private DatasetField subject;
-    private DatasetField notes;    
+    private DatasetField notes; 
+    private String keywordDisplay;
+
+    public String getKeywordDisplay() {
+        return keywordDisplay;
+    }
+
+    public void setKeywordDisplay(String keywordDisplay) {
+        this.keywordDisplay = keywordDisplay;
+    }
+    private String descriptionDisplay;
+
+    public String getDescriptionDisplay() {
+        return descriptionDisplay;
+    }
+
+    public void setDescriptionDisplay(String descriptionDisplay) {
+        this.descriptionDisplay = descriptionDisplay;
+    }
             
     private List<DatasetAuthor> datasetAuthors = new ArrayList();    
     private List<DatasetRelPublication> datasetRelPublications;    
@@ -421,7 +463,7 @@ public class DatasetVersionUI implements Serializable {
                         dsf.getDatasetFieldType().setRequiredDV(true);  
                         mdb.setHasRequired(true);                       
                     }                    
-                    if (!dsf.isEmpty()) {  
+                    if (!dsf.isEmptyForDisplay()) {  
                         mdb.setEmpty(false);
                         datasetFieldsForView.add(dsf);
                     }

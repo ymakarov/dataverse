@@ -1,9 +1,16 @@
 package edu.harvard.iq.dataverse.authorization.groups;
 
+import edu.harvard.iq.dataverse.DvObject;
+import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
+import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.authorization.groups.impl.builtin.BuiltInGroupsProvider;
+import edu.harvard.iq.dataverse.authorization.groups.impl.explicit.ExplicitGroup;
+import edu.harvard.iq.dataverse.authorization.groups.impl.explicit.ExplicitGroupProvider;
+import edu.harvard.iq.dataverse.authorization.groups.impl.explicit.ExplicitGroupServiceBean;
 import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.IpGroupProvider;
 import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.IpGroupsServiceBean;
-import edu.harvard.iq.dataverse.authorization.users.User;
+import edu.harvard.iq.dataverse.authorization.groups.impl.shib.ShibGroupProvider;
+import edu.harvard.iq.dataverse.authorization.groups.impl.shib.ShibGroupServiceBean;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -26,17 +33,28 @@ public class GroupServiceBean {
     
     @EJB
     IpGroupsServiceBean ipGroupsService;
+    @EJB
+    ShibGroupServiceBean shibGroupService;
+    @EJB
+    ExplicitGroupServiceBean explicitGroupService;
     
     private final Map<String, GroupProvider> groupProviders = new HashMap<>();
     
     private IpGroupProvider ipGroupProvider;
+    private ShibGroupProvider shibGroupProvider;
+    private ExplicitGroupProvider explicitGroupProvider;
+    
+    @EJB
+    RoleAssigneeServiceBean roleAssigneeSvc;
     
     @PostConstruct
     public void setup() {
         addGroupProvider( BuiltInGroupsProvider.get() );
         addGroupProvider( ipGroupProvider = new IpGroupProvider(ipGroupsService) );
+        addGroupProvider( shibGroupProvider = new ShibGroupProvider(shibGroupService) );
+        addGroupProvider( explicitGroupProvider = explicitGroupService.getProvider() );
     }
-    
+
     public Group getGroup( String groupAlias ) {
         String[] comps = groupAlias.split( Group.PATH_SEPARATOR, 2 );
         GroupProvider gp = groupProviders.get( comps[0] );
@@ -50,12 +68,43 @@ public class GroupServiceBean {
     public IpGroupProvider getIpGroupProvider() {
         return ipGroupProvider;
     }
+
+    public ShibGroupProvider getShibGroupProvider() {
+        return shibGroupProvider;
+    }
     
-    public Set<Group> groupsFor( User u ) {
+    public Set<Group> groupsFor( RoleAssignee ra, DvObject dvo ) {
         Set<Group> groups = new HashSet<>();
+        
+        // first, get all groups the user directly belongs to
         for ( GroupProvider gv : groupProviders.values() ) {
-            groups.addAll( gv.groupsFor(u) );
+            groups.addAll( gv.groupsFor(ra, dvo) );
         }
+        
+        // now, get the explicit group transitive closure.
+        Set<ExplicitGroup> perimeter = new HashSet<>();
+        Set<ExplicitGroup> visited = new HashSet<>();
+        
+        for ( Group g : groups ) {
+            if ( g instanceof ExplicitGroup ) {
+                perimeter.add((ExplicitGroup) g);
+            }
+        }
+        visited.addAll(perimeter);
+        
+        while ( ! perimeter.isEmpty() ) {
+            ExplicitGroup g = perimeter.iterator().next();
+            perimeter.remove(g);
+            
+            Set<ExplicitGroup> discovered = explicitGroupProvider.groupsFor(g, dvo);
+            discovered.removeAll(visited); // Ideally this is always empty, as we don't allow cycles.
+                                           // Still, coding defensively here, in case someone gets too
+                                           // smart on the SQL console.
+            
+            perimeter.addAll(discovered);
+            visited.addAll(discovered);
+        }
+        
         return groups;
     }
     

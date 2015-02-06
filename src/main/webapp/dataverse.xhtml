@@ -58,7 +58,7 @@
                                         </div>
                                         <label class="control-label" style="padding-right:1em;" for="name">
                                             <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="#{bundle['dataverse.title']}">
-                                                #{bundle.dataverse} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"></span>
+                                                #{bundle.dataverse} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"/>
                                             </a>
                                         </label>
                                         <p:watermark for="name" value="#{bundle['dataverse.enterName']}"/>
@@ -82,23 +82,28 @@
                                 </ui:remove>
                             </p:panelGrid>
                         </p:panelGrid>
+                        <div class="row form-horizontal">
+                            <div class="col-sm-12 form-group">
+                                <label class="col-sm-3 control-label" for="identifier" style="white-space:nowrap;">
+                                    <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="#{bundle['dataverse.identifier.title']}">
+                                        #{bundle.identifier} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"/>
+                                    </a>
+                                </label>
+                                <div class="col-sm-9">
+                                    <p:panelGrid columns="3">
+                                        <h:outputText styleClass="text-muted" value="http://root.edu/dataverse/"/>
+                                        <p:inputText id="identifier" tabindex="3" styleClass="form-control" validator="#{DataversePage.validateAlias}" value="#{DataversePage.dataverse.alias}"/>
+                                        <p:message for="identifier" display="text"/>
+                                    </p:panelGrid>
+                                </div>
+                            </div>
+                        </div>
                     </p:panel>
 
                     <!-- Edit Info Panel -->
                     <p:panel styleClass="panelLayoutBlock" rendered="#{DataversePage.editMode == 'INFO'}">
                         <div class="row form-horizontal">
                             <div class="col-xs-6 form-group">
-                                <label class="col-sm-3 control-label" for="alias" style="white-space:nowrap;">
-                                    <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="#{bundle['dataverse.url.title']}">
-                                        #{bundle.url} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"></span>
-                                    </a>
-                                </label>
-                                <div class="col-sm-9">
-                                    <p:panelGrid columns="2">
-                                        <p:inputText id="alias" tabindex="3" styleClass="form-control" validator="#{DataversePage.validateAlias}" value="#{DataversePage.dataverse.alias}"/>
-                                        <p:message for="alias" display="text"/>
-                                    </p:panelGrid>
-                                </div>
                                 <label class="col-sm-3 control-label" for="affiliation" style="white-space:nowrap;">
                                     <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="#{bundle['dataverse.affiliation.title']}">
                                         #{bundle.affiliation}
@@ -113,7 +118,7 @@
 
                                 <label class="col-sm-3 control-label" for="dataverseCategory">
                                     <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="#{bundle['dataverse.category.title']}">
-                                        #{bundle['dataverse.category']} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"></span>
+                                        #{bundle['dataverse.category']} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"/>
                                     </a>
                                 </label>
                                 <div class="col-sm-9">
@@ -142,9 +147,23 @@
                                                      rows="6" cols="50"
                                                      autoResize="false">
                                     </p:inputTextarea>
-                                </div>
-                                <div class="col-sm-2 control-label">
                                     <p:message for="description" display="text"/>
+                                </div>
+                            </div>
+                            <div class="col-xs-6 form-group">
+                                <label class="col-sm-3 control-label" for="subject">
+                                    <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="#{bundle['dataverse.subject.title']}">
+                                        #{bundle.subject} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"/>
+                                    </a>
+                                </label>
+                                <div class="col-sm-9">
+                                    <div class="ui-inputfield form-control select-scroll-block">
+                                        <p:selectManyCheckbox id="subject" value="#{DataversePage.dataverse.dataverseSubjects}" converter="controlledVocabularyValueConverter"
+                                                              layout="pageDirection">
+                                            <f:selectItems value="#{DataversePage.dataverseSubjectControlledVocabularyValues}" var="cvv" itemLabel="#{cvv.strValue}" itemValue="#{cvv}" />
+                                        </p:selectManyCheckbox>
+                                    </div>
+                                    <p:message for="subject" display="text"/>
                                 </div>
                             </div>
                         </div>
@@ -155,7 +174,7 @@
                                 <p:fragment autoUpdate="true">
                                     <label class="col-sm-3 control-label" for="contactEmail" style="white-space:nowrap;">
                                         <a href="#" data-toggle="tooltip" data-placement="auto right" class="tooltiplabel right" data-original-title="#{bundle['dataverse.email.title']}">
-                                            #{bundle['dataverse.email']} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"></span>
+                                            #{bundle['dataverse.email']} <span class="glyphicon glyphicon-asterisk text-danger" title="#{bundle.requiredField}"/>
                                         </a>
                                     </label>
                                     <div class="col-sm-9 form-group">
@@ -206,7 +225,7 @@
                             <div class="form-group">
                                 <label class="col-sm-3 control-label" for="mdbSelect">#{bundle['dataverse.metadataElements']}</label>
                                 <div class="col-sm-9">
-                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"></span> #{bundle['dataverse.metadataElements.tip']}</p>
+                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"/> #{bundle['dataverse.metadataElements.tip']}</p>
 
                                     <p:selectBooleanCheckbox tabindex="7" styleClass="metadata-blocks-default" rendered="#{DataversePage.dataverse.owner != null}"
                                                              value="#{DataversePage.inheritMetadataBlockFromParent}" itemLabel="#{bundle['dataverse.metadataElements.from.tip']}">
@@ -312,7 +331,7 @@
                             <div class="form-group">
                                 <label class="col-sm-3 control-label" for="facetPickListCreate">#{bundle['dataverse.facetPickList.text']}</label>
                                 <div class="col-sm-9">
-                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"></span> #{bundle['dataverse.facetPickList.tip']}</p>
+                                    <p style="display:block; margin-bottom:.5em;" class="text-primary"><span class="glyphicon glyphicon-info-sign"/> #{bundle['dataverse.facetPickList.tip']}</p>
 
                                     <p:selectBooleanCheckbox tabindex="8" styleClass="facet-category-default" rendered="#{DataversePage.dataverse.owner != null}"
                                                              value="#{DataversePage.inheritFacetFromParent}" itemLabel="#{bundle['dataverse.facetPickList.facetsFromHost.text']}">
@@ -420,31 +439,29 @@
                                 <div style="float:right; margin-left:1em;">
                                     <ui:fragment rendered="#{!DataversePage.dataverse.released and (empty DataversePage.dataverse.owner or DataversePage.dataverse.owner.released)}">
                                         <button type="button" class="btn btn-default" onclick="confirmation.show()">
-                                            <span class="glyphicon glyphicon-globe" style="margin-right:.3em;"/> #{bundle['dataverse.publish']}
+                                            <span class="glyphicon glyphicon-globe"/> #{bundle['dataverse.publish']}
                                         </button>
                                     </ui:fragment>
                                     <ui:fragment rendered="#{!DataversePage.dataverse.released and (!empty DataversePage.dataverse.owner and !DataversePage.dataverse.owner.released)}">
                                         <button type="button" class="btn btn-default" onclick="mayNotRelease.show()">
-                                            <span class="glyphicon glyphicon-globe" style="margin-right:.3em;"/> #{bundle['dataverse.publish']}
+                                            <span class="glyphicon glyphicon-globe"/> #{bundle['dataverse.publish']}
                                         </button>
                                     </ui:fragment>
                                 </div>
                             </ui:fragment>
                             <!-- Email Dataverse Contact + Link Dataverse Button Group -->
-                            <ui:fragment rendered="true">
-                                <div style="float:right;">
-                                    <div class="btn-group" role="group" style="margin-right:.3em;">
-                                        <button type="button" class="btn btn-default" onclick="contactForm.show()" data-toggle="tooltip" data-trigger="hover" data-placement="top" data-original-title="Email Dataset Contact"><span class="glyphicon glyphicon-envelope"/></button>
-                                        <ui:fragment rendered="#{dataverseSession.user.authenticated and DataversePage.dataverse.owner != null}">
-                                            <p:commandLink styleClass="btn btn-default glyphicon glyphicon-link"  rendered="#{dataverseSession.user.authenticated}"                                                          
-                                                           action="#{DataversePage.updateLinkableDataverses()}"                                                          
-                                                           oncomplete="PF('linkDataverseForm').show()"
-                                                           update=":linkDataverseForm"
-                                                           style="color:black;margin-right:0.5em;"/>
-                                        </ui:fragment>
-                                    </div>
-                                </div>
-                            </ui:fragment>
+                            <div class="btn-group pull-right" role="group" style="margin-right:.3em;">
+                                <button type="button" class="btn btn-default bootstrap-button-tooltip" onclick="contactForm.show()" data-toggle="tooltip" data-trigger="hover" data-placement="top" data-original-title="Email Dataset Contact">
+                                    <span class="glyphicon glyphicon-envelope no-text"/>
+                                </button>
+                                <p:commandLink styleClass="btn btn-default bootstrap-button-tooltip" rendered="#{dataverseSession.user.authenticated and DataversePage.dataverse.owner != null}"                                                          
+                                               title="Link Dataverse to Your Dataverse"
+                                               action="#{DataversePage.updateLinkableDataverses()}"                                                          
+                                               oncomplete="PF('linkDataverseForm').show()"
+                                               update=":linkDataverseForm">
+                                    <span class="glyphicon glyphicon-link no-text"/>
+                                </p:commandLink>
+                            </div>
                             <p:confirmDialog message="#{bundle['dataverse.email.tip']}" header="#{bundle['dataverse.contact']}" widgetVar="contact_confirmation">
                             </p:confirmDialog>
                         </div>
@@ -461,7 +478,7 @@
                                         <div id="featuredDataversesBlock" style="overflow: hidden; padding-top:.5em; border-top:1px solid #ddd;">
                                             <div class="clearfix"><strong>#{bundle['dataverse.option.featuredDataverse']}</strong></div>
                                             <div class="customNavigation" style="width:4%;float:left;padding:28px 0;">
-                                                <a class="btn prev1" title="#{bundle['dataverse.page.pre']}"><span class="glyphicon glyphicon-chevron-left" style="color:#999999;font-size:2em;"></span></a>
+                                                <a class="btn prev1" title="#{bundle['dataverse.page.pre']}"><span class="glyphicon glyphicon-chevron-left" style="color:#999999;font-size:2em;"/></a>
                                             </div>
                                             <div id="featuredDataversesList" class="owl-carousel owl-theme" style="width:90%;float:left;">
                                                 <ui:repeat value="#{DataversePage.carouselFeaturedDataverses}" var="dv" varStatus="status">
@@ -488,7 +505,7 @@
                                                 </ui:repeat>
                                             </div>
                                             <div class="customNavigation" style="width:4%;float:left;padding:28px 0;">
-                                                <a class="btn next1" title="#{bundle['dataverse.page.next']}"><span class="glyphicon glyphicon-chevron-right" style="color:#999999;font-size:2em;"></span></a>
+                                                <a class="btn next1" title="#{bundle['dataverse.page.next']}"><span class="glyphicon glyphicon-chevron-right" style="color:#999999;font-size:2em;"/></a>
                                             </div>
                                         </div>
                                     </ui:fragment>
@@ -496,17 +513,17 @@
                                         <div id="categoryDataversesBlock" style="overflow: hidden; border-top:1px solid #ddd; padding-top:.5em;">
                                             <div class="clearfix"><strong>#{bundle['dataverse.byCategory']}</strong></div>
                                             <div class="customNavigation" style="width:4%;float:left;padding:28px 0;">
-                                                <a class="btn prev2" title="#{bundle['dataverse.page.pre']}"><span class="glyphicon glyphicon-chevron-left" style="color:#999999;font-size:2em;"></span></a>
+                                                <a class="btn prev2" title="#{bundle['dataverse.page.pre']}"><span class="glyphicon glyphicon-chevron-left" style="color:#999999;font-size:2em;"/></a>
                                             </div>
                                             <div id="categoryDataversesList" class="owl-carousel owl-theme" style="width:90%;float:left;">
-                                                <div class="item"><span class="glyphicon glyphicon-user" style="font-size:2.5em;"></span><br/>#{bundle['dataverse.type.selectTab.researchers']}</div>
-                                                <div class="item"><span class="glyphicon glyphicon-film" style="font-size:2.5em;"></span><br/>#{bundle['dataverse.type.selectTab.researchProjects']}</div>
-                                                <div class="item"><span class="glyphicon glyphicon-book" style="font-size:2.5em;"></span><br/>#{bundle['dataverse.type.selectTab.journals']}</div>
-                                                <div class="item"><span class="glyphicon glyphicon-home" style="font-size:2.5em;"></span><br/>#{bundle['dataverse.type.selectTab.organizationsAndInsitutions']}</div>
-                                                <div class="item"><span class="glyphicon glyphicon-tree-conifer" style="font-size:2.5em;"></span><br/>#{bundle['dataverse.type.selectTab.teachingCourses']}</div>
+                                                <div class="item"><span class="glyphicon glyphicon-user" style="font-size:2.5em;"/><br/>#{bundle['dataverse.type.selectTab.researchers']}</div>
+                                                <div class="item"><span class="glyphicon glyphicon-film" style="font-size:2.5em;"/><br/>#{bundle['dataverse.type.selectTab.researchProjects']}</div>
+                                                <div class="item"><span class="glyphicon glyphicon-book" style="font-size:2.5em;"/><br/>#{bundle['dataverse.type.selectTab.journals']}</div>
+                                                <div class="item"><span class="glyphicon glyphicon-home" style="font-size:2.5em;"/><br/>#{bundle['dataverse.type.selectTab.organizationsAndInsitutions']}</div>
+                                                <div class="item"><span class="glyphicon glyphicon-tree-conifer" style="font-size:2.5em;"/><br/>#{bundle['dataverse.type.selectTab.teachingCourses']}</div>
                                             </div>
                                             <div class="customNavigation" style="width:4%;float:left;padding:28px 0;">
-                                                <a class="btn next2" title="#{bundle['dataverse.page.next']}"><span class="glyphicon glyphicon-chevron-right" style="color:#999999;font-size:2em;"></span></a>
+                                                <a class="btn next2" title="#{bundle['dataverse.page.next']}"><span class="glyphicon glyphicon-chevron-right" style="color:#999999;font-size:2em;"/></a>
                                             </div>
                                         </div>
                                     </ui:fragment>
@@ -613,29 +630,48 @@
                     </ui:include>
                 </ui:fragment>
                 <!-- Dialog Link Dataverse Form -->
-                <p:dialog id="linkDataverseForm" header="#{bundle['dataverse.link']}" widgetVar="linkDataverseForm"  style="min-width:500px;">
-                    <ui:fragment rendered="#{DataversePage.dataversesForLinking.size() > 1}">
-
-                        <h:form>
-                            <h:selectOneMenu value="#{DataversePage.linkingDataverseId}">
-
-                                <f:selectItems value="#{DataversePage.linkingDVSelectItems}" />
-                            </h:selectOneMenu>
-                            <h:commandButton value="#{bundle['dataverse.link.save']}" action="#{DataversePage.saveLinkedDataverse}" />
-                        </h:form>
-                    </ui:fragment>
+                <p:dialog id="linkDataverseForm" header="#{bundle['dataverse.link']}" widgetVar="linkDataverseForm" style="min-width:500px;">
+                    <h:form styleClass="form-horizontal" rendered="#{DataversePage.dataversesForLinking.size() > 1}">
+                        <p class="help-block">#{bundle['dataverse.link.dataverse.choose']}</p>
+                        <div class="form-group">
+                            <label class="col-sm-4 control-label">
+                                Your Dataverses
+                            </label>
+                            <div class="col-sm-7">
+                                <h:selectOneMenu styleClass="form-control" value="#{DataversePage.linkingDataverseId}">
+                                    <f:selectItems value="#{DataversePage.linkingDVSelectItems}" />
+                                </h:selectOneMenu>
+                            </div>
+                        </div>
+                        <h:commandButton styleClass="btn btn-default" value="#{bundle['dataverse.link.save']}" action="#{DataversePage.saveLinkedDataverse}" />
+                        <button type="button" class="btn btn-default" onclick="linkDataverseForm.hide()">
+                            #{bundle['cancel']}
+                        </button>
+                    </h:form>
                     <ui:fragment rendered="#{DataversePage.dataversesForLinking.size() == 1}">
-                        #{bundle['dataverse.link.no.choice']} #{DataversePage.linkingDataverse.displayName}
-                        <p:commandButton id="hiddenLink"   onclick="linkDataverseForm.hide()" 
-                                             value="#{bundle['dataverse.link.save']}" actionListener="#{DataversePage.saveLinkedDataverse()}"/>
+                        <p class="help-block">#{bundle['dataverse.link.no.choice']}</p>
+                        <div class="form-horizontal">
+                            <div class="form-group">
+                                <label class="col-sm-4 control-label">
+                                    Your Dataverse
+                                </label>
+                                <div class="col-sm-7">
+                                    <p class="form-control-static">#{DataversePage.linkingDataverse.displayName}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <p:commandLink styleClass="btn btn-default" onclick="linkDataverseForm.hide()" 
+                                         value="#{bundle['dataverse.link.save']}" actionListener="#{DataversePage.saveLinkedDataverse()}"/>
+                        <button type="button" class="btn btn-default" onclick="linkDataverseForm.hide()">
+                            #{bundle['cancel']}
+                        </button>
                     </ui:fragment>
                     <ui:fragment rendered="#{DataversePage.dataversesForLinking.size() == 0}">
-                        #{bundle['dataverse.link.no.linkable']}
+                        <p>#{bundle['dataverse.link.no.linkable']}</p>
+                        <button type="button" class="btn btn-default" onclick="linkDataverseForm.hide()">
+                            #{bundle['done']}
+                        </button>
                     </ui:fragment>
-
-                    <button type="button" class="btn btn-default" onclick="linkDataverseForm.hide()">
-                                           #{bundle['cancel']}
-                    </button>
                 </p:dialog>
 
                 <!-- Dialog Contact Form -->
@@ -681,7 +717,9 @@
                         </div>
 
                         <h:commandButton type="submit" action="#{sendFeedbackDialog.sendMessage}" class="btn btn-success" value="#{bundle['feedback.send']}"/>
-                        <button type="button" class="btn btn-default" onclick="contactForm.hide()" value="#{bundle.cancel}"/>
+                        <button type="button" class="btn btn-default" onclick="contactForm.hide()" value="#{bundle.cancel}">
+                            #{bundle.cancel}
+                        </button>
                     </h:form>
                 </p:dialog>
 
@@ -699,7 +737,7 @@
                         owl1.owlCarousel({
                             pagination: false,
                             navigation: false,
-                            // navigationText: ["<span class=\"glyphicon glyphicon-chevron-left\" style=\"color:#999999;font-size:2em;\"></span>","<span class=\"glyphicon glyphicon-chevron-right\" style=\"color:#999999;font-size:2em;\"></span>"],
+                            // navigationText: ["<span class=\"glyphicon glyphicon-chevron-left\" style=\"color:#999999;font-size:2em;\"/>","<span class=\"glyphicon glyphicon-chevron-right\" style=\"color:#999999;font-size:2em;\"/>"],
                             items: 4, //10 items above 1000px browser width
                             itemsDesktop: [1140, 4], //5 items between 1000px and 901px
                             itemsDesktopSmall: [940, 3], // betweem 900px and 601px
@@ -721,7 +759,7 @@
                         owl2.owlCarousel({
                             pagination: false,
                             navigation: false,
-                            // navigationText: ["<span class=\"glyphicon glyphicon-chevron-left\" style=\"color:#999999;font-size:2em;\"></span>","<span class=\"glyphicon glyphicon-chevron-right\" style=\"color:#999999;font-size:2em;\"></span>"],
+                            // navigationText: ["<span class=\"glyphicon glyphicon-chevron-left\" style=\"color:#999999;font-size:2em;\"/>","<span class=\"glyphicon glyphicon-chevron-right\" style=\"color:#999999;font-size:2em;\"/>"],
                             items: 4, //10 items above 1000px browser width
                             itemsDesktop: [1140, 4], //5 items between 1000px and 901px
                             itemsDesktopSmall: [940, 3], // betweem 900px and 601px

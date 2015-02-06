@@ -4,6 +4,7 @@ import edu.harvard.iq.dataverse.ControlledVocabularyValue;
 import edu.harvard.iq.dataverse.DatasetField;
 import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetFieldServiceBean;
+import edu.harvard.iq.dataverse.DatasetFieldType.FieldType;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
 import edu.harvard.iq.dataverse.MetadataBlock;
 import edu.harvard.iq.dataverse.MetadataBlockServiceBean;
@@ -90,7 +91,7 @@ public class DatasetFieldServiceApi {
             DatasetFieldType dsf = datasetFieldService.findByName(name);
             Long id = dsf.getId();
             String title = dsf.getTitle();
-            String fieldType = dsf.getFieldType();
+            FieldType fieldType = dsf.getFieldType();
             String solrFieldSearchable = dsf.getSolrField().getNameSearchable();
             String solrFieldFacetable = dsf.getSolrField().getNameFacetable();
             String metadataBlock = dsf.getMetadataBlock().getName();
@@ -235,18 +236,19 @@ public class DatasetFieldServiceApi {
         dsf.setTitle(values[2]);
         dsf.setDescription(values[3]);
         dsf.setWatermark(values[4]);
-        dsf.setFieldType(values[5]);
+        dsf.setFieldType(FieldType.valueOf(values[5].toUpperCase()));
         dsf.setDisplayOrder( Integer.parseInt(values[6]) );
-        dsf.setAdvancedSearchFieldType(Boolean.parseBoolean(values[7]));
-        dsf.setAllowControlledVocabulary(Boolean.parseBoolean(values[8]));
-        dsf.setAllowMultiples(Boolean.parseBoolean(values[9]));
-        dsf.setFacetable(Boolean.parseBoolean(values[10]));
-        dsf.setDisplayOnCreate(Boolean.parseBoolean(values[11]));
-        dsf.setRequired(Boolean.parseBoolean(values[12]));
-        if (!StringUtils.isEmpty(values[13])) {
-            dsf.setParentDatasetFieldType(datasetFieldService.findByName(values[13]));
+        dsf.setDisplayFormat( values[7] );
+        dsf.setAdvancedSearchFieldType(Boolean.parseBoolean(values[8]));
+        dsf.setAllowControlledVocabulary(Boolean.parseBoolean(values[9]));
+        dsf.setAllowMultiples(Boolean.parseBoolean(values[10]));
+        dsf.setFacetable(Boolean.parseBoolean(values[11]));
+        dsf.setDisplayOnCreate(Boolean.parseBoolean(values[12]));
+        dsf.setRequired(Boolean.parseBoolean(values[13]));
+        if (!StringUtils.isEmpty(values[14])) {
+            dsf.setParentDatasetFieldType(datasetFieldService.findByName(values[14]));
         }
-        dsf.setMetadataBlock(dataverseService.findMDBByName(values[14]));
+        dsf.setMetadataBlock(dataverseService.findMDBByName(values[15]));
 
         datasetFieldService.save(dsf);
         return dsf.getName();

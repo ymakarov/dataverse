@@ -49,13 +49,29 @@ public class AuthenticatedUser implements User, Serializable {
     private String affiliation;
     private boolean superuser;
 
+    /**
+     * @todo Remove? Check for accuracy? For Solr JOINs we used to care about
+     * the modification times of users but now we don't index users at all.
+     */
     private Timestamp modificationTime;
 
+    /**
+     * @deprecated This column can be removed. We used to index users into Solr
+     * but now we JOIN on "permission documents" instead.
+     */
+    @Deprecated
     private Timestamp indexTime;
 
     @Transient
     private UserRequestMetadata requestMetadata;
-    
+
+    /**
+     * @todo Consider storing a hash of *all* potentially interesting Shibboleth
+     * attribute key/value pairs, not just the Identity Provider (IdP).
+     */
+    @Transient
+    private String shibIdentityProvider;
+
     @Override
     public String getIdentifier() {
         return IDENTIFIER_PREFIX + userIdentifier;
@@ -144,6 +160,7 @@ public class AuthenticatedUser implements User, Serializable {
         this.modificationTime = modificationTime;
     }
 
+    @Deprecated
     public void setIndexTime(Timestamp indexTime) {
         this.indexTime = indexTime;
     }
@@ -196,6 +213,14 @@ public class AuthenticatedUser implements User, Serializable {
 
     public void setRequestMetadata(UserRequestMetadata requestMetadata) {
         this.requestMetadata = requestMetadata;
+    }
+
+    public String getShibIdentityProvider() {
+        return shibIdentityProvider;
+    }
+
+    public void setShibIdentityProvider(String shibIdentityProvider) {
+        this.shibIdentityProvider = shibIdentityProvider;
     }
     
 }

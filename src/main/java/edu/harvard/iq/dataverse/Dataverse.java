@@ -1,6 +1,7 @@
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
+import edu.harvard.iq.dataverse.authorization.users.User;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -12,6 +13,8 @@ import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 import javax.persistence.FetchType;
 import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
+import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
@@ -136,6 +139,26 @@ public class Dataverse extends DvObjectContainer {
     @OrderBy("displayOrder")
     private List<DataverseFacet> dataverseFacets = new ArrayList();
     
+
+
+
+    
+    @ManyToMany
+    @JoinTable(name = "dataversesubjects",
+    joinColumns = @JoinColumn(name = "dataverse_id"),
+    inverseJoinColumns = @JoinColumn(name = "controlledvocabularyvalue_id"))
+    @NotEmpty(message="At least one subject is required.")
+    private List<ControlledVocabularyValue> dataverseSubjects;
+    
+    public List<ControlledVocabularyValue> getDataverseSubjects() {
+        return dataverseSubjects;
+    }
+
+    public void setDataverseSubjects(List<ControlledVocabularyValue> dataverseSubjects) {
+        this.dataverseSubjects = dataverseSubjects;
+    }
+
+    
     @OneToMany(mappedBy = "dataverse")
     private List<DataverseFieldTypeInputLevel> dataverseFieldTypeInputLevels = new ArrayList();
     
@@ -148,7 +171,7 @@ public class Dataverse extends DvObjectContainer {
     
     @OneToMany(cascade = {CascadeType.MERGE})
     private List<Guestbook> guestbooks;
-
+        
     public List<Guestbook> getGuestbooks() {
         return guestbooks;
     }

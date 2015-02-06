@@ -129,7 +129,8 @@ public class Util {
 
     /**
      * @param date The Date object to convert.
-     * @return A ISO 8601 date with UTC time zone or null.
+     * @return A ISO 8601 date/time with UTC time zone (i.e.
+     * 2015-01-23T19:51:50Z) or null.
      *
      * <p>
      *
@@ -146,18 +147,45 @@ public class Util {
      * http://apiux.com/2013/03/20/5-laws-api-dates-and-times/
      *
      */
-    public static String getDateTimeFormatToReturnIn(Date date) {
-        if (date == null) {
-            return null;
+    private static final  String DATE_TIME_FORMAT_STRING = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+    private static final String DATE_FORMAT_STRING = "yyyy-MM-dd";
+         
+    private static final ThreadLocal<SimpleDateFormat> threadLocalTimeFormatter = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue()
+        {
+            SimpleDateFormat format =  new SimpleDateFormat(DATE_TIME_FORMAT_STRING);
+            format.setTimeZone(TimeZone.getTimeZone("UTC"));
+            return format;
         }
-        String otherFormatString = JsonPrinter.TIME_FORMAT_STRING;
-        String dateTimeFormatString = "yyyy-MM-dd'T'HH:mm'Z'";
-        if (!dateTimeFormatString.equals(otherFormatString)) {
-            logger.info("Warning. Two different date/time format strings in use: " + dateTimeFormatString + " and " + otherFormatString);
+    };
+      
+    private static final ThreadLocal<SimpleDateFormat> threadLocalDateFormatter = new ThreadLocal<SimpleDateFormat>(){
+        @Override
+        protected SimpleDateFormat initialValue()
+        {
+            SimpleDateFormat format =  new SimpleDateFormat(DATE_FORMAT_STRING);
+            format.setTimeZone(TimeZone.getTimeZone("UTC"));
+            return format;
         }
-        SimpleDateFormat dateFormat = new SimpleDateFormat(dateTimeFormatString);
-        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return dateFormat.format(date);
+    };
+    
+    /**
+     * Note: SimpleDateFormat is not thread-safe! Never retain the format returned by this method in a field.
+     * @return The standard API format for date-and-time.
+     */
+    public static SimpleDateFormat getDateTimeFormat() {
+        return threadLocalTimeFormatter.get();
     }
+    
+    /**
+     * Note: SimpleDateFormat is not thread-safe! Never retain the format returned by this method in a field.
+     * @return The standard API format for dates.
+     */
+    public static SimpleDateFormat getDateFormat() {
+        return threadLocalDateFormatter.get();
+    }
+    
+   
 
 }
