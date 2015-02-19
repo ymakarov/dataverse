@@ -1,5 +1,7 @@
 package edu.harvard.iq.dataverse.authorization.providers.builtin;
 
+import edu.harvard.iq.dataverse.ValidateEmail;
+import edu.harvard.iq.dataverse.authorization.AuthenticatedUserDisplayInfo;
 import edu.harvard.iq.dataverse.authorization.RoleAssigneeDisplayInfo;
 import java.io.Serializable;
 import javax.persistence.Column;
@@ -43,8 +45,21 @@ public class BuiltinUser implements Serializable {
     @Column( unique = true )
     private String userName;
 
+    /**
+     * @todo Why are we storing email both here *and* in the authenticateduser
+     * table? Is this a holdover from when this was the only user table? Yes, it
+     * probably is. Here are places in the system that rely on the email address
+     * being in this table:
+     *
+     * - password reset
+     *
+     * If this field is kept (probably shouldn't be) at least add a uniqueness
+     * constraint per https://github.com/IQSS/dataverse/issues/845
+     * @NotNull
+     * @Column(nullable = false, unique=true)
+     */
     @NotBlank(message = "Please enter a valid email address.")
-    @Email(message = "Please enter a valid email address.")
+    @ValidateEmail(message = "Please enter a valid email address.")
     private String email;
 
     @NotBlank(message = "Please enter your first name.")
@@ -125,8 +140,8 @@ public class BuiltinUser implements Serializable {
         return this.getFirstName() + " " + this.getLastName(); 
     }
     
-    public RoleAssigneeDisplayInfo createDisplayInfo() {
-        return new RoleAssigneeDisplayInfo(getDisplayName(), getEmail(), getAffiliation() );
+    public AuthenticatedUserDisplayInfo getDisplayInfo() {
+        return new AuthenticatedUserDisplayInfo(getFirstName(), getLastName(), getEmail(), getAffiliation(), getPosition() );
     }
 
     @Override
@@ -149,9 +164,5 @@ public class BuiltinUser implements Serializable {
 	public String toString() {
 		return "BuiltinUser{" + "id=" + id + ", userName=" + userName + ", email=" + email + '}';
 	}
-
-    RoleAssigneeDisplayInfo getDisplayInfo() {
-        return new RoleAssigneeDisplayInfo(getDisplayName(), getEmail(), getAffiliation());
-    }
    
 }

@@ -210,6 +210,20 @@ public class AuthenticationServiceBean {
         }
     }
 
+    public AuthenticatedUser getAuthenticatedUserByEmail( String email ) {
+        try {
+            return em.createNamedQuery("AuthenticatedUser.findByEmail", AuthenticatedUser.class)
+                    .setParameter("email", email)
+                    .getSingleResult();
+        } catch ( NoResultException ex ) {
+            logger.info("no user found using " + email);
+            return null;
+        } catch ( NonUniqueResultException ex ) {
+            logger.info("multiple users found using " + email + ": " + ex);
+            return null;
+        }
+    }
+
     public AuthenticatedUser authenticate( String authenticationProviderId, AuthenticationRequest req ) throws AuthenticationFailedException {
         AuthenticationProvider prv = getAuthenticationProvider(authenticationProviderId);
         if ( prv == null ) throw new IllegalArgumentException("No authentication provider listed under id " + authenticationProviderId );
@@ -228,12 +242,17 @@ public class AuthenticationServiceBean {
             throw new AuthenticationFailedException(resp, "Authentication Failed: " + resp.getMessage());
         }
     }
-    
-    public AuthenticatedUser lookupUser( String authPrvId, String userPersistentId ) {
-        AuthenticatedUserLookup lookup = em.find(AuthenticatedUserLookup.class,
-                new AuthenticatedUserLookupId(authPrvId, userPersistentId));
-        
-        return ( lookup != null ) ? lookup.getAuthenticatedUser() : null;
+
+    public AuthenticatedUser lookupUser(String authPrvId, String userPersistentId) {
+        TypedQuery<AuthenticatedUserLookup> typedQuery = em.createNamedQuery("AuthenticatedUserLookup.findByAuthPrvID_PersUserId", AuthenticatedUserLookup.class);
+        typedQuery.setParameter("authPrvId", authPrvId);
+        typedQuery.setParameter("persUserId", userPersistentId);
+        try {
+            AuthenticatedUserLookup au = typedQuery.getSingleResult();
+            return au.getAuthenticatedUser();
+        } catch (NoResultException | NonUniqueResultException ex) {
+            return null;
+        }
     }
     
     public ApiToken findApiToken(String token) {
@@ -335,7 +354,7 @@ public class AuthenticationServiceBean {
      * @param userDisplayInfo 
      * @return the newly created user.
      */
-    public AuthenticatedUser createAuthenticatedUser(String authenticationProviderId, String authPrvUserPersistentId, RoleAssigneeDisplayInfo userDisplayInfo) {
+    public AuthenticatedUser createAuthenticatedUser(String authenticationProviderId, String authPrvUserPersistentId, AuthenticatedUserDisplayInfo userDisplayInfo) {
         UserIdentifier userIdentifier = new UserIdentifier(authPrvUserPersistentId, authPrvUserPersistentId);
         return createAuthenticatedUserWithDecoupledIdentifiers(authenticationProviderId, userIdentifier, userDisplayInfo);
     }
@@ -352,7 +371,7 @@ public class AuthenticationServiceBean {
      * @param userDisplayInfo
      * @return the newly created user.
      */
-    public AuthenticatedUser createAuthenticatedUserWithDecoupledIdentifiers(String authenticationProviderId, UserIdentifier userIdentifier, RoleAssigneeDisplayInfo userDisplayInfo) {
+    public AuthenticatedUser createAuthenticatedUserWithDecoupledIdentifiers(String authenticationProviderId, UserIdentifier userIdentifier, AuthenticatedUserDisplayInfo userDisplayInfo) {
         AuthenticatedUser auus = new AuthenticatedUser();
         auus.applyDisplayInfo(userDisplayInfo);
         String internalUserIdentifer = userIdentifier.getInternalUserIdentifer();
@@ -386,11 +405,11 @@ public class AuthenticationServiceBean {
                 .getSingleResult().intValue() > 0;
     }
     
-    public AuthenticatedUser updateAuthenticatedUser(AuthenticatedUser user, RoleAssigneeDisplayInfo userDisplayInfo) {
+    public AuthenticatedUser updateAuthenticatedUser(AuthenticatedUser user, AuthenticatedUserDisplayInfo userDisplayInfo) {
         user.applyDisplayInfo(userDisplayInfo);
         return update(user);
     }
-
+    
     public List<AuthenticatedUser> findAllAuthenticatedUsers() {
         return em.createNamedQuery("AuthenticatedUser.findAll", AuthenticatedUser.class).getResultList();
     }
@@ -406,6 +425,50 @@ public class AuthenticationServiceBean {
     
     public Timestamp getCurrentTimestamp() {
         return new Timestamp(new Date().getTime());
+    }
+
+    public AuthenticatedUser convertBuiltInToShib(AuthenticatedUser builtInUserToConvert, String shibProviderId, UserIdentifier newUserIdentifierInLookupTable) {
+        logger.info("converting user " + builtInUserToConvert.getId() + " from builtin to shib");
+        String builtInUserIdentifier = builtInUserToConvert.getIdentifier();
+        logger.info("builtin user identifier: " + builtInUserIdentifier);
+        TypedQuery<AuthenticatedUserLookup> typedQuery = em.createQuery("SELECT OBJECT(o) FROM AuthenticatedUserLookup AS o WHERE o.authenticatedUser = :auid", AuthenticatedUserLookup.class);
+        typedQuery.setParameter("auid", builtInUserToConvert);
+        AuthenticatedUserLookup authuserLookup;
+        try {
+            authuserLookup = typedQuery.getSingleResult();
+        } catch (NoResultException | NonUniqueResultException ex) {
+            logger.info("exception caught: " + ex);
+            return null;
+        }
+        if (authuserLookup == null) {
+            return null;
+        }
+
+        String oldProviderId = authuserLookup.getAuthenticationProviderId();
+        logger.info("we expect this to be 'builtin': " + oldProviderId);
+        authuserLookup.setAuthenticationProviderId(shibProviderId);
+        String oldUserLookupIdentifier = authuserLookup.getPersistentUserId();
+        logger.info("this should be 'pete' or whatever the old builtin username was: " + oldUserLookupIdentifier);
+        String perUserShibIdentifier = newUserIdentifierInLookupTable.getLookupStringPerAuthProvider();
+        authuserLookup.setPersistentUserId(perUserShibIdentifier);
+        /**
+         * @todo this should be a transaction of some kind. We want to update
+         * the authenticateduserlookup and also delete the row from the
+         * builtinuser table in a single transaction.
+         */
+        em.persist(authuserLookup);
+        String builtinUsername = builtInUserIdentifier.replaceFirst(AuthenticatedUser.IDENTIFIER_PREFIX, "");
+        BuiltinUser builtin = builtinUserServiceBean.findByUserName(builtinUsername);
+        if (builtin != null) {
+            em.remove(builtin);
+        } else {
+            logger.info("Couldn't delete builtin user because could find it based on username " + builtinUsername);
+        }
+        AuthenticatedUser shibUser = lookupUser(shibProviderId, perUserShibIdentifier);
+        if (shibUser != null) {
+            return shibUser;
+        }
+        return null;
     }
 
 }

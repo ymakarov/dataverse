@@ -169,7 +169,9 @@ public class ImportServiceBean {
         JsonObject obj = jsonReader.readObject();
         //and call parse Json to read it into a dataset   
         try {
-            Dataset ds = new JsonParser(datasetfieldService, metadataBlockService, settingsService).parseDataset(obj);
+            JsonParser parser = new JsonParser(datasetfieldService, metadataBlockService, settingsService);
+            parser.setLenient(!importType.equals(ImportType.NEW));
+            Dataset ds = parser.parseDataset(obj);
             ds.setOwner(owner);
             ds.getLatestVersion().setDatasetFields(ds.getLatestVersion().initDatasetFields());
 
@@ -219,7 +221,7 @@ public class ImportServiceBean {
             logger.info("Error parsing datasetVersion: " + ex.getMessage());
             throw new ImportException("Error parsing datasetVersion: " + ex.getMessage(), ex);
         } catch(CommandException ex) {  
-            logger.info("Error excuting dataverse command: " + ex.getMessage());
+            logger.info("Error excuting Create dataset command: " + ex.getMessage());
             throw new ImportException("Error excuting dataverse command: " + ex.getMessage(), ex);
         }
         return Json.createObjectBuilder().add("message", status).add("id", createdId);

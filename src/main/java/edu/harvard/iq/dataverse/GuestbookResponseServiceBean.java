@@ -53,6 +53,17 @@ public class GuestbookResponseServiceBean {
         }
         return null;
     }
+    
+    public Long findCountByGuestbookId(Long guestbookId) {
+
+        if (guestbookId == null) {
+        } else {
+            String queryString = "select count(o) from GuestbookResponse as o where o.guestbook_id = " + guestbookId;
+            Query query = em.createNativeQuery(queryString);
+            return (Long) query.getSingleResult();
+        }
+        return new Long(0);
+    }
 
     public List<Long> findAllIds30Days() {
         return findAllIds30Days(null);
@@ -287,6 +298,10 @@ public class GuestbookResponseServiceBean {
     }
 
     public String getUserPosition(User user) {
+        if (user.isAuthenticated()) {
+            AuthenticatedUser authUser = (AuthenticatedUser) user;
+            return authUser.getPosition();
+        }
         try {
             if (user.isBuiltInUser()) {
                 BuiltinUser builtinUser = (BuiltinUser) user;
@@ -307,12 +322,13 @@ public class GuestbookResponseServiceBean {
         return null;
     }
 
-    public GuestbookResponse initDefaultGuestbookResponse(Dataset dataset, DataFile dataFile, User user) {
+    public GuestbookResponse initDefaultGuestbookResponse(Dataset dataset, DataFile dataFile, User user, DataverseSession session) {
         GuestbookResponse guestbookResponse = new GuestbookResponse();
         guestbookResponse.setGuestbook(findDefaultGuestbook());
         guestbookResponse.setDataFile(dataFile);
         guestbookResponse.setDataset(dataset);
         guestbookResponse.setResponseTime(new Date());
+        guestbookResponse.setSessionId(session.toString());
 
         if (user != null) {
             guestbookResponse.setEmail(getUserEMail(user));
