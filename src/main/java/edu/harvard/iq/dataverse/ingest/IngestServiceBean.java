@@ -118,6 +118,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
 import javax.annotation.PostConstruct;
+import javax.ejb.EJBException;
 import javax.ejb.Singleton;
 import javax.ejb.Startup;
 import org.apache.commons.io.FileUtils;
@@ -180,27 +181,31 @@ public class IngestServiceBean {
     @PostConstruct
     public void init() {
         logger.info("Initializing the Ingest Service.");
-        List<DataFile> ingestsInProgress = fileService.findIngestsInProgress();
-        if (ingestsInProgress != null && ingestsInProgress.size() > 0) {
-            logger.info("Ingest Service: " + ingestsInProgress.size()+" files are in the queue.");
-            // go through the queue, remove the "ingest in progress" flags and the 
-            // any dataset locks found:
-            Iterator dfit = ingestsInProgress.iterator();
-            while (dfit.hasNext()) {
-                DataFile datafile = (DataFile)dfit.next();
-                logger.info("Ingest Service: removing ingest-in-progress status on datafile "+datafile.getId());
-                datafile.setIngestDone();
-                datafile = fileService.save(datafile);
-                
-                if (datafile.getOwner() != null && datafile.getOwner().isLocked()) {
-                    if (datafile.getOwner().getId() != null) {
-                        logger.fine("Ingest Servioce: removing lock on dataset "+datafile.getOwner().getId());
-                        datasetService.removeDatasetLock(datafile.getOwner().getId());
+        try {
+            List<DataFile> ingestsInProgress = fileService.findIngestsInProgress();
+            if (ingestsInProgress != null && ingestsInProgress.size() > 0) {
+                logger.log(Level.INFO, "Ingest Service: {0} files are in the queue.", ingestsInProgress.size());
+                // go through the queue, remove the "ingest in progress" flags and the 
+                // any dataset locks found:
+                Iterator dfit = ingestsInProgress.iterator();
+                while (dfit.hasNext()) {
+                    DataFile datafile = (DataFile)dfit.next();
+                    logger.log(Level.INFO, "Ingest Service: removing ingest-in-progress status on datafile {0}", datafile.getId());
+                    datafile.setIngestDone();
+                    datafile = fileService.save(datafile);
+
+                    if (datafile.getOwner() != null && datafile.getOwner().isLocked()) {
+                        if (datafile.getOwner().getId() != null) {
+                            logger.log(Level.FINE, "Ingest Servioce: removing lock on dataset {0}", datafile.getOwner().getId());
+                            datasetService.removeDatasetLock(datafile.getOwner().getId());
+                        }
                     }
                 }
+            } else {
+                logger.info("Ingest Service: zero files in the ingest queue.");
             }
-        } else {
-            logger.info("Ingest Service: zero files in the ingest queue.");
+        } catch ( EJBException ex ) {
+            logger.log(Level.WARNING, "Error initing the IngestServiceBean: {0}", ex.getMessage());
         }
     }
     
@@ -269,7 +274,7 @@ public class IngestServiceBean {
                 }
             }
             
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             logger.warning("Failed to run the file utility mime type check on file " + fileName);
         }
         
@@ -429,7 +434,7 @@ public class IngestServiceBean {
                                         if (recognizedType != null && !recognizedType.equals("")) {
                                             datafile.setContentType(recognizedType);
                                         }
-                                    } catch (IOException ex) {
+                                    } catch (Exception ex) {
                                         logger.warning("Failed to run the file utility mime type check on file " + fileName);
                                     }
                                     
@@ -712,7 +717,7 @@ public class IngestServiceBean {
         String contentType;
         try {
             contentType = FileUtil.determineFileType(fileObject, fileObject.getName());
-        } catch (IOException ex) {
+        } catch (Exception ex) {
             logger.warning("FileUtil.determineFileType failed for file with name: " + fileObject.getName());
             contentType = null;
         }
@@ -1402,6 +1407,9 @@ public class IngestServiceBean {
                     }
 
                     Files.copy(Paths.get(tabFile.getAbsolutePath()), dataFile.getFileSystemLocation(), StandardCopyOption.REPLACE_EXISTING);
+                    // delete the temp tab-file:
+                    tabFile.delete();
+                    
 
                     // and change the mime type to "tabular" on the final datafile, 
                     // and replace (or add) the extension ".tab" to the filename: 
@@ -1420,9 +1428,9 @@ public class IngestServiceBean {
                         dataFile.setIngestRequest(null);
                     }
                     dataFile = fileService.save(dataFile);
-                    FacesMessage facesMessage = new FacesMessage("ingest done");
-                    pushContext.push("/ingest" + dataFile.getOwner().getId(), facesMessage);
-                    logger.info("Ingest (" + dataFile.getFileMetadata().getDescription() + "); Sent push notification to the page.");
+                    FacesMessage facesMessage = new FacesMessage("Success " + dataFile.getFileMetadata().getLabel());
+                    pushContext.push("/ingest" + dataFile.getOwner().getId(), "Success " + dataFile.getFileMetadata().getLabel()); //facesMessage);
+                    logger.info("Ingest (" + dataFile.getFileMetadata().getLabel() + "); Sent push notification to the page.");
 
                     if (additionalData != null) {
                         // remove the extra tempfile, if there was one:
@@ -1465,7 +1473,7 @@ public class IngestServiceBean {
 
                 dataFile = fileService.save(dataFile);
                 FacesMessage facesMessage = new FacesMessage("ingest failed");
-                pushContext.push("/ingest" + dataFile.getOwner().getId(), facesMessage);
+                pushContext.push("/ingest" + dataFile.getOwner().getId(), "failure");
                 logger.info("Unknown excepton saving ingested file; Sent push notification to the page.");
             } else {
                 // ??

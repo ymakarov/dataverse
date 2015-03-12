@@ -2,6 +2,7 @@ package edu.harvard.iq.dataverse.api;
 
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetFieldServiceBean;
+import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseRoleServiceBean;
@@ -13,10 +14,10 @@ import edu.harvard.iq.dataverse.MetadataBlockServiceBean;
 import edu.harvard.iq.dataverse.PermissionServiceBean;
 import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
 import edu.harvard.iq.dataverse.UserServiceBean;
+import edu.harvard.iq.dataverse.actionlogging.ActionLogServiceBean;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.authorization.groups.GroupServiceBean;
-import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.IpGroupsServiceBean;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.UserRequestMetadata;
 import edu.harvard.iq.dataverse.engine.command.Command;
@@ -99,6 +100,9 @@ public abstract class AbstractApiBean {
     
     @EJB
     protected GroupServiceBean groupSvc;
+    
+    @EJB
+    protected ActionLogServiceBean actionLogSvc;
     
 	@PersistenceContext(unitName = "VDCNet-ejbPU")
 	protected EntityManager em;
@@ -183,6 +187,11 @@ public abstract class AbstractApiBean {
         return isNumeric(idtf) ? metadataBlockSvc.findById(Long.parseLong(idtf))
                 : metadataBlockSvc.findByName(idtf);
     }
+    
+    protected DatasetFieldType findDatasetFieldType(String idtf) throws NumberFormatException {
+        return isNumeric(idtf) ? datasetFieldSvc.find(Long.parseLong(idtf))
+                : datasetFieldSvc.findByNameOpt(idtf);
+    }    
     
     protected <T> T execCommand( Command<T> com, String messageSeed ) throws WrappedResponse {
         try {
@@ -283,7 +292,7 @@ public abstract class AbstractApiBean {
     protected Response errorResponse( Status sts, String msg ) {
         return Response.status(sts)
                 .entity( Json.createObjectBuilder().add("status", "ERROR")
-                        .add( "message", msg ).build())
+                        .add( "message", (msg!=null) ? msg : "<message was null>" ).build())
                 .type(MediaType.APPLICATION_JSON_TYPE)
                 .build();
     }

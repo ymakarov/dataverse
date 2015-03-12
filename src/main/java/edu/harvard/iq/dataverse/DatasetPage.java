@@ -1,13 +1,7 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.Permission;
-import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUser;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUserServiceBean;
 import edu.harvard.iq.dataverse.authorization.users.ApiToken;
 import edu.harvard.iq.dataverse.authorization.users.User;
@@ -23,6 +17,7 @@ import edu.harvard.iq.dataverse.engine.command.impl.DeleteDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.DestroyDatasetCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.LinkDatasetCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.PublishDatasetCommand;
+import edu.harvard.iq.dataverse.engine.command.impl.PublishDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDatasetCommand;
 import edu.harvard.iq.dataverse.ingest.IngestRequest;
 import edu.harvard.iq.dataverse.ingest.IngestServiceBean;
@@ -70,6 +65,7 @@ import org.primefaces.context.RequestContext;
 import java.text.DateFormat;
 import javax.faces.model.SelectItem;
 import java.util.HashSet;
+import java.util.logging.Level;
 import javax.faces.component.UIInput;
 
 /**
@@ -168,7 +164,7 @@ public class DatasetPage implements java.io.Serializable {
 
     private boolean noDVsRemaining = false;
 
-    private List<Dataverse> dataversesForLinking;
+    private List<Dataverse> dataversesForLinking = new ArrayList();
     private Long linkingDataverseId;
     private List<SelectItem> linkingDVSelectItems;
     private Dataverse linkingDataverse;
@@ -202,7 +198,6 @@ public class DatasetPage implements java.io.Serializable {
     }
 
     public void setDataversesForLinking(List<Dataverse> dataversesForLinking) {
-
         this.dataversesForLinking = dataversesForLinking;
     }
 
@@ -229,7 +224,7 @@ public class DatasetPage implements java.io.Serializable {
         }
 
         if (dataversesForLinking.isEmpty()) {
-            setNoDVsRemaining(true);
+            setNoDVsRemaining(true);            
             return;
         }
 
@@ -265,7 +260,7 @@ public class DatasetPage implements java.io.Serializable {
 
     private final Map<Long, MapLayerMetadata> mapLayerMetadataLookup = new HashMap<>();
 
-    private GuestbookResponse guestbookResponse = new GuestbookResponse();
+    private GuestbookResponse guestbookResponse;
     private Guestbook selectedGuestbook;
 
     public GuestbookResponse getGuestbookResponse() {
@@ -496,11 +491,8 @@ public class DatasetPage implements java.io.Serializable {
         for (DatasetField dsf : workingVersion.getFlatDatasetFields()) {
             DataverseFieldTypeInputLevel dsfIl = dataverseFieldTypeInputLevelService.findByDataverseIdDatasetFieldTypeId(dvIdForInputLevel, dsf.getDatasetFieldType().getId());
             if (dsfIl != null) {
-                dsf.setRequired(dsfIl.isRequired());
-                dsf.getDatasetFieldType().setRequiredDV(dsfIl.isRequired());
                 dsf.setInclude(dsfIl.isInclude());
             } else {
-                dsf.setRequired(dsf.getDatasetFieldType().isRequired());
                 dsf.setInclude(true);
             }
         }
@@ -576,6 +568,77 @@ public class DatasetPage implements java.io.Serializable {
         return this.mapLayerMetadataLookup.get(df.getId());
     }
 
+    
+     /**
+     * Should there be a Map Data Button for this file?
+     * 
+     *  (1) Is the user logged in?
+     *  (2) Is this file a Shapefile or a Tabular file tagged as Geospatial?
+     *  (3) Does the logged in user have permission to edit the Dataset to which this FileMetadata belongs?
+     * 
+     * @param fm FileMetadata
+     * @return boolean
+     */
+    public boolean canUserSeeMapDataButton(FileMetadata fm){
+
+        if (fm==null){
+            return false;
+        }  
+        
+        // (1) Is there an authenticated user?
+        if (!(this.session.getUser().isAuthenticated())){
+            return false;
+        }
+        
+        //  (2) Is this file a Shapefile or a Tabular file tagged as Geospatial?
+        //
+        //  TO DO:  EXPAND FOR TABULAR FILES TAGGED AS GEOSPATIAL!
+        //
+        if (!(this.isShapefileType(fm))){
+            return false;
+        }
+
+        // (3) If so, can the logged in user edit the Dataset to which this FileMetadata belongs?
+        if (!(this.permissionService.userOn(this.session.getUser(), fm.getDataFile().getOwner()).has(Permission.EditDataset))) { 
+            return false;
+        }
+        
+
+        // Looks good
+        //
+        return true;
+    }
+    
+    /**
+     * Should there be a Explore WorldMap Button for this file?
+     * 
+     *  (1) Does the file have MapLayerMetadata?
+     *  (2) Is there DownloadFile permission for this file?
+     * 
+     * @param fm FileMetadata
+     * @return boolean
+     */
+    public boolean canUserSeeExploreWorldMapButton(FileMetadata fm){
+        if (fm==null){
+            return false;
+        }
+        
+        // (1) Does the file have MapLayerMetadata?
+        if (!(this.hasMapLayerMetadata(fm))){
+            return false;
+        }
+         
+        // (2) Is there DownloadFile permission for this file?
+        //
+        if (!(this.permissionService.on(fm.getDataFile()).has(Permission.DownloadFile))){
+                return false;
+        }
+              
+        // Looks good
+        //
+        return true;
+    }
+
     /**
      * Create a hashmap consisting of { DataFile.id : MapLayerMetadata object}
      *
@@ -601,6 +664,7 @@ public class DatasetPage implements java.io.Serializable {
 
     public String init() {
         String nonNullDefaultIfKeyNotFound = "";
+        guestbookResponse = new GuestbookResponse();
         protocol = settingsService.getValueForKey(SettingsServiceBean.Key.Protocol, nonNullDefaultIfKeyNotFound);
         authority = settingsService.getValueForKey(SettingsServiceBean.Key.Authority, nonNullDefaultIfKeyNotFound);
         separator = settingsService.getValueForKey(SettingsServiceBean.Key.DoiSeparator, nonNullDefaultIfKeyNotFound);
@@ -643,7 +707,7 @@ public class DatasetPage implements java.io.Serializable {
             datasetNextMinorVersion = this.dataset.getNextMinorVersionString();
             datasetVersionUI = datasetVersionUI.initDatasetVersionUI(workingVersion);
             updateDatasetFieldInputLevels();
-            displayCitation = dataset.getCitation(false, workingVersion);
+            displayCitation = dataset.getCitation(true, workingVersion);
             setVersionTabList(resetVersionTabList());
             setReleasedVersionTabList(resetReleasedVersionTabList());
 
@@ -663,7 +727,7 @@ public class DatasetPage implements java.io.Serializable {
             }
 
             dataverseTemplates = dataverseService.find(ownerId).getTemplates();
-            if (dataverseService.find(ownerId).isTemplateRoot()) {
+            if (!dataverseService.find(ownerId).isTemplateRoot()) {
                 dataverseTemplates.addAll(dataverseService.find(ownerId).getParentTemplates());
             }
             defaultTemplate = dataverseService.find(ownerId).getDefaultTemplate();
@@ -690,38 +754,37 @@ public class DatasetPage implements java.io.Serializable {
 
         return null;
     }
+    
 
-    public String saveGuestbookResponse() {
-
+    public String saveGuestbookResponse(String type) {
         boolean valid = true;
-
         if (dataset.getGuestbook() != null) {
             if (dataset.getGuestbook().isNameRequired()) {
-                if (guestbookResponse.getName() == null) {
+                if (this.guestbookResponse.getName() == null) {
                     valid = false;
                 } else {
-                    valid &= !guestbookResponse.getName().isEmpty();
+                    valid &= !this.guestbookResponse.getName().isEmpty();
                 }
             }
             if (dataset.getGuestbook().isEmailRequired()) {
-                if (guestbookResponse.getEmail() == null) {
+                if (this.guestbookResponse.getEmail() == null) {
                     valid = false;
                 } else {
-                    valid &= !guestbookResponse.getEmail().isEmpty();
+                    valid &= !this.guestbookResponse.getEmail().isEmpty();
                 }
             }
             if (dataset.getGuestbook().isInstitutionRequired()) {
-                if (guestbookResponse.getInstitution() == null) {
+                if (this.guestbookResponse.getInstitution() == null) {
                     valid = false;
                 } else {
-                    valid &= !guestbookResponse.getInstitution().isEmpty();
+                    valid &= !this.guestbookResponse.getInstitution().isEmpty();
                 }
             }
             if (dataset.getGuestbook().isPositionRequired()) {
-                if (guestbookResponse.getPosition() == null) {
+                if (this.guestbookResponse.getPosition() == null) {
                     valid = false;
                 } else {
-                    valid &= !guestbookResponse.getPosition().isEmpty();
+                    valid &= !this.guestbookResponse.getPosition().isEmpty();
                 }
             }
         }
@@ -729,9 +792,10 @@ public class DatasetPage implements java.io.Serializable {
         if (dataset.getGuestbook() != null && !dataset.getGuestbook().getCustomQuestions().isEmpty()) {
             for (CustomQuestion cq : dataset.getGuestbook().getCustomQuestions()) {
                 if (cq.isRequired()) {
-                    for (CustomQuestionResponse cqr : guestbookResponse.getCustomQuestionResponses()) {
+                    for (CustomQuestionResponse cqr : this.guestbookResponse.getCustomQuestionResponses()) {
                         if (cqr.getCustomQuestion().equals(cq)) {
                             valid &= (cqr.getResponse() != null && !cqr.getResponse().isEmpty());
+                             logger.info(valid + " after CQ empty");
                         }
                     }
                 }
@@ -739,32 +803,75 @@ public class DatasetPage implements java.io.Serializable {
         }
 
         if (!valid) {
-            logger.info("Guestbook response isn't valid.");
+            logger.info("Guestbook response isn't valid");
             FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Validation Error", "Please complete required fields for download and re-try."));
             return "";
         }
 
         Command cmd;
         try {
-            cmd = new CreateGuestbookResponseCommand(session.getUser(), guestbookResponse, dataset);
+            cmd = new CreateGuestbookResponseCommand(session.getUser(), this.guestbookResponse, dataset);
             commandEngine.submit(cmd);
         } catch (CommandException ex) {
             FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Guestbook Response Save Failed", " - " + ex.toString()));
             logger.severe(ex.getMessage());
 
         }
+        
+        if (guestbookResponse.getDataFile() != null && type.equals("download")) {
+            return callDownloadServlet(downloadFormat, guestbookResponse.getDataFile().getId());
+        }
 
-        if (guestbookResponse.getDataFile() != null) {
-            String fileDownloadUrl = "/api/access/datafile/" + guestbookResponse.getDataFile().getId();
-            logger.fine("Returning file download url: " + fileDownloadUrl);
+        if (guestbookResponse.getDataFile() != null && type.equals("explore")) {
+            String retVal = getDataExploreURLComplete(guestbookResponse.getDataFile().getId());
             try {
-                FacesContext.getCurrentInstance().getExternalContext().redirect(fileDownloadUrl);
+                FacesContext.getCurrentInstance().getExternalContext().redirect(retVal);
+                return retVal;
             } catch (IOException ex) {
                 logger.info("Failed to issue a redirect to file download url.");
             }
-            return fileDownloadUrl;
         }
         return "";
+    }
+    
+    public String exploreOutputLink(FileMetadata fm, String type){
+        createSilentGuestbookEntry(fm, type);
+        String retVal = getDataExploreURLComplete(fm.getDataFile().getId());
+        try {
+            FacesContext.getCurrentInstance().getExternalContext().redirect(retVal);
+        } catch (IOException ex) {
+            logger.info("Failed to issue a redirect to file download url.");
+        }
+        return "";
+    }
+    
+    private String callDownloadServlet( String downloadType, Long fileId){
+        
+        String fileDownloadUrl = "/api/access/datafile/" + fileId;
+                    
+        if (downloadType != null && downloadType.equals("bundle")){
+            fileDownloadUrl = "/api/access/datafile/bundle/" + guestbookResponse.getDataFile().getId();
+        }
+        if (downloadType != null && downloadType.equals("original")){
+            fileDownloadUrl = "/api/access/datafile/" + guestbookResponse.getDataFile().getId() + "?format=original";
+        }
+        if (downloadType != null && downloadType.equals("RData")){
+            fileDownloadUrl = "/api/access/datafile/" + guestbookResponse.getDataFile().getId() + "?format=RData";
+        }
+        if (downloadType != null && downloadType.equals("var")){
+            fileDownloadUrl = "/api/meta/datafile/" + guestbookResponse.getDataFile().getId();
+        }
+        if (downloadType != null && downloadType.equals("tab")){
+            fileDownloadUrl = "/api/access/datafile/" + guestbookResponse.getDataFile().getId()+ "?format=tab";
+        }
+                    logger.fine("Returning file download url: " + fileDownloadUrl);
+        try {
+            FacesContext.getCurrentInstance().getExternalContext().redirect(fileDownloadUrl);
+        } catch (IOException ex) {
+            logger.info("Failed to issue a redirect to file download url.");
+        }
+            return fileDownloadUrl;       
+
     }
 
     public String getApiTokenKey() {
@@ -846,20 +953,29 @@ public class DatasetPage implements java.io.Serializable {
         if (editMode == EditMode.INFO) {
             // ?
         } else if (editMode == EditMode.FILE) {
+            JH.addMessage(FacesMessage.SEVERITY_INFO, JH.localize("dataset.message.editFiles"));
             // FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Upload + Edit Dataset Files", " - You can drag and drop your files from your desktop, directly into the upload widget."));
-        } else if (editMode == EditMode.METADATA) {
+        } else if (editMode.equals(EditMode.METADATA)) {
             datasetVersionUI = datasetVersionUI.initDatasetVersionUI(workingVersion);
             updateDatasetFieldInputLevels();
-            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Edit Dataset Metadata", " - Add more metadata about your dataset to help others easily find it."));
+            JH.addMessage(FacesMessage.SEVERITY_INFO, JH.localize("dataset.message.editMetadata"));
+            //FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Edit Dataset Metadata", " - Add more metadata about your dataset to help others easily find it."));
+        } else if (editMode.equals(EditMode.LICENSE)){
+            JH.addMessage(FacesMessage.SEVERITY_INFO, JH.localize("dataset.message.editLicense"));
+            //FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Edit Dataset License and Terms", " - Update your dataset's license and terms of use."));
         }
     }
 
     public String releaseDraft() {
         if (releaseRadio == 1) {
-            return releaseDataset(false);
-        } else {
             return releaseDataset(true);
+        } else {
+            return releaseDataset(false);
         }
+    }
+
+    public String releaseMajor() {
+        return releaseDataset(false);
     }
 
     public String sendBackToContributor() {
@@ -909,13 +1025,33 @@ public class DatasetPage implements java.io.Serializable {
         FacesContext.getCurrentInstance().addMessage(null, message);
         return "/dataset.xhtml?id=" + dataset.getId() + "&faces-redirect=true";
     }
+    
+    public String releaseParentDVAndDataset(){
+        releaseParentDV();
+        return releaseDataset(false);
+    }
 
     public String releaseDataset() {
         return releaseDataset(false);
     }
+    
+    private void releaseParentDV(){
+        if (session.getUser() instanceof AuthenticatedUser) {
+            PublishDataverseCommand cmd = new PublishDataverseCommand((AuthenticatedUser) session.getUser(), dataset.getOwner());
+            try {
+                commandEngine.submit(cmd);
+                JsfHelper.addSuccessMessage(JH.localize("dataverse.publish.success"));
 
-    public String deaccessionDataset() {
-        return "";
+            } catch (Exception ex) {
+                logger.log(Level.SEVERE, "Unexpected Exception calling  publish dataverse command", ex);
+                JsfHelper.addErrorMessage(JH.localize("dataverse.publish.failure"));
+
+            }
+        } else {
+            FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DataverseNotReleased", "Only authenticated users can release a dataverse.");
+            FacesContext.getCurrentInstance().addMessage(null, message);
+        }
+        
     }
 
     public String deaccessionVersions() {
@@ -935,11 +1071,10 @@ public class DatasetPage implements java.io.Serializable {
                 }
             }
         } catch (CommandException ex) {
-            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Dataset Deaccession Failed", " - " + ex.toString()));
             logger.severe(ex.getMessage());
+            JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.deaccessionFailure"));
         }
-        FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DatasetDeaccessioned", "Your selected versions have been deaccessioned.");
-        FacesContext.getCurrentInstance().addMessage(null, message);
+        JsfHelper.addSuccessMessage(JH.localize("datasetVersion.message.deaccessionSuccess"));
         return "/dataset.xhtml?id=" + dataset.getId() + "&faces-redirect=true";
     }
 
@@ -983,8 +1118,7 @@ public class DatasetPage implements java.io.Serializable {
                     cmd = new PublishDatasetCommand(dataset, (AuthenticatedUser) session.getUser(), minor);
                 }
                 dataset = commandEngine.submit(cmd);
-                FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DatasetReleased", "Your dataset is now public.");
-                FacesContext.getCurrentInstance().addMessage(null, message);
+                JsfHelper.addSuccessMessage(JH.localize("dataset.message.publishSuccess"));                        
                 if (workingVersion.isInReview()) {
                     List<AuthenticatedUser> authUsers = permissionService.getUsersWithPermissionOn(Permission.PublishDataset, dataset);
                     List<AuthenticatedUser> editUsers = permissionService.getUsersWithPermissionOn(Permission.EditDataset, dataset);
@@ -996,7 +1130,7 @@ public class DatasetPage implements java.io.Serializable {
                     }
                 }
             } catch (CommandException ex) {
-                FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Dataset Release Failed", " - " + ex.toString()));
+                JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.publishFailure"));
                 logger.severe(ex.getMessage());
             }
         } else {
@@ -1044,6 +1178,7 @@ public class DatasetPage implements java.io.Serializable {
             workingVersion = datasetVersionService.find(versionId);
         }
         displayCitation = dataset.getCitation(false, workingVersion);
+        JsfHelper.addSuccessMessage(JH.localize("dataset.message.files.ingestSuccess"));
     }
 
     public String deleteDataset() {
@@ -1058,11 +1193,10 @@ public class DatasetPage implements java.io.Serializable {
              userNotificationService.delete(und);
              } */
         } catch (CommandException ex) {
-            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Dataset Delete Failed", " - " + ex.toString()));
+            JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.deleteFailure"));
             logger.severe(ex.getMessage());
         }
-        FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DatasetDeleted", "Your dataset has been deleted.");
-        FacesContext.getCurrentInstance().addMessage(null, message);
+            JsfHelper.addSuccessMessage(JH.localize("dataset.message.deleteSuccess"));
         return "/dataverse.xhtml?alias=" + dataset.getOwner().getAlias() + "&faces-redirect=true";
     }
 
@@ -1071,16 +1205,16 @@ public class DatasetPage implements java.io.Serializable {
         try {
             cmd = new DeleteDatasetVersionCommand(session.getUser(), dataset);
             commandEngine.submit(cmd);
+            JsfHelper.addSuccessMessage(JH.localize("datasetVersion.message.deleteSuccess"));
         } catch (CommandException ex) {
-            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Dataset Version Delete Failed", " - " + ex.toString()));
+            JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.deleteFailure"));
             logger.severe(ex.getMessage());
         }
-        FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DatasetDeleted", "Your dataset has been deleted.");
-        FacesContext.getCurrentInstance().addMessage(null, message);
+
         return "/dataset.xhtml?id=" + dataset.getId() + "&faces-redirect=true";
     }
 
-    private List<FileMetadata> selectedFiles;
+    private List<FileMetadata> selectedFiles; // = new ArrayList<>();
 
     public List<FileMetadata> getSelectedFiles() {
         return selectedFiles;
@@ -1093,7 +1227,6 @@ public class DatasetPage implements java.io.Serializable {
     public String saveLinkedDataset() {
         if (linkingDataverseId == null) {
             JsfHelper.addFlashMessage("You must select a linking dataverse.");
-            System.out.print("no linking dv...");
             return "";
         }
         linkingDataverse = dataverseService.find(linkingDataverseId);
@@ -1101,7 +1234,7 @@ public class DatasetPage implements java.io.Serializable {
         try {
             commandEngine.submit(cmd);
             JsfHelper.addFlashMessage("This dataset is now linked to " + linkingDataverse.getDisplayName());
-            System.out.print("command seems to have worked");
+            //JsfHelper.addSuccessMessage(JH.localize("dataset.message.linkSuccess")+ linkingDataverse.getDisplayName());
             //return "";
 
         } catch (CommandException ex) {
@@ -1119,25 +1252,55 @@ public class DatasetPage implements java.io.Serializable {
         return "/dataset.xhtml?id=" + dataset.getId() + "&versionId=" + dataset.getLatestVersion().getId() + "&faces-redirect=true";
     }
 
-    private boolean showAccessPopup = false;
-
+    List<FileMetadata> previouslyRestrictedFiles = null;
+    
     public boolean isShowAccessPopup() {
-        return showAccessPopup;
+        if (previouslyRestrictedFiles != null) {
+            for (FileMetadata fmd : workingVersion.getFileMetadatas()) {
+                if (fmd.isRestricted() && !previouslyRestrictedFiles.contains(fmd)) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
     }
+    
+    public void setShowAccessPopup(boolean showAccessPopup) {} // dummy set method
 
-    public void setShowAccessPopup(boolean showAccessPopup) {
-        this.showAccessPopup = showAccessPopup;
-    }
 
     public void restrictFiles(boolean restricted) {
+        // since we are restricted files, first set the previously restricted file list, so we can compare for
+        // determinin whether to show the access popup
+        if (previouslyRestrictedFiles == null) {
+            previouslyRestrictedFiles = new ArrayList();
+            for (FileMetadata fmd : workingVersion.getFileMetadatas()) {
+                if (fmd.isRestricted()) {
+                    previouslyRestrictedFiles.add(fmd);
+                }
+            }
+        }        
+        
+        String fileNames = null;
         for (FileMetadata fmd : this.getSelectedFiles()) {
             if (restricted && !fmd.isRestricted()) {
-                // show popup when a file is newly restricted
-                showAccessPopup = true;
+                // collect the names of the newly-restrticted files, 
+                // to show in the success message:
+                if (fileNames == null) {
+                    fileNames = fmd.getLabel();
+                } else {
+                    fileNames = fileNames.concat(fmd.getLabel());
+                }
             }
             fmd.setRestricted(restricted);
         }
-    }
+        if (fileNames != null) {
+            String successMessage = JH.localize("file.restricted.success");
+            logger.fine(successMessage);
+            successMessage = successMessage.replace("{0}", fileNames);
+            JsfHelper.addFlashMessage(successMessage);    
+        }
+    } 
 
     public int getRestrictedFileCount() {
         int restrictedFileCount = 0;
@@ -1153,6 +1316,18 @@ public class DatasetPage implements java.io.Serializable {
     private List<FileMetadata> filesToBeDeleted = new ArrayList();
 
     public void deleteFiles() {
+
+        String fileNames = null;
+        for (FileMetadata fmd : this.getSelectedFiles()) {
+                // collect the names of the newly-restrticted files, 
+            // to show in the success message:
+            if (fileNames == null) {
+                fileNames = fmd.getLabel();
+            } else {
+                fileNames = fileNames.concat(fmd.getLabel());
+            }
+        }
+
         filesToBeDeleted.addAll(selectedFiles);
         // remove from the files list
         //dataset.getLatestVersion().getFileMetadatas().removeAll(selectedFiles);
@@ -1173,13 +1348,22 @@ public class DatasetPage implements java.io.Serializable {
                 }
             }
         }
+
+        if (fileNames != null) {
+            String successMessage = JH.localize("file.deleted.success");
+            logger.fine(successMessage);
+            successMessage = successMessage.replace("{0}", fileNames);
+            JsfHelper.addFlashMessage(successMessage);
+        }
     }
 
     public String save() {
         // Validate
         Set<ConstraintViolation> constraintViolations = workingVersion.validate();
         if (!constraintViolations.isEmpty()) {
-            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Validation Error", "See below for details."));
+             //JsfHelper.addFlashMessage(JH.localize("dataset.message.validationError"));
+             JH.addMessage(FacesMessage.SEVERITY_ERROR, JH.localize("dataset.message.validationError"));
+            //FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Validation Error", "See below for details."));
             return "";
         }
 
@@ -1255,7 +1439,7 @@ public class DatasetPage implements java.io.Serializable {
                      */
                     try {
                         Long idToRemove = fmd.getId(); ///dfn.getId();
-                        logger.info("deleting file, filemetadata id " + idToRemove);
+                        logger.log(Level.INFO, "deleting file, filemetadata id {0}", idToRemove);
 
                         // finally, check if this file is being used as the default thumbnail
                         // for its dataset: 
@@ -1312,7 +1496,17 @@ public class DatasetPage implements java.io.Serializable {
         try {
             if (editMode == EditMode.CREATE) {
                 workingVersion.setLicense(DatasetVersion.License.CC0);
-                cmd = new CreateDatasetCommand(dataset, session.getUser());
+                if ( selectedTemplate != null ) {
+                    if ( session.getUser().isAuthenticated() ) {
+                        cmd = new CreateDatasetCommand(dataset, (AuthenticatedUser) session.getUser(), false, null, selectedTemplate); 
+                    } else {
+                        JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.create.authenticatedUsersOnly"));
+                        return null;
+                    }
+                } else {
+                   cmd = new CreateDatasetCommand(dataset, session.getUser());
+                }
+                
             } else {
                 cmd = new UpdateDatasetCommand(dataset, session.getUser());
             }
@@ -1324,23 +1518,36 @@ public class DatasetPage implements java.io.Serializable {
             }
         } catch (EJBException ex) {
             StringBuilder error = new StringBuilder();
-            error.append(ex + " ");
-            error.append(ex.getMessage() + " ");
+            error.append(ex).append(" ");
+            error.append(ex.getMessage()).append(" ");
             Throwable cause = ex;
-            while (cause.getCause() != null) {
+            while (cause.getCause()!= null) {
                 cause = cause.getCause();
-                error.append(cause + " ");
-                error.append(cause.getMessage() + " ");
+                error.append(cause).append(" ");
+                error.append(cause.getMessage()).append(" ");
             }
-            logger.fine("Couldn't save dataset: " + error.toString());
-            FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Dataset Save Failed", " - " + error.toString()));
+            logger.log(Level.FINE, "Couldn''t save dataset: {0}", error.toString());
+            populateDatasetUpdateFailureMessage();
             return null;
         } catch (CommandException ex) {
             FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, "Dataset Save Failed", " - " + ex.toString()));
             logger.severe(ex.getMessage());
+            populateDatasetUpdateFailureMessage();
             return null;
         }
         newFiles.clear();
+        if(editMode.equals(EditMode.CREATE)){
+            JsfHelper.addSuccessMessage(JH.localize("dataset.message.createSuccess"));
+        }
+        if(editMode.equals(EditMode.METADATA)){
+            JsfHelper.addSuccessMessage(JH.localize("dataset.message.metadataSuccess"));
+        }
+        if(editMode.equals(EditMode.LICENSE)){
+            JsfHelper.addSuccessMessage(JH.localize("dataset.message.licenseSuccess"));
+        }
+        if(editMode.equals(EditMode.FILE)){
+            JsfHelper.addSuccessMessage(JH.localize("dataset.message.filesSuccess"));
+        }
         editMode = null;
 
         // Call Ingest Service one more time, to 
@@ -1348,6 +1555,21 @@ public class DatasetPage implements java.io.Serializable {
         ingestService.startIngestJobs(dataset, (AuthenticatedUser) session.getUser());
 
         return "/dataset.xhtml?id=" + dataset.getId() + "&versionId=" + dataset.getLatestVersion().getId() + "&faces-redirect=true";
+    }
+    
+    private void populateDatasetUpdateFailureMessage(){
+            if (editMode.equals(EditMode.CREATE)) {
+                JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.createFailure"));
+            }
+            if (editMode.equals(EditMode.METADATA)) {
+                JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.metadataFailure"));
+            }
+            if (editMode.equals(EditMode.LICENSE)) {
+                JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.licenseFailure"));
+            }
+            if (editMode.equals(EditMode.FILE)) {
+                JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataset.message.filesFailure"));
+            }
     }
 
     public String cancel() {
@@ -1632,9 +1854,8 @@ public class DatasetPage implements java.io.Serializable {
         this.datasetVersionDifference = datasetVersionDifference;
     }
     
-    public String startFileDownload(FileMetadata fileMetadata, String format) {
-        System.out.print("In Download method");
-        initGuestbookResponse(fileMetadata);
+    private void createSilentGuestbookEntry(FileMetadata fileMetadata, String format){
+        initGuestbookResponse(fileMetadata, format);
         Command cmd;
         try {
             cmd = new CreateGuestbookResponseCommand(session.getUser(), guestbookResponse, dataset);
@@ -1644,24 +1865,44 @@ public class DatasetPage implements java.io.Serializable {
             logger.severe(ex.getMessage());
         }
         
-        String fileDownloadUrl = "/api/access/datafile/" + guestbookResponse.getDataFile().getId();
-        if (format != null && format.equals("bundle")){
-            fileDownloadUrl = "/api/access/datafile/bundle/" + guestbookResponse.getDataFile().getId();
-        }
-        System.out.print("fileDownloadUrl: " + fileDownloadUrl);
-        try {
-            FacesContext.getCurrentInstance().getExternalContext().redirect(fileDownloadUrl);
-        } catch (IOException ex) {
-            logger.info("Failed to issue a redirect to file download url.");
-        }
-        return fileDownloadUrl;
+    }
+    
+    public String startFileDownload(FileMetadata fileMetadata, String format) {
+        createSilentGuestbookEntry(fileMetadata, format);
+        return callDownloadServlet(format, fileMetadata.getDataFile().getId());
+    }
+    
+    private String downloadFormat;
+
+    public String getDownloadFormat() {
+        return downloadFormat;
     }
 
-    public void initGuestbookResponse(FileMetadata fileMetadata) {
+    public void setDownloadFormat(String downloadFormat) {
+        this.downloadFormat = downloadFormat;
+    }
+    
+    private String downloadType = "";
 
-        if (this.guestbookResponse == null) {
-            this.guestbookResponse = new GuestbookResponse();
-        }
+    public String getDownloadType() {
+        return downloadType;
+    }
+
+    public void setDownloadType(String downloadType) {
+        this.downloadType = downloadType;
+    }
+    
+  
+    public void initGuestbookResponse(FileMetadata fileMetadata){
+         initGuestbookResponse(fileMetadata, "");
+    }
+
+    public void initGuestbookResponse(FileMetadata fileMetadata, String downloadFormat) {
+        setDownloadFormat(downloadFormat);
+        setDownloadType("download");
+        
+        this.guestbookResponse = new GuestbookResponse();
+        
         User user = session.getUser();
         if (this.dataset.getGuestbook() != null) {
             this.guestbookResponse.setGuestbook(this.dataset.getGuestbook());
@@ -1676,14 +1917,9 @@ public class DatasetPage implements java.io.Serializable {
                 this.guestbookResponse.setAuthenticatedUser(aUser);
                 this.guestbookResponse.setEmail(aUser.getEmail());
                 this.guestbookResponse.setInstitution(aUser.getAffiliation());
-                this.guestbookResponse.setPosition("");
+                this.guestbookResponse.setPosition(aUser.getPosition());
                 this.guestbookResponse.setSessionId(session.toString());
             }
-            /*
-             if (user.isBuiltInUser()) {
-             BuiltinUser bUser = (BuiltinUser) user;
-             this.guestbookResponse.setPosition(bUser.getPosition());
-             }*/
             this.guestbookResponse.setDataFile(fileMetadata.getDataFile());
         } else {
             this.guestbookResponse = guestbookServiceBean.initDefaultGuestbookResponse(dataset, fileMetadata.getDataFile(), user, session);
@@ -1701,9 +1937,18 @@ public class DatasetPage implements java.io.Serializable {
                 }
                 this.guestbookResponse.getCustomQuestionResponses().add(cqr);
             }
-
         }
-
+        this.guestbookResponse.setDownloadtype("Download");
+        if(downloadFormat.toLowerCase().equals("subset")){
+            this.guestbookResponse.setDownloadtype("Subset");
+            setDownloadFormat("subset");
+            setDownloadType("subset");
+        }
+        if(downloadFormat.toLowerCase().equals("explore")){
+            setDownloadFormat("explore");
+            setDownloadType("explore");
+            this.guestbookResponse.setDownloadtype("Explore");
+        }
         this.guestbookResponse.setDataset(dataset);
     }
 
@@ -1762,12 +2007,12 @@ public class DatasetPage implements java.io.Serializable {
         String contNames = "";
         for (String id : version.getVersionContributorIdentifiers()) {
             id = id.startsWith("@") ? id.substring(1) : id;
-            BuiltinUser builtinUser = builtinUserService.findByUserName(id);
-            if (builtinUser != null) {
+            AuthenticatedUser au = authService.getAuthenticatedUser(id);
+            if (au != null) {
                 if (contNames.isEmpty()) {
-                    contNames = builtinUser.getDisplayName();
+                    contNames = au.getName();
                 } else {
-                    contNames = contNames + ", " + builtinUser.getDisplayName();
+                    contNames = contNames + ", " + au.getName();
                 }
             }
         }
@@ -1904,10 +2149,23 @@ public class DatasetPage implements java.io.Serializable {
 
     private FileMetadata fileMetadataSelected = null;
 
-    public void setFileMetadataSelected(FileMetadata fm) {
+    public void  setFileMetadataSelected(FileMetadata fm){
+       setFileMetadataSelected(fm, null); 
+    }
+    
+    public void setFileMetadataSelected(FileMetadata fm, String guestbook) {
+        if (guestbook != null) {
+            if (guestbook.equals("create")) {
+                createSilentGuestbookEntry(fm, "Subset");
+            } else {
+                initGuestbookResponse(fm, "Subset");
+            }
+        }
+
         fileMetadataSelected = fm;
         logger.fine("set the file for the advanced options popup (" + fileMetadataSelected.getLabel() + ")");
-    }
+        alreadyDesignatedAsDatasetThumbnail = getUseAsDatasetThumbnail();
+    }           
 
     public FileMetadata getFileMetadataSelected() {
         if (fileMetadataSelected != null) {
@@ -1965,6 +2223,8 @@ public class DatasetPage implements java.io.Serializable {
         this.selectedTags = selectedTags;
     }
 
+    private boolean alreadyDesignatedAsDatasetThumbnail = false; 
+    
     public boolean getUseAsDatasetThumbnail() {
 
         if (fileMetadataSelected != null) {
@@ -2082,18 +2342,27 @@ public class DatasetPage implements java.io.Serializable {
         // DataFile Tags: 
 
         if (selectedTags != null) {
+        
             if (fileMetadataSelected != null && fileMetadataSelected.getDataFile() != null) {
                 fileMetadataSelected.getDataFile().setTags(null);
                 for (int i = 0; i < selectedTags.length; i++) {
+                    
                     DataFileTag tag = new DataFileTag();
                     try {
                         tag.setTypeByLabel(selectedTags[i]);
                         tag.setDataFile(fileMetadataSelected.getDataFile());
                         fileMetadataSelected.getDataFile().addTag(tag);
+                        
                     } catch (IllegalArgumentException iax) {
                         // ignore 
                     }
                 }
+                
+                // success message: 
+                String successMessage = JH.localize("file.assignedTabFileTags.success");
+                logger.fine(successMessage);
+                successMessage = successMessage.replace("{0}", fileMetadataSelected.getLabel());
+                JsfHelper.addFlashMessage(successMessage);
             }
             // reset:
             selectedTags = null;
@@ -2101,7 +2370,16 @@ public class DatasetPage implements java.io.Serializable {
 
         // Use-as-the-thumbnail assignment (do nothing?)
         // (it's already attached to the selected datafile)
-        // Language encoding for SPSS SAV (and, possibley, other tabular ingests:) 
+        // ...except we want to show a success message, if a new image has 
+        // been designated as such:
+        if (getUseAsDatasetThumbnail() && !alreadyDesignatedAsDatasetThumbnail) {
+            String successMessage = JH.localize("file.assignedDataverseImage.success");
+            logger.info(successMessage);
+            successMessage = successMessage.replace("{0}", fileMetadataSelected.getLabel());
+            JsfHelper.addFlashMessage(successMessage);
+        }
+        
+        // Language encoding for SPSS SAV (and, possibly, other tabular ingests:) 
         if (ingestLanguageEncoding != null) {
             if (fileMetadataSelected != null && fileMetadataSelected.getDataFile() != null) {
                 if (fileMetadataSelected.getDataFile().getIngestRequest() == null) {
@@ -2115,7 +2393,7 @@ public class DatasetPage implements java.io.Serializable {
         }
         ingestLanguageEncoding = null;
 
-        // Extra labels for SPSS POR (and, possibley, other tabular ingests:)
+        // Extra labels for SPSS POR (and, possibly, other tabular ingests:)
         // (we are adding this parameter to the IngestRequest now, instead of back
         // when it was uploaded. This is because we want the user to be able to 
         // hit cancel and bail out, until they actually click 'save' in the 
@@ -2188,7 +2466,7 @@ public class DatasetPage implements java.io.Serializable {
         // present the user with the popup: 
 
         // 1. License and Terms of Use:
-        if (!"CC0".equals(workingVersion.getLicense())
+        if (!DatasetVersion.License.CC0.equals(workingVersion.getLicense())
                 && !(workingVersion.getTermsOfUse() == null
                 || workingVersion.getTermsOfUse().equals(""))) {
             return true;

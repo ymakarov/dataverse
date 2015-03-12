@@ -1,0 +1,62 @@
+----------------------------------------------
+-- On 3.6 database, run the following to create copies of needed tables
+----------------------------------------------
+
+-- ignore the root network
+create table _dvn3_vdcnetwork as select * from vdcnetwork where id != 0;
+
+create table _dvn3_vdc as select * from vdc;
+
+-- ignore network admin (assumes id of 1)
+create table _dvn3_vdcuser as select * from vdcuser where id != 1;
+
+-- groups
+create table _dvn3_usergroup as select * from usergroup;
+create table _dvn3_vdcuser_usergroupe as select * from vdcuser_usergroup;
+
+create table _dvn3_study as select * from study
+-- where owner_id in (select id from _dvn3_vdc)
+;
+
+
+create table _dvn3_studyversion as select * from studyversion
+-- where study_id in (select id from _dvn3_study)
+;
+
+
+-- permissions
+create table _dvn3_studyfile_vdcuser as select * from studyfile_vdcuser;
+create table _dvn3_studyfile_usergroup as select * from studyfile_usergroup;
+
+create table _dvn3_vdcrole as select * from vdcrole;
+create table _dvn3_vdc_usergroup as select * from vdc_usergroup;
+
+----------------------------------------------
+-- run pg_dump to extract temp tables
+----------------------------------------------
+
+./pg_dump -h localhost -U postgres thedata -t _dvn3_* -f /tmp/dvn3_data.sql
+
+----------------------------------------------
+-- import temp tables into 4.0 db
+----------------------------------------------
+
+psql -h localhost -U postgres dvndb -f /tmp/dvn3_data.sql
+
+
+----------------------------------------------
+-- exporting non-released versions: 
+----------------------------------------------
+The script accepts a list of the dataverse aliases on the standard input, 
+and takes the URL of the ddi export servlet as the command line argument. 
+for example: 
+
+# for vdc in angola benin belize GSD_Test_2
+> do
+> echo $vdc | ./versions_source_ "http://dvn-4.hmdc.harvard.edu/dvn/ddi"
+> done
+
+
+
+
+

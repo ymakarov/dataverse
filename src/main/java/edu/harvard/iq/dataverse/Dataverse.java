@@ -1,7 +1,6 @@
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
-import edu.harvard.iq.dataverse.authorization.users.User;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -45,14 +44,17 @@ public class Dataverse extends DvObjectContainer {
     private static final long serialVersionUID = 1L;
 
     @NotBlank(message = "Please enter a name.")
+    @Column( nullable = false )
     private String name;
 
     /**
      * @todo add @Column(nullable = false) for the database to enforce non-null
      */
     @NotBlank(message = "Please enter an alias.")
+    @Column( nullable = false )
     @Size(max = 60, message = "Alias must be at most 60 characters.")
-    @Pattern(regexp = "[a-zA-Z0-9\\_\\-]*", message = "Found an illegal character(s). Valid characters are a-Z, 0-9, '_', and '-'.")
+    @Pattern.List({@Pattern(regexp = "[a-zA-Z0-9\\_\\-]*", message = "Found an illegal character(s). Valid characters are a-Z, 0-9, '_', and '-'."), 
+        @Pattern(regexp=".*\\D.*", message="Alias should not be a number")})
     private String alias;
 
     @Column(name = "description", columnDefinition = "TEXT")
@@ -60,6 +62,7 @@ public class Dataverse extends DvObjectContainer {
 
     @Enumerated(EnumType.STRING)
     @NotNull(message = "Please select a category for your dataverse.")
+    @Column( nullable = false )
     private DataverseType dataverseType;
     
     /**
@@ -80,15 +83,15 @@ public class Dataverse extends DvObjectContainer {
     public String getFriendlyCategoryName(){
        switch (this.dataverseType) {
             case RESEARCHERS:
-                return "Researchers";
+                return "Researcher";
             case RESEARCH_PROJECTS:
-                return "Research Projects";
+                return "Research Project";
             case JOURNALS:
-                return "Journals";            
+                return "Journal";            
             case ORGANIZATIONS_INSTITUTIONS:
-                return "Organizations & Institutions";            
+                return "Organization or Institution";            
             case TEACHING_COURSES:
-                return "Teaching Courses";            
+                return "Teaching Course";            
             case UNCATEGORIZED:
                 return "Uncategorized";
             default:
@@ -122,7 +125,7 @@ public class Dataverse extends DvObjectContainer {
     private boolean themeRoot;
     private boolean templateRoot;    
     private boolean displayByType;
-    private boolean displayFeatured;
+
     
     @OneToOne(mappedBy = "dataverse",cascade={ CascadeType.REMOVE, CascadeType.MERGE,CascadeType.PERSIST}, orphanRemoval=true)
       private DataverseTheme dataverseTheme;
@@ -139,22 +142,17 @@ public class Dataverse extends DvObjectContainer {
     @OrderBy("displayOrder")
     private List<DataverseFacet> dataverseFacets = new ArrayList();
     
-
-
-
-    
     @ManyToMany
     @JoinTable(name = "dataversesubjects",
     joinColumns = @JoinColumn(name = "dataverse_id"),
     inverseJoinColumns = @JoinColumn(name = "controlledvocabularyvalue_id"))
-    @NotEmpty(message="At least one subject is required.")
-    private List<ControlledVocabularyValue> dataverseSubjects;
+    private Set<ControlledVocabularyValue> dataverseSubjects;
     
-    public List<ControlledVocabularyValue> getDataverseSubjects() {
+    public Set<ControlledVocabularyValue> getDataverseSubjects() {
         return dataverseSubjects;
     }
 
-    public void setDataverseSubjects(List<ControlledVocabularyValue> dataverseSubjects) {
+    public void setDataverseSubjects(Set<ControlledVocabularyValue> dataverseSubjects) {
         this.dataverseSubjects = dataverseSubjects;
     }
 
@@ -166,7 +164,7 @@ public class Dataverse extends DvObjectContainer {
     @JoinColumn(nullable = true)
     private Template defaultTemplate;  
     
-    @OneToMany(cascade = {CascadeType.MERGE})
+    @OneToMany(cascade = {CascadeType.MERGE, CascadeType.REMOVE})
     private List<Template> templates; 
     
     @OneToMany(cascade = {CascadeType.MERGE})
@@ -269,7 +267,7 @@ public class Dataverse extends DvObjectContainer {
            }           
            retList.addAll(testDV.getOwner().getTemplates());
            
-           if(!testDV.getOwner().templateRoot){               
+           if(testDV.getOwner().templateRoot){               
                break;
            }           
            testDV = testDV.getOwner();
@@ -331,6 +329,71 @@ public class Dataverse extends DvObjectContainer {
         } else {
             return getOwner().getDataverseTheme();
         }
+    }
+    
+    public String getGuestbookRootDataverseName() {
+        Dataverse testDV = this;
+        String retName = "Parent";
+        while (testDV.getOwner() != null) {
+            retName = testDV.getOwner().getDisplayName();
+            if (testDV.getOwner().guestbookRoot) {
+                break;
+            }
+            testDV = testDV.getOwner();
+        }
+        return retName;
+    }
+
+    public String getTemplateRootDataverseName() {
+        Dataverse testDV = this;
+        String retName = "Parent";
+        while (testDV.getOwner() != null) {
+            retName = testDV.getOwner().getDisplayName();
+            if (testDV.getOwner().templateRoot) {
+                break;
+            }
+            testDV = testDV.getOwner();
+        }
+        return retName;
+    }
+
+    public String getThemeRootDataverseName() {
+        Dataverse testDV = this;
+        String retName = "Parent";
+        while (testDV.getOwner() != null) {
+            retName = testDV.getOwner().getDisplayName();
+            if (testDV.getOwner().themeRoot) {
+                break;
+            }
+            testDV = testDV.getOwner();
+        }
+        return retName;
+    }
+
+    public String getMetadataRootDataverseName() {
+        Dataverse testDV = this;
+        String retName = "Parent";
+        while (testDV.getOwner() != null) {
+            retName = testDV.getOwner().getDisplayName();
+            if (testDV.getOwner().metadataBlockRoot) {
+                break;
+            }
+            testDV = testDV.getOwner();
+        }
+        return retName;
+    }
+    
+    public String getFacetRootDataverseName() {
+        Dataverse testDV = this;
+        String retName = "Parent";
+        while (testDV.getOwner() != null) {
+            retName = testDV.getOwner().getDisplayName();
+            if (testDV.getOwner().facetRoot) {
+                break;
+            }
+            testDV = testDV.getOwner();
+        }
+        return retName;
     }
     
     public String getLogoOwnerId() {
@@ -447,14 +510,6 @@ public class Dataverse extends DvObjectContainer {
 
     public void setDisplayByType(boolean displayByType) {
         this.displayByType = displayByType;
-    }
-
-    public boolean isDisplayFeatured() {
-        return displayFeatured;
-    }
-
-    public void setDisplayFeatured(boolean displayFeatured) {
-        this.displayFeatured = displayFeatured;
     }
 
     public void addRole(DataverseRole role) {

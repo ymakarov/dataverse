@@ -30,8 +30,6 @@ import javax.persistence.PersistenceContext;
 @ViewScoped
 public class DatasetVersionUI implements Serializable {
 
-     @EJB
-    DataverseFieldTypeInputLevelServiceBean dataverseFieldTypeInputLevelServiceBean;
     @EJB
     DataverseServiceBean dataverseService;
     @PersistenceContext(unitName = "VDCNet-ejbPU")
@@ -66,7 +64,7 @@ public class DatasetVersionUI implements Serializable {
          */
         
         setDatasetVersion(datasetVersion);
-        this.setDatasetAuthors(new ArrayList());
+        //this.setDatasetAuthors(new ArrayList());
         this.setDatasetRelPublications(new ArrayList());
 
         // loop through vaues to get fields for view mode
@@ -81,18 +79,18 @@ public class DatasetVersionUI implements Serializable {
                 if(dsf.getDatasetFieldCompoundValues() != null && dsf.getDatasetFieldCompoundValues().get(0) != null){
                     DatasetFieldCompoundValue descriptionValue = dsf.getDatasetFieldCompoundValues().get(0);               
                     for (DatasetField subField : descriptionValue.getChildDatasetFields()) {
-                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.descriptionText)) {                          
+                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.descriptionText) && !subField.isEmptyForDisplay()) {                          
                                 descriptionString = subField.getValue();                             
                         }
                     }
                 }                 
                 setDescriptionDisplay(descriptionString);
             } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.keyword)) {
-                //setKeyword(dsf.getCompoundDisplayValue());
+                setKeyword(dsf);
                 String keywordString = "";
                 for (DatasetFieldCompoundValue keywordValue : dsf.getDatasetFieldCompoundValues()) {
                     for (DatasetField subField : keywordValue.getChildDatasetFields()) {
-                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.keywordValue)) {
+                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.keywordValue) && !subField.isEmptyForDisplay()) {
                             if (keywordString.isEmpty()){
                                 keywordString = subField.getValue();
                             } else {
@@ -102,24 +100,11 @@ public class DatasetVersionUI implements Serializable {
                     }
                 } 
                 setKeywordDisplay(keywordString);
-            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.subject)) {
+            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.subject) && !dsf.isEmptyForDisplay()) {
                 setSubject(dsf);
-            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.notesText)) {
+            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.notesText) && !dsf.isEmptyForDisplay()) {
                 this.setNotes(dsf);                
-            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.author)) {
-                for (DatasetFieldCompoundValue authorValue : dsf.getDatasetFieldCompoundValues()) {
-                    DatasetAuthor datasetAuthor = new DatasetAuthor();
-                    for (DatasetField subField : authorValue.getChildDatasetFields()) {
-                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.authorName)) {
-                            datasetAuthor.setName(subField);
-                        }
-                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.authorAffiliation)) {
-                            datasetAuthor.setAffiliation(subField);
-                        }
-                    }
-                    this.getDatasetAuthors().add(datasetAuthor);
-                }                
-            } else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.publication)) {
+            }  else if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.publication)) {
                 //Special handling for Related Publications
                 // Treated as below the tabs for editing, but must get first value for display above tabs    
                 if (this.datasetRelPublications.isEmpty()) {
@@ -192,7 +177,7 @@ public class DatasetVersionUI implements Serializable {
         this.descriptionDisplay = descriptionDisplay;
     }
             
-    private List<DatasetAuthor> datasetAuthors = new ArrayList();    
+  
     private List<DatasetRelPublication> datasetRelPublications;    
 
     public DatasetField getTitle() {
@@ -236,13 +221,7 @@ public class DatasetVersionUI implements Serializable {
     }
 
 
-    public List<DatasetAuthor> getDatasetAuthors() {
-        return datasetAuthors;
-    }
 
-    public void setDatasetAuthors(List<DatasetAuthor> datasetAuthors) {
-        this.datasetAuthors = datasetAuthors;
-    }
 
 
     public List<DatasetRelPublication> getDatasetRelPublications() {
@@ -295,30 +274,6 @@ public class DatasetVersionUI implements Serializable {
             return dateString.substring(0, dateString.indexOf("-"));
         }
         return dateString;
-    }
-
-
-    public String getAuthorsStr() {
-        return getAuthorsStr(true);
-    }
-
-    public String getAuthorsStr(boolean affiliation) {
-        String str = "";
-        for (DatasetAuthor sa : this.getDatasetAuthors()) {
-            //Fix for RedMine 3731 if Author name is just one character.
-            if (str.trim().length() > 0) {
-                str += "; ";
-            }
-            if (sa.getName() != null && !StringUtil.isEmpty(sa.getName().getValue())) {
-                str += sa.getName().getValue();
-            }
-            if (affiliation) {
-                if (sa.getAffiliation() != null && !StringUtil.isEmpty(sa.getAffiliation().getValue())) {
-                    str += " (" + sa.getAffiliation().getValue() + ")";
-                }
-            }
-        }
-        return str;
     }
 
     public String getReleaseDate() {
@@ -448,46 +403,47 @@ public class DatasetVersionUI implements Serializable {
         if (!dataverseService.find(dvIdForInputLevel).isMetadataBlockRoot()){
             dvIdForInputLevel = dataverseService.find(dvIdForInputLevel).getMetadataRootId();
         }
-
-        List <DataverseFieldTypeInputLevel> dftilList = dataverseFieldTypeInputLevelServiceBean.findByDataverseId(dvIdForInputLevel);
-        for (MetadataBlock mdb : this.datasetVersion.getDataset().getOwner().getMetadataBlocks()) {
+        
+        List<DatasetField> filledInFields = this.datasetVersion.getDatasetFields(); 
+        
+        List <MetadataBlock> actualMDB = new ArrayList();
+            
+        actualMDB.addAll(this.datasetVersion.getDataset().getOwner().getMetadataBlocks());
+        
+        for (DatasetField dsfv : filledInFields) {
+            if (!dsfv.isEmptyForDisplay()) {
+                MetadataBlock mdbTest = dsfv.getDatasetFieldType().getMetadataBlock();
+                if (!actualMDB.contains(mdbTest)) {
+                    actualMDB.add(mdbTest);
+                }
+            }
+        }       
+        
+        for (MetadataBlock mdb : actualMDB) {
             mdb.setEmpty(true);
             mdb.setHasRequired(false);
             List<DatasetField> datasetFieldsForView = new ArrayList();
             List<DatasetField> datasetFieldsForEdit = new ArrayList();
             for (DatasetField dsf : datasetVersion.getDatasetFields()) {
-                DataverseFieldTypeInputLevel dftil = dataverseFieldTypeInputLevelServiceBean.findByDataverseIdDatasetFieldTypeId(dvIdForInputLevel, dsf.getDatasetFieldType().getId());
                 if (dsf.getDatasetFieldType().getMetadataBlock().equals(mdb)) {
                     datasetFieldsForEdit.add(dsf);
-                    if(dsf.isRequired() || (dftil != null &&  dftil.isRequired())){                          
-                        dsf.getDatasetFieldType().setRequiredDV(true);  
-                        mdb.setHasRequired(true);                       
-                    }                    
-                    if (!dsf.isEmptyForDisplay()) {  
+                    if (dsf.isRequired()) {
+                        mdb.setHasRequired(true);
+                    }
+                    if (!dsf.isEmptyForDisplay()) {
                         mdb.setEmpty(false);
                         datasetFieldsForView.add(dsf);
                     }
                 }
-                if (dsf.getDatasetFieldType().isHasChildren() && (!dftilList.isEmpty())){
-                    for (DatasetFieldType child :dsf.getDatasetFieldType().getChildDatasetFieldTypes() ){
-                        for (DataverseFieldTypeInputLevel dftilTest : dftilList){
-                            if (child.equals(dftilTest.getDatasetFieldType())){
-                                if (dftilTest.isRequired()){
-                                    dsf.setRequired(true);
-                                }                                                               
-                            }
-                        }
-                    }                    
-                }
             }
-            
+
             if (!datasetFieldsForView.isEmpty()) {
                 metadataBlocksForView.put(mdb, datasetFieldsForView);
             }
             if (!datasetFieldsForEdit.isEmpty()) {
                 metadataBlocksForEdit.put(mdb, datasetFieldsForEdit);
+            }
         }
-    }
     }
 
 }

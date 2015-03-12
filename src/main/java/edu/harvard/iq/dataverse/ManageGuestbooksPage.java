@@ -97,42 +97,32 @@ public class ManageGuestbooksPage implements java.io.Serializable {
     }
 
 
-    public String cloneGuestbook(Guestbook guestbookIn) {
-        Guestbook newOne = guestbookIn.copyGuestbook(guestbookIn);
-        String name = "Copy of " + guestbookIn.getName();
-        newOne.setName(name);
-        newOne.setUsageCount(new Long(0));
-        newOne.setCreateTime(new Timestamp(new Date().getTime()));
 
-        dataverse.getGuestbooks().add(newOne);
-        guestbooks.add(newOne);
-        
-        Guestbook created;
-        try {
-            created = engineService.submit(new CreateGuestbookCommand(newOne, session.getUser(), dataverse));
-            saveDataverse("");
-            String msg =  "The guestbook has been copied.";
-            JsfHelper.addFlashMessage(msg);
-            created.setDataverse(dataverse);
-            return "/guestbook.xhtml?id=" + created.getId() + "&ownerId=" + dataverse.getId() + "&editMode=METADATA&faces-redirect=true";
-        } catch (CommandException ex) {
-            JH.addMessage(FacesMessage.SEVERITY_FATAL, "The guestbook cannot be copied");
-        }
-        return "";
-    }
 
     public void deleteGuestbook() {
         if (selectedGuestbook != null) {
             guestbooks.remove(selectedGuestbook);
             dataverse.getGuestbooks().remove(selectedGuestbook);
-            saveDataverse("The guestbook has been deleted.");
+            saveDataverse("dataset.manageGuestbooks.message.deleteSuccess", "dataset.manageGuestbooks.message.deleteFailure");
         } else {
             System.out.print("Selected Guestbook is null");
         }
     }
 
     public void saveDataverse(ActionEvent e) {
-        saveDataverse("");
+        saveDataverse("", "");
+    }
+    
+    public String enableGuestbook(Guestbook selectedGuestbook) {
+        selectedGuestbook.setEnabled(true);
+        saveDataverse("dataset.manageGuestbooks.message.enableSuccess", "dataset.manageGuestbooks.message.enableFailure");
+        return "";
+    }
+
+    public String disableGuestbook(Guestbook selectedGuestbook) {
+        selectedGuestbook.setEnabled(false);
+        saveDataverse("dataset.manageGuestbooks.message.disableSuccess", "dataset.manageGuestbooks.message.disableFailure");
+        return "";
     }
     
     public void viewSelectedGuestbookResponses(Guestbook selectedGuestbook){
@@ -141,15 +131,18 @@ public class ManageGuestbooksPage implements java.io.Serializable {
         setResponses(guestbookResponseService.findAllByGuestbookId(selectedGuestbook.getId()));       
     }
 
-    private void saveDataverse(String successMessage) {
+    private void saveDataverse(String successMessage, String failureMessage) {
         if (successMessage.isEmpty()) {
-            successMessage = "Dataverse Guestbook data updated";
+            successMessage = "dataset.manageGuestbooks.message.editSuccess";
         }
+        if (failureMessage.isEmpty()) {
+            failureMessage = "dataset.manageGuestbooks.message.editFailure";
+        }     
         try {
             engineService.submit(new UpdateDataverseCommand(getDataverse(), null, null, session.getUser(), null));
-            JsfHelper.addSuccessMessage(successMessage);
+            JsfHelper.addSuccessMessage(JH.localize(successMessage));
         } catch (CommandException ex) {
-            JH.addMessage(FacesMessage.SEVERITY_FATAL, "Update failed: " + ex.getMessage());
+            JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize(failureMessage));
         }
 
     }
@@ -208,31 +201,7 @@ public class ManageGuestbooksPage implements java.io.Serializable {
         guestbookPage.setGuestbook(selectedGuestbook);
     }
 
-    public String enableGuestbook(Guestbook selectedGuestbook) {
-        selectedGuestbook.setEnabled(true);
-        try {
-            dataverse = engineService.submit(new UpdateDataverseGuestbookCommand(dataverse, selectedGuestbook, session.getUser()));
-            init();
-            JsfHelper.addSuccessMessage("The guestbook has been enabled.");
-            return "";
-        } catch (CommandException ex) {
-            Logger.getLogger(ManageGuestbooksPage.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return "";
-    }
 
-    public String disableGuestbook(Guestbook selectedGuestbook) {
-        selectedGuestbook.setEnabled(false);
-        try {
-            dataverse = engineService.submit(new UpdateDataverseGuestbookCommand(dataverse, selectedGuestbook, session.getUser()));
-            init();
-            JsfHelper.addSuccessMessage("The guestbook has been disabled.");
-            return "";
-        } catch (CommandException ex) {
-            Logger.getLogger(ManageGuestbooksPage.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return "";
-    }
 
     public String updateGuestbooksRoot(javax.faces.event.AjaxBehaviorEvent event) throws javax.faces.event.AbortProcessingException {
         try {

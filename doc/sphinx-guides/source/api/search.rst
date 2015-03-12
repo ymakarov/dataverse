@@ -76,7 +76,7 @@ https://apitest.dataverse.org/api/search?q=trees
                     "file_type":"PNG Image",
                     "size_in_bytes":8361,
                     "md5":"0386269a5acb2c57b4eade587ff4db64",
-                    "dataset_citation":"Spruce, Sabrina, 2015, \"Spruce Goose\", http://dx.doi.org/10.5072/FK2/Y6RGTQ,  Root Dataverse,  V0"
+                    "dataset_citation":"Spruce, Sabrina, 2015, \"Spruce Goose\", http://dx.doi.org/10.5072/FK2/Y6RGTQ,  Root Dataverse,  V1"
                 },
                 {
                     "name":"Birds",
@@ -145,6 +145,7 @@ In this example, ``show_relevance=true`` matches per field are shown. Available 
                     "global_id":"doi:10.5072/FK2/CE0052",
                     "published_at":"2015-01-12T18:01:37Z",
                     "citation":"Finch, Fiona, 2015, \"Darwin's Finches\", http://dx.doi.org/10.5072/FK2/CE0052,  Root Dataverse,  V1",
+                    "description": "Darwin's finches (also known as the Galápagos finches) are a group of about fifteen species of passerine birds.",
                     "matches":[
                         {
                             "authorName":{

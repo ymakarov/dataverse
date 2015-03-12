@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.UserNotification.Type;
@@ -26,6 +21,7 @@ import javax.faces.view.ViewScoped;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.ArrayList;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.faces.component.UIComponent;
 import javax.faces.component.UIInput;
@@ -513,33 +509,40 @@ public class DataversePage implements java.io.Serializable {
         //TODO change to Create - for now the page is expecting INFO instead.
         Boolean create;
         if (dataverse.getId() == null) {
-            dataverse.setOwner(ownerId != null ? dataverseService.find(ownerId) : null);
-            create = Boolean.TRUE;
-            cmd = new CreateDataverseCommand(dataverse, session.getUser(), facets.getTarget(), listDFTIL);
+            if ( session.getUser().isAuthenticated() ) {
+                dataverse.setOwner(ownerId != null ? dataverseService.find(ownerId) : null);
+                create = Boolean.TRUE;
+                cmd = new CreateDataverseCommand(dataverse, (AuthenticatedUser) session.getUser(), facets.getTarget(), listDFTIL);
+            } else {
+                JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataverse.create.authenticatedUsersOnly"));
+                return null;
+            }
         } else {
             create=Boolean.FALSE;
             cmd = new UpdateDataverseCommand(dataverse, facets.getTarget(), featuredDataverses.getTarget(), session.getUser(), listDFTIL);
         }
 
         try {
-            dataverse = commandEngine.submit(cmd);
+           dataverse = commandEngine.submit(cmd);
             if (session.getUser() instanceof AuthenticatedUser) {
                 userNotificationService.sendNotification((AuthenticatedUser) session.getUser(), dataverse.getCreateDate(), Type.CREATEDV, dataverse.getId());
             }
             editMode = null;
+          
         } catch (CommandException ex) {
-            System.out.println("caught command exception");
-            JH.addMessage(FacesMessage.SEVERITY_FATAL, "Could not save changes");
+            logger.log(Level.SEVERE, "Unexpected Exception calling dataverse command",ex);
+            String errMsg = create ? JH.localize("dataverse.create.failure"): JH.localize("dataverse.update.failure");
+            JH.addMessage(FacesMessage.SEVERITY_FATAL, errMsg);
             return null;
         } catch (Exception e) {
-            System.out.println("caught generic exception");
-            JH.addMessage(FacesMessage.SEVERITY_FATAL, "Could not save changes");
+            logger.log(Level.SEVERE, "Unexpected Exception calling dataverse command",e);
+            JH.addMessage(FacesMessage.SEVERITY_FATAL, JH.localize("dataverse.create.failure"));
             return null;
         }
         if (message==null) {
-            message = (create)? "You have successfully created your dataverse!": "You have successfully updated your dataverse!";
+             message = (create)? JH.localize("dataverse.create.success") : JH.localize("dataverse.update.success");
         }
-        JsfHelper.addFlashMessage(message);
+        JsfHelper.addSuccessMessage(message);
         
         return "/dataverse.xhtml?alias=" + dataverse.getAlias() + "&faces-redirect=true";
     }
@@ -574,6 +577,17 @@ public class DataversePage implements java.io.Serializable {
             refreshAllMetadataBlocks();
         }        
     }
+    
+    public void editMetadataBlocks(boolean checkVal) {
+        setInheritMetadataBlockFromParent(checkVal);
+        if (!dataverse.isMetadataBlockRoot()) {
+            refreshAllMetadataBlocks();
+        }        
+    }
+    
+    public void cancelMetadataBlocks() {
+        setInheritMetadataBlockFromParent(false);       
+    }
 
     public boolean isInheritFacetFromParent() {
         return !dataverse.isFacetRoot();
@@ -603,14 +617,14 @@ public class DataversePage implements java.io.Serializable {
     public String saveLinkedDataverse(){
         
         if (linkingDataverseId == null){
-           JsfHelper.addFlashMessage( "You must select a linking dataverse."); 
+           JsfHelper.addSuccessMessage( "You must select a linking dataverse."); 
            return "";
         }  
         linkingDataverse = dataverseService.find(linkingDataverseId);
         LinkDataverseCommand cmd = new LinkDataverseCommand(session.getUser(), linkingDataverse, dataverse );
         try {
             commandEngine.submit(cmd);          
-            JsfHelper.addFlashMessage( "This dataverse is now linked to " + linkingDataverse.getDisplayName() );
+            JsfHelper.addSuccessMessage( "This dataverse is now linked to " + linkingDataverse.getDisplayName() );
             //return "";
              return "/dataverse.xhtml?alias=" + dataverse.getAlias() + "&faces-redirect=true";
         } catch (CommandException ex) {
@@ -627,45 +641,35 @@ public class DataversePage implements java.io.Serializable {
     }
 
     public String releaseDataverse() {
-        if ( session.getUser() instanceof AuthenticatedUser ) {
+        if (session.getUser() instanceof AuthenticatedUser) {
             PublishDataverseCommand cmd = new PublishDataverseCommand((AuthenticatedUser) session.getUser(), dataverse);
             try {
                 commandEngine.submit(cmd);
-                JsfHelper.addFlashMessage( "Your dataverse is now public.");
-                return "/dataverse.xhtml?alias=" + dataverse.getAlias() + "&faces-redirect=true";
-            } catch (CommandException ex) {
-                String msg = "There was a problem publishing your dataverse: " + ex;
-                logger.severe(msg);
-                /**
-                 * @todo how do we get this message to show up in the GUI?
-                 */
-                FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DataverseNotReleased", msg);
-                FacesContext.getCurrentInstance().addMessage(null, message);
-                return "/dataverse.xhtml?alias=" + dataverse.getAlias() + "&faces-redirect=true";
+                JsfHelper.addSuccessMessage(JH.localize("dataverse.publish.success"));
+
+            } catch (Exception ex) {
+                logger.log(Level.SEVERE, "Unexpected Exception calling  publish dataverse command", ex);
+                JsfHelper.addErrorMessage(JH.localize("dataverse.publish.failure"));
+
             }
         } else {
             FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DataverseNotReleased", "Only authenticated users can release a dataverse.");
             FacesContext.getCurrentInstance().addMessage(null, message);
-            return "/dataverse.xhtml?alias=" + dataverse.getAlias() + "&faces-redirect=true";
         }
+        return "/dataverse.xhtml?alias=" + dataverse.getAlias() + "&faces-redirect=true";
+
     }
 
     public String deleteDataverse() {
         DeleteDataverseCommand cmd = new DeleteDataverseCommand(session.getUser(), dataverse);
         try {
             commandEngine.submit(cmd);
-           JsfHelper.addFlashMessage( "Your dataverse has been deleted.");
-          return "/dataverse.xhtml?alias=" + dataverse.getOwner().getAlias() + "&faces-redirect=true";
-        } catch (CommandException ex) {
-            String msg = "There was a problem deleting your dataverse: " + ex;
-            logger.severe(msg);
-            /**
-             * @todo how do we get this message to show up in the GUI?
-             */
-            FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_INFO, "DataverseNotDeleted", msg);
-            FacesContext.getCurrentInstance().addMessage(null, message);
-            return "/dataverse.xhtml?alias=" + dataverse.getAlias() + "&faces-redirect=true";
+            JsfHelper.addSuccessMessage(JH.localize("dataverse.delete.success"));
+        } catch (Exception ex) {
+            logger.log(Level.SEVERE, "Unexpected Exception calling  delete dataverse command", ex);
+            JsfHelper.addErrorMessage(JH.localize("dataverse.delete.failure"));
         }
+        return "/dataverse.xhtml?alias=" + dataverse.getOwner().getAlias() + "&faces-redirect=true";
     }
 
     public String getMetadataBlockPreview(MetadataBlock mdb, int numberOfItems) {
@@ -706,7 +710,22 @@ public class DataversePage implements java.io.Serializable {
     private void refreshAllMetadataBlocks() {
         Long dataverseIdForInputLevel = dataverse.getId();
         List<MetadataBlock> retList = new ArrayList();
-        for (MetadataBlock mdb : dataverseService.findAllMetadataBlocks()) {
+        
+        List<MetadataBlock> availableBlocks = new ArrayList();
+        //Add System level blocks
+        availableBlocks.addAll(dataverseService.findSystemMetadataBlocks());
+        
+        Dataverse testDV = dataverse;
+        //Add blocks associated with DV
+        availableBlocks.addAll(dataverseService.findMetadataBlocksByDataverseId(dataverse.getId()));
+        
+        //Add blocks associated with dv going up inheritance tree
+        while (testDV.getOwner() != null) {
+            availableBlocks.addAll(dataverseService.findMetadataBlocksByDataverseId(testDV.getOwner().getId()));
+            testDV = testDV.getOwner();
+        }
+
+        for (MetadataBlock mdb : availableBlocks) {
             mdb.setSelected(false);
             mdb.setShowDatasetFieldTypes(false);
             if (!dataverse.isMetadataBlockRoot() && dataverse.getOwner() != null) {

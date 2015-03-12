@@ -20,6 +20,13 @@ public class Config extends AbstractApiBean {
     @EJB
     DatasetFieldServiceBean datasetFieldService;
 
+    /**
+     * We use the output of this method to generate our Solr schema.xml
+     *
+     * @todo Someday we do want to have this return a Response rather than a
+     * String per https://github.com/IQSS/dataverse/issues/298 but not yet while
+     * we are trying to ship Dataverse 4.0
+     */
     @GET
     @Path("solr/schema")
     public String getSolrSchema() {
@@ -89,7 +96,11 @@ public class Config extends AbstractApiBean {
             }
 
             if (listOfStaticFields.contains(nameFacetable)) {
-                return error("facetable dataset metadata field conflict detected with static field: " + nameFacetable);
+                if (nameFacetable.equals(SearchFields.SUBJECT)) {
+                    // Skip, expected conflct.
+                } else {
+                    return error("facetable dataset metadata field conflict detected with static field: " + nameFacetable);
+                }
             }
 
             // <copyField source="*_i" dest="text" maxChars="3000"/>

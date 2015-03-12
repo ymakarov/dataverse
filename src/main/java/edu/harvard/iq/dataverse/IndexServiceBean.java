@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse;
 
+import edu.harvard.iq.dataverse.util.StringUtil;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUserServiceBean;
 import edu.harvard.iq.dataverse.search.SearchFields;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
@@ -26,9 +27,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Future;
 import java.util.logging.Logger;
+import javax.ejb.AsyncResult;
+import javax.ejb.Asynchronous;
 import javax.ejb.EJB;
+import javax.ejb.EJBException;
 import javax.ejb.Stateless;
+import javax.ejb.TransactionAttribute;
+import static javax.ejb.TransactionAttributeType.REQUIRES_NEW;
 import javax.inject.Named;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServer;
@@ -85,51 +92,24 @@ public class IndexServiceBean {
     private static final String DEACCESSIONED_STRING = "Deaccessioned";
     private Dataverse rootDataverseCached;
 
-    public String indexAll() {
-        SolrServer server = new HttpSolrServer("http://" + systemConfig.getSolrHostColonPort() + "/solr");
-        logger.info("deleting all Solr documents before a complete re-index");
-        try {
-            server.deleteByQuery("*:*");// CAUTION: deletes everything!
-        } catch (SolrServerException | IOException ex) {
-            return ex.toString();
-        }
-        try {
-            server.commit();
-        } catch (SolrServerException | IOException ex) {
-            return ex.toString();
-        }
-
-        List<Dataverse> dataverses = dataverseService.findAll();
-        int dataverseIndexCount = 0;
-        for (Dataverse dataverse : dataverses) {
-            logger.info("indexing dataverse " + dataverseIndexCount + " of " + dataverses.size() + ": " + indexDataverse(dataverse));
-            dataverseIndexCount++;
-        }
-
-        int datasetIndexCount = 0;
-        List<Dataset> datasets = datasetService.findAll();
-        for (Dataset dataset : datasets) {
-            datasetIndexCount++;
-            logger.info("indexing dataset " + datasetIndexCount + " of " + datasets.size() + ": " + indexDataset(dataset));
-        }
-//        logger.info("advanced search fields: " + advancedSearchFields);
-//        logger.info("not advanced search fields: " + notAdvancedSearchFields);
-        logger.info("done iterating through all datasets");
-
-        IndexResponse indexResponse = solrIndexService.indexAllPermissions();
-        return dataverseIndexCount + " dataverses and " + datasetIndexCount + " datasets indexed\n";
-    }
-
-    public String indexDataverse(Dataverse dataverse) {
+    @TransactionAttribute(REQUIRES_NEW)
+    @Asynchronous
+    public Future<String> indexDataverse(Dataverse dataverse) {
         logger.info("indexDataverse called on dataverse id " + dataverse.getId() + "(" + dataverse.getAlias() + ")");
         if (dataverse.getId() == null) {
             String msg = "unable to index dataverse. id was null (alias: " + dataverse.getAlias() + ")";
             logger.info(msg);
-            return msg;
+            return new AsyncResult<>(msg);
         }
         Dataverse rootDataverse = findRootDataverseCached();
-        if (dataverse.getId() == rootDataverse.getId()) {
-            return "The root dataverse shoud not be indexed.";
+        if (rootDataverse == null) {
+            String msg = "Could not find root dataverse and the root dataverse should not be indexed. Returning.";
+            return new AsyncResult<>(msg);
+        } else {
+            if (dataverse.getId() == rootDataverse.getId()) {
+                String msg = "The root dataverse should not be indexed. Returning.";
+                return new AsyncResult<>(msg);
+            }
         }
         Collection<SolrInputDocument> docs = new ArrayList<>();
         SolrInputDocument solrInputDocument = new SolrInputDocument();
@@ -155,8 +135,8 @@ public class IndexServiceBean {
 //        if (dataverse.getOwner() != null) {
 //            solrInputDocument.addField(SearchFields.HOST_DATAVERSE, dataverse.getOwner().getName());
 //        }
-        solrInputDocument.addField(SearchFields.DESCRIPTION, dataverse.getDescription());
-        solrInputDocument.addField(SearchFields.DATAVERSE_DESCRIPTION, dataverse.getDescription());
+        solrInputDocument.addField(SearchFields.DESCRIPTION, StringUtil.html2text(dataverse.getDescription()));
+        solrInputDocument.addField(SearchFields.DATAVERSE_DESCRIPTION, StringUtil.html2text(dataverse.getDescription()));
 //        logger.info("dataverse affiliation: " + dataverse.getAffiliation());
         if (dataverse.getAffiliation() != null && !dataverse.getAffiliation().isEmpty()) {
             /**
@@ -202,6 +182,7 @@ public class IndexServiceBean {
 
         SolrServer server = new HttpSolrServer("http://" + systemConfig.getSolrHostColonPort() + "/solr");
 
+        String status;
         try {
             if (dataverse.getId() != null) {
                 server.add(docs);
@@ -209,20 +190,28 @@ public class IndexServiceBean {
                 logger.info("WARNING: indexing of a dataverse with no id attempted");
             }
         } catch (SolrServerException | IOException ex) {
-            return ex.toString();
+            status = ex.toString();
+            logger.info(status);
+            return new AsyncResult<>(status);
         }
         try {
             server.commit();
         } catch (SolrServerException | IOException ex) {
-            return ex.toString();
+            status = ex.toString();
+            logger.info(status);
+            return new AsyncResult<>(status);
         }
 
         dvObjectService.updateContentIndexTime(dataverse);
-        return "indexed dataverse " + dataverse.getId() + ":" + dataverse.getAlias();
+        IndexResponse indexResponse = solrIndexService.indexPermissionsForOneDvObject(dataverse.getId());
+        String msg = "indexed dataverse " + dataverse.getId() + ":" + dataverse.getAlias() + ". Response from permission indexing: " + indexResponse.getMessage();
+        return new AsyncResult<>(msg);
 
     }
 
-    public String indexDataset(Dataset dataset) {
+    @TransactionAttribute(REQUIRES_NEW)
+    @Asynchronous
+    public Future<String> indexDataset(Dataset dataset) {
         logger.info("indexing dataset " + dataset.getId());
         /**
          * @todo should we use solrDocIdentifierDataset or
@@ -237,6 +226,7 @@ public class IndexServiceBean {
         debug.append("\ndebug:\n");
         int numPublishedVersions = 0;
         List<DatasetVersion> versions = dataset.getVersions();
+        List<String> solrIdsOfFilesToDelete = new ArrayList<>();
         for (DatasetVersion datasetVersion : versions) {
             Long versionDatabaseId = datasetVersion.getId();
             String versionTitle = datasetVersion.getTitle();
@@ -251,6 +241,19 @@ public class IndexServiceBean {
             List<FileMetadata> fileMetadatas = datasetVersion.getFileMetadatas();
             List<String> fileInfo = new ArrayList<>();
             for (FileMetadata fileMetadata : fileMetadatas) {
+                String solrIdOfPublishedFile = solrDocIdentifierFile + fileMetadata.getDataFile().getId();
+                /**
+                 * It sounds weird but the first thing we'll do is preemptively
+                 * delete the Solr documents of all published files. Don't
+                 * worry, published files will be re-indexed later along with
+                 * the dataset. We do this so users can delete files from
+                 * published versions of datasets and then re-publish a new
+                 * version without fear that their old published files (now
+                 * deleted from the latest published version) will be
+                 * searchable. See also
+                 * https://github.com/IQSS/dataverse/issues/762
+                 */
+                solrIdsOfFilesToDelete.add(solrIdOfPublishedFile);
                 fileInfo.add(fileMetadata.getDataFile().getId() + ":" + fileMetadata.getLabel());
             }
             int numFiles = 0;
@@ -260,6 +263,8 @@ public class IndexServiceBean {
             debug.append("- files: " + numFiles + " " + fileInfo.toString() + "\n");
         }
         debug.append("numPublishedVersions: " + numPublishedVersions + "\n");
+        IndexResponse resultOfAttemptToPremptivelyDeletePublishedFiles = solrIndexService.deleteMultipleSolrIds(solrIdsOfFilesToDelete);
+        debug.append("result of attempt to premptively deleted published files before reindexing: " + resultOfAttemptToPremptivelyDeletePublishedFiles + "\n");
         DatasetVersion latestVersion = dataset.getLatestVersion();
         String latestVersionStateString = latestVersion.getVersionState().name();
         DatasetVersion.VersionState latestVersionState = latestVersion.getVersionState();
@@ -330,7 +335,7 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.info(result);
                 indexDatasetPermissions(dataset);
-                return result;
+                return new AsyncResult<>(result);
             } else if (latestVersionState.equals(DatasetVersion.VersionState.DEACCESSIONED)) {
 
                 desiredCards.put(DatasetVersion.VersionState.DEACCESSIONED, true);
@@ -374,9 +379,10 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.info(result);
                 indexDatasetPermissions(dataset);
-                return result;
+                return new AsyncResult<>(result);
             } else {
-                return "No-op. Unexpected condition reached: No released version and latest version is neither draft nor deaccessioned";
+                String result = "No-op. Unexpected condition reached: No released version and latest version is neither draft nor deaccessioned";
+                return new AsyncResult<>(result);
             }
         } else if (atLeastOnePublishedVersion == true) {
             results.append("Published versions found. ")
@@ -424,7 +430,7 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.info(result);
                 indexDatasetPermissions(dataset);
-                return result;
+                return new AsyncResult<>(result);
             } else if (latestVersionState.equals(DatasetVersion.VersionState.DRAFT)) {
 
                 IndexableDataset indexableDraftVersion = new IndexableDataset(latestVersion);
@@ -469,12 +475,16 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.info(result);
                 indexDatasetPermissions(dataset);
-                return result;
+                return new AsyncResult<>(result);
             } else {
-                return "No-op. Unexpected condition reached: There is at least one published version but the latest version is neither published nor draft";
+                String result = "No-op. Unexpected condition reached: There is at least one published version but the latest version is neither published nor draft";
+                logger.info(result);
+                return new AsyncResult<>(result);
             }
         } else {
-            return "No-op. Unexpected condition reached: Has a version been published or not?";
+            String result = "No-op. Unexpected condition reached: Has a version been published or not?";
+            logger.info(result);
+            return new AsyncResult<>(result);
         }
     }
 
@@ -565,7 +575,8 @@ public class IndexServiceBean {
         if (datasetVersion != null) {
 
             solrInputDocument.addField(SearchFields.DATASET_VERSION_ID, datasetVersion.getId());
-            solrInputDocument.addField(SearchFields.DATASET_CITATION, datasetVersion.getCitation());
+            System.out.print(datasetVersion.getCitation(true));
+            solrInputDocument.addField(SearchFields.DATASET_CITATION, datasetVersion.getCitation(true));
 
             for (DatasetField dsf : datasetVersion.getFlatDatasetFields()) {
 
@@ -635,9 +646,19 @@ public class IndexServiceBean {
                                 }
                             }
                         } else {
-                            solrInputDocument.addField(solrFieldSearchable, dsf.getValues());
-                            if (dsfType.getSolrField().isFacetable()) {
-                                solrInputDocument.addField(solrFieldFacetable, dsf.getValues());
+                            if (dsfType.getFieldType().equals(DatasetFieldType.FieldType.TEXTBOX)) {
+                                // strip HTML
+                                List<String> htmlFreeText = StringUtil.htmlArray2textArray(dsf.getValues());
+                                solrInputDocument.addField(solrFieldSearchable, htmlFreeText);
+                                if (dsfType.getSolrField().isFacetable()) {
+                                    solrInputDocument.addField(solrFieldFacetable, htmlFreeText);
+                                }
+                            } else {
+                                // do not strip HTML
+                                solrInputDocument.addField(solrFieldSearchable, dsf.getValues());
+                                if (dsfType.getSolrField().isFacetable()) {
+                                    solrInputDocument.addField(solrFieldFacetable, dsf.getValues());
+                                }
                             }
                         }
                     }
@@ -1056,7 +1077,18 @@ public class IndexServiceBean {
              * Let's just find the root dataverse and be done with it. We'll
              * figure out the caching later.
              */
-            return dataverseService.findRootDataverse();
+            try {
+                Dataverse rootDataverse = dataverseService.findRootDataverse();
+                return rootDataverse;
+            } catch (EJBException ex) {
+                logger.info("caught " + ex);
+                Throwable cause = ex.getCause();
+                while (cause.getCause() != null) {
+                    logger.info("caused by... " + cause);
+                    cause = cause.getCause();
+                }
+                return null;
+            }
         }
 
         /**

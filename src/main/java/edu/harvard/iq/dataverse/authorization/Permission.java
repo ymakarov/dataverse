@@ -4,7 +4,6 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DvObject;
-import edu.harvard.iq.dataverse.DvObjectContainer;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,7 +29,6 @@ public enum Permission implements java.io.Serializable {
     // Update
     EditDataverse("Edit a dataverse's metadata, facets, customization, and templates ", Dataverse.class),
     EditDataset("Edit a dataset's metadata", Dataset.class),
-    EditDatasetAccess("Edit a dataset's access terms", Dataset.class),
     ManageDataversePermissions("Manage permissions for a dataverse", Dataverse.class),
     ManageDatasetPermissions("Manage permissions for a dataset", Dataset.class), 
     PublishDataverse("Publish a dataverse", Dataverse.class),

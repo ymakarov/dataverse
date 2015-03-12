@@ -175,4 +175,24 @@ public class SystemConfig {
         
         return defaultZipUploadFilesLimit; 
     }
+
+    // curl -X PUT -d@/tmp/apptos.txt http://localhost:8080/api/s/settings/:ApplicationTermsOfUse
+    public String getApplicationTermsOfUse() {
+        String saneDefaultForAppTermsOfUse = "There are no Terms of Use for this Dataverse installation.";
+        String appTermsOfUse = settingsService.getValueForKey(SettingsServiceBean.Key.ApplicationTermsOfUse, saneDefaultForAppTermsOfUse);
+        return appTermsOfUse;
+    }
+
+    public String getApiTermsOfUse() {
+        String saneDefaultForApiTermsOfUse = "There are no API Terms of Use for this Dataverse installation.";
+        String apiTermsOfUse = settingsService.getValueForKey(SettingsServiceBean.Key.ApiTermsOfUse, saneDefaultForApiTermsOfUse);
+        return apiTermsOfUse;
+    }
+
+    public String getApplicationPrivacyPolicyUrl() {
+        String saneDefaultForPrivacyPolicyUrl = null;
+        String appPrivacyPolicyUrl = settingsService.getValueForKey(SettingsServiceBean.Key.ApplicationPrivacyPolicyUrl, saneDefaultForPrivacyPolicyUrl);
+        return appPrivacyPolicyUrl;
+    }
+
 }

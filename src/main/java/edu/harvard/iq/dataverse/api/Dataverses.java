@@ -2,6 +2,7 @@ package edu.harvard.iq.dataverse.api;
 
 import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
+import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseContact;
@@ -37,10 +38,10 @@ import edu.harvard.iq.dataverse.engine.command.impl.ListRolesCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.PublishDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.RemoveRoleAssigneesFromExplicitGroupCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.RevokeRoleCommand;
+import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseMetadataBlocksCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateExplicitGroupCommand;
 import edu.harvard.iq.dataverse.util.json.JsonParseException;
-import edu.harvard.iq.dataverse.util.json.JsonParser;
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.brief;
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.json;
 import java.io.StringReader;
@@ -77,7 +78,7 @@ import javax.ws.rs.core.Response.Status;
  * @author michael
  */
 @Stateless
-@Path("dvs")
+@Path("dataverses")
 public class Dataverses extends AbstractApiBean {
        
 	private static final Logger logger = Logger.getLogger(Dataverses.class.getName());
@@ -117,9 +118,9 @@ public class Dataverses extends AbstractApiBean {
                 dc.setDataverse(d);
             }
 
-            User u = findUserOrDie( apiKey );
+            AuthenticatedUser u = findUserOrDie( apiKey );
             d = execCommand( new CreateDataverseCommand(d, u, null, null), "Creating Dataverse" );
-			return createdResponse( "/dvs/"+d.getAlias(), json(d) );
+			return createdResponse( "/dataverses/"+d.getAlias(), json(d) );
         } catch ( WrappedResponse ww ) {
             return ww.getResponse();
             
@@ -275,6 +276,35 @@ public class Dataverses extends AbstractApiBean {
             return ex.getResponse();
         }
     }
+    
+    @POST
+    @Path("{identifier}/facets")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response setFacets( @PathParam("identifier")String dvIdtf, @QueryParam("key") String apiKey, String facetIds ) {
+        
+        List<DatasetFieldType> facets = new LinkedList<>();
+        for ( JsonString facetId : Util.asJsonArray(facetIds).getValuesAs(JsonString.class) ) {
+            DatasetFieldType dsfType = findDatasetFieldType(facetId.getString());
+            if ( dsfType == null ) {
+                return errorResponse(Response.Status.BAD_REQUEST, "Can't find dataset field type '"+ facetId + "'");
+            } else if (!dsfType.isFacetable()) {
+                return errorResponse(Response.Status.BAD_REQUEST, "Dataset field type '"+ facetId + "' is not facetable");              
+            }
+            facets.add( dsfType );
+        }
+        
+        try {
+            User u = findUserOrDie(apiKey);
+            Dataverse dataverse = findDataverseOrDie(dvIdtf);
+            // by passing null for Featured Dataverses and DataverseFieldTypeInputLevel, those are not changed
+            execCommand( new UpdateDataverseCommand(dataverse, facets, null, u, null),
+                    "updating facets for dataverse " + dvIdtf );
+            return okResponse("Facets of dataverse " + dvIdtf + " updated.");
+            
+        } catch (WrappedResponse ex) {
+            return ex.getResponse();
+        }
+    }    
     
     @GET
     @Path("{identifier}/metadatablocks/:isRoot")

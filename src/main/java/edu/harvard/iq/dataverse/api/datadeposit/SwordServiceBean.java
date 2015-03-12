@@ -6,6 +6,7 @@ import edu.harvard.iq.dataverse.DatasetFieldConstant;
 import edu.harvard.iq.dataverse.DatasetFieldServiceBean;
 import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetVersion;
+import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import java.util.Arrays;
 import java.util.List;
@@ -46,8 +47,47 @@ public class SwordServiceBean {
 
     }
 
-    public void addDatasetSubject(DatasetVersion datasetVersion) {
+    /**
+     * Mutate the dataset version, adding a depositor for the dataset.
+     */
+    public void addDatasetDepositor(DatasetVersion newDatasetVersion, User user) {
+        if (!user.isAuthenticated()) {
+            logger.info("returning early since user is not authenticated");
+            return;
+        }
+        AuthenticatedUser au = (AuthenticatedUser) user;
+        DatasetFieldType depositorDatasetFieldType = datasetFieldService.findByNameOpt(DatasetFieldConstant.depositor);
+        DatasetField depositorDatasetField = DatasetField.createNewEmptyDatasetField(depositorDatasetFieldType, newDatasetVersion);
+        depositorDatasetField.setSingleValue(au.getLastName() + ", " + au.getFirstName());
+
+        newDatasetVersion.getDatasetFields().add(depositorDatasetField);
+    }
+
+    /**
+     * If no subject exists, mutate the dataset version, adding "N/A" for the
+     * subject. Otherwise, leave the dataset alone.
+     */
+    public void addDatasetSubjectIfMissing(DatasetVersion datasetVersion) {
         DatasetFieldType subjectDatasetFieldType = datasetFieldService.findByNameOpt(DatasetFieldConstant.subject);
+
+        boolean subjectFieldExists = false;
+        List<DatasetField> datasetFields = datasetVersion.getDatasetFields();
+        for (DatasetField datasetField : datasetFields) {
+            logger.info("datasetField: " + datasetField.getDisplayValue() + " ... " + datasetField.getDatasetFieldType().getName());
+            if (datasetField.getDatasetFieldType().getName().equals(subjectDatasetFieldType.getName())) {
+                subjectFieldExists = true;
+                logger.info("subject field exists already");
+                break;
+            }
+        }
+
+        if (subjectFieldExists) {
+            // return early. nothing to do. dataset already has a subject
+            logger.info("returning early because subject exists already");
+            return;
+        }
+
+        // if we made it here, we must not have a subject, so let's add one
         DatasetField subjectDatasetField = DatasetField.createNewEmptyDatasetField(subjectDatasetFieldType, datasetVersion);
         /**
          * @todo Once dataverse has subject

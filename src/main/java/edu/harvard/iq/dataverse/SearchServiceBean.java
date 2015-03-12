@@ -450,14 +450,23 @@ public class SearchServiceBean {
                  * @todo Expose this API URL after "dvs" is changed to
                  * "dataverses". Also, is an API token required for published
                  * dataverses?
+                 * Michael: url changed.
                  */
-//                solrSearchResult.setApiUrl(baseUrl + "/api/dvs/" + entityid);
+//                solrSearchResult.setApiUrl(baseUrl + "/api/dataverses/" + entityid);
             } else if (type.equals("datasets")) {
                 solrSearchResult.setHtmlUrl(baseUrl + "/dataset.xhtml?globalId=" + identifier);
                 solrSearchResult.setApiUrl(baseUrl + "/api/datasets/" + entityid);
                 solrSearchResult.setImageUrl(baseUrl + "/api/access/dsPreview/" + datasetVersionId);
-                String datasetDescription = (String) solrDocument.getFieldValue(SearchFields.DATASET_DESCRIPTION);
-                solrSearchResult.setDescriptionNoSnippet(datasetDescription);
+                /**
+                 * @todo Could use getFieldValues (plural) here.
+                 */
+                ArrayList<String> datasetDescriptions = (ArrayList<String>) solrDocument.getFieldValue(SearchFields.DATASET_DESCRIPTION);
+                if (datasetDescriptions != null) {
+                    String firstDatasetDescription = datasetDescriptions.get(0);
+                    if (firstDatasetDescription != null) {
+                        solrSearchResult.setDescriptionNoSnippet(firstDatasetDescription);
+                    }
+                }
                 solrSearchResult.setDatasetVersionId(datasetVersionId);
                 solrSearchResult.setCitation(citation);
                 if (title != null) {
@@ -466,8 +475,10 @@ public class SearchServiceBean {
                 } else {
                     solrSearchResult.setTitle("NULL: NO TITLE INDEXED OR PROBLEM FINDING TITLE DATASETFIELD");
                 }
-                ArrayList authors = (ArrayList) solrDocument.getFieldValues(DatasetFieldConstant.authorName);
-                solrSearchResult.setDatasetAuthors(authors);
+                List<String> authors = (ArrayList) solrDocument.getFieldValues(DatasetFieldConstant.authorName);
+                if (authors != null) {
+                    solrSearchResult.setDatasetAuthors(authors);
+                }
             } else if (type.equals("files")) {
                 String parentGlobalId = null;
                 Object parentGlobalIdObject = solrDocument.getFieldValue(SearchFields.PARENT_IDENTIFIER);

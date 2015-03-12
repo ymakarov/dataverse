@@ -9,6 +9,10 @@ body .ui-widget {font-size: inherit;}
 .panelgridHeaderTable .ui-widget-content, .panelgridHeaderTable .ui-widget-content > td {border:0; background:none;}
 .panelgridHeaderTable .ui-widget-content > td:last-child table {margin-left:auto;}
 
+.text-brand {color:#C55B28;}
+.bg-brand {background:#C55B28;}
+.bg-muted {background:#f5f5f5;}
+
 #navbarFixed {margin-bottom:0;}
 .navbar-fixed-top, .navbar-fixed-bottom {
     z-index: 930;
@@ -17,15 +21,24 @@ body .ui-widget {font-size: inherit;}
 #navbarFixed .icon-dataverse {color:#C55B28; font-size:28px; float: left; height: 50px; line-height: 28px; padding: 10px 0; margin-left:-15px;}
 #navbarFixed .label.beta {display:block; float:left; margin-top:12px; background:#C55B28; font-size:18px; font-weight:normal;}
 
+#navbarFixed form.navbar-form.navbar-form-link {margin:0; padding:0;}
+#navbarFixed form.navbar-form-link a.ui-commandlink, #navbarFixed ul.navbar-nav li.dropdown span.dropdown-toggle {display:block; padding:15px; color: #777;}
+#navbarFixed form.navbar-form-link a.ui-commandlink:hover, #navbarFixed form.navbar-form-link a.ui-commandlink:focus,
+#navbarFixed ul.navbar-nav li.dropdown span.dropdown-toggle:hover, #navbarFixed ul.navbar-nav li.dropdown span.dropdown-toggle:focus {color: #262626; text-decoration: none;}
 #navbarFixed #navbar-search-toggle, #navbarFixed #dataverseSupportLink, #navbarFixed #lnk_header_account_dropdown {cursor: pointer; cursor: hand;}
+#navbarFixed .dropdown.accountName #lnk_header_account_dropdown span.glyphicon {margin-right:8px;}
 #navbarFixed .dropdown.accountName .label.label-danger {margin-left:.5em; line-height:normal; vertical-align:text-top;}
 #navbarFixed .dropdown.accountName .logout form {margin:0; padding:0; width:100%;}
 #navbarFixed .dropdown.accountName .logout a {clear: both; color: #333333; display: block; font-weight: normal; line-height: 1.42857; padding: 3px 20px; white-space: nowrap; text-decoration: none;}
 #navbarFixed .dropdown.accountName .logout a:hover, #navbarFixed .dropdown.accountName .logout a:focus {background-color: #E8E8E8; background-image: linear-gradient(to bottom, #F5F5F5 0px, #E8E8E8 100%); background-repeat: repeat-x; color: #262626; outline: 0; text-decoration: none;}
 
+#footer {margin-top:3em; padding-bottom:4em;}
+#footer .poweredbylogo span {color:#808080;font-size:.85em;margin-right:.3em;}
+#footer .version {margin-top:24px;font-size:.85em;color:#808080;}
+
 .panelLayoutBlock, .panelLayoutTitleBlock, .panelLayoutButtonBlock {border:0;}
 .panelLayoutBlock .ui-panelgrid.panelgridLayoutTable .ui-widget-content, .panelLayoutBlock .ui-panelgrid.panelgridLayoutTable .ui-widget-content > td {border:0;}
-.form-group table.noBorders tr.ui-widget-content, .form-group table.noBorders td {border:0;}
+.form-group table.noBorders tr.ui-widget-content, .form-group table.noBorders td {border:0; padding-left:0;}
 
 .panelgridLayoutTable, .panelgridFormTable {width:100%;}
 .panelgridFormTable > tbody > tr.ui-widget-content > td:first-child {width:20%;}
@@ -42,23 +55,40 @@ body .ui-widget {font-size: inherit;}
 .panelLayoutBlock .ui-panelgrid.panelgridLayoutTable .ui-widget-content .ui-panelgrid .ui-widget-content .ui-panelgrid {margin-bottom: 0}
 .panelLayoutBlock .ui-panelgrid.panelgridLayoutTable .ui-widget-content .ui-panelgrid .ui-widget-content .ui-panelgrid td:first-child {padding-left:0;}
 
+.no-padding-left-right {padding-left:0;padding-right:0;}
+
 .btn span.glyphicon {margin-right:.3em;}
-.btn span.glyphicon.no-text {margin-left:10px;margin-right:10px;}
+.btn span.glyphicon.no-text {margin:0;}
+.btn-group .btn span.glyphicon.no-text {margin-left:10px;margin-right:10px;}
+.icon-inline-action {margin-left:.3em;}
+.icon-inline-action:first-of-type {margin-left:1em;}
+
+.text-icon-inline {font-size:1.3em;line-height:1.1em;margin-right:4px;}
 
 .messagePanel {/*padding-top:1em;*/}
 .messagePanel .glyphicon {font-size: 1.5em; vertical-align: bottom;}
 
 .highlightBold {font-weight:bold;}
 
-#footer {padding-bottom:4em;}
-
 #ajaxStatusPanel_start {width:31px;height:31px;position:fixed;right:50%;bottom:50%;z-index:1111;}
 #ajaxStatusPanel_complete {position:absolute;top:-9999px;left:-9999px;}
 
 .italic {font-style: italic;}
+.margin-top {margin-top:1em;}
+.margin-bottom {margin-bottom:1em;}
+.margin-bottom-half {margin-bottom:.5em;}
+.no-margin-bottom {margin-bottom:0;}
 
 table.selectManyCheckboxBlock input {margin-right:4px;}
 table.selectManyCheckboxBlock label {font-weight:normal;}
+label.normal-text {font-weight:normal;}
+label.normal-text input {margin-right:4px;}
+
+.ui-datatable tbody td.col-dropdown-visible {overflow:visible;}
+
+span.glyphicon[data-toggle='tooltip'] {cursor: default;}
+
+hr {border-color: #ddd;}
 
 /* Dropdown submenu */
 .dropdown-submenu {
@@ -109,17 +139,48 @@ table.selectManyCheckboxBlock label {font-weight:normal;}
     border-radius: 6px 0 6px 6px;
 }
 
+.highlight {
+    padding: 9px 14px;
+    margin-bottom: 1em;
+    background-color: #f7f7f9;
+    border: 1px solid #e1e1e8;
+    border-radius: 4px;
+}
+.highlight pre {
+    background-color: transparent;
+    border: 0;
+    margin-bottom: 0;
+    margin-top: 0;
+    padding: 0;
+    white-space: nowrap;
+    word-break: normal;
+}
+.highlight pre code {
+    display: inline-block;
+    color: #333;
+    font-size: inherit;
+    background-color: transparent;
+    border-radius: 0;
+    color: inherit;
+    padding: 0;
+    white-space: pre-wrap;
+}
+
 /* -------- HEADER -------- */
-#dataverseHeader {margin:0 auto .5em auto; background:#F5F5F5;}
+#dataverseHeader {margin:0 auto .5em auto;}
 #dataverseHeader .dataverseHeaderBlock {display:table-row;}
 #dataverseHeader .dataverseHeaderCell {display:table-cell;}
 #dataverseHeader .dataverseHeaderLogo {text-align:center;}
+#dataverseHeader .dataverseHeaderLogo img {max-width:940px; max-height:120px;}
+#dataverseHeader .dataverseHeaderCell.dataverseHeaderLogo img {max-width:100px; max-height:100px;}
 #dataverseHeader .dataverseHeaderName {padding:2em 1em;}
+#dataverseHeader .dataverseHeaderName .dataverseHeaderDataverseName {font-size: 1.3em;}
 #dataverseHeader .dataverseHeaderName span.label.label-danger {vertical-align:text-top; line-height: normal; margin-left:1em;}
 #dataverseHeader .dataverseHeaderTagline {padding-left:2em; font-size:1.3em;}
 #dataverseHeader .dataverseHeaderLink {padding-left:2em;}
 
 /* -------- BREADCRUMBS -------- */
+#breadcrumbNavBlock {margin-bottom:1em;}
 #breadcrumbNavBlock .breadcrumbBlock {float:left; position:relative;}
 #breadcrumbNavBlock .breadcrumbActive {font-weight:bold;}
 #breadcrumbNavBlock a[id^='breadcrumbLnkTree'] {cursor: pointer; cursor: hand;}
@@ -141,6 +202,8 @@ table.selectManyCheckboxBlock label {font-weight:normal;}
 #breadcrumbNavBlock div.ui-tree.ui-widget-content span.ui-treenode-content span.ui-icon.ui-tree-toggler.ui-icon-triangle-1-e {background-position: -35px -16px;}
 
 /* -------- LOGIN -------- */
+#login-container {margin-top:1em;}
+
 div.panel.highlight {
     background-color: #f7f7f9;
 }
@@ -201,6 +264,10 @@ ul.IdPSelectDropDown > .disabled > a:hover, ul.IdPSelectDropDown > .disabled > a
     text-decoration: none;
 }
 
+/* -------- USER -------- */
+div[id$='notifications'].ui-tabs-panel div.notification-item {border-bottom:1px solid #DDDDDD; padding:5px;}
+div[id$='notifications'].ui-tabs-panel span.text-muted.small {margin-left:1em;}
+
 /* -------- DATAVERSE -------- */
 form[id$='dataverseForm'] .panelLayoutBlock .form-horizontal table.ui-panelgrid.ui-widget,
 form[id$='dataverseForm'] .panelLayoutBlock .form-horizontal table.ui-panelgrid.ui-widget tr, 
@@ -208,18 +275,55 @@ form[id$='dataverseForm'] .panelLayoutBlock .form-horizontal table.ui-panelgrid.
 
 form[id$='dataverseForm'] .panelLayoutBlock .form-horizontal div.form-group {vertical-align: middle;}
 
-div.ui-chkbox.metadata-blocks-default div.ui-chkbox-box, div.ui-chkbox.facet-category-default div.ui-chkbox-box, table.ui-selectmanycheckbox.metadata-blocks-select div.ui-chkbox-box {margin: 4px 10px;}
-div.ui-chkbox.metadata-blocks-default span.ui-chkbox-label, div.ui-chkbox.facet-category-default span.ui-chkbox-label, table.ui-selectmanycheckbox.metadata-blocks-select label {margin: 1px 10px 4px 10px;}
+input.metadata-blocks-default[type="checkbox"], input.facets-blocks-default[type="checkbox"] {margin: 4px 6px 0 0;}
+div.checkbox input.metadata-blocks-default[type="checkbox"] {margin-left:-20px;}
+label.metadata-blocks-default {margin-bottom:0; font-weight:normal;}
+
+table[id$="facetPickListCreate"] td:last-child {padding-top:20px;}
+table[id$="facetPickListCreate"] div.ui-selectonemenu {width:178px !important;}
+table[id$="facetPickListCreate"] label.ui-selectonemenu-label {width:152px !important;}
 
 table.ui-selectmanycheckbox.metadata-blocks-select label {font-weight:normal; margin-top:1px;}
 table.ui-selectmanycheckbox.metadata-blocks-select label.ui-state-disabled {background:inherit;}
 
-.owl-carousel {margin-bottom:1em;}
+div.ui-state-focus span.ui-chkbox-icon {outline: -webkit-focus-ring-color auto 5px;}
+
+/* Buttons */
+#actionButtonBlock {margin-bottom:1em; margin-top:0;}
+#dataverse-info-dropdown {padding:.5em 1em .25em 1em; overflow:hidden; width:400px;}
+#dataverse-info-dropdown .dataverse-info-logo-icon {width:40px; float:left; margin-right:12px;}
+#dataverse-info-dropdown .dataverse-info-logo-icon i.icon-dataverse {font-size:40px; line-height:40px;}
+#dataverse-info-dropdown .dataverse-info-general {float:left; width:300px;}
+
+.button-block {margin-top:1em;}
+.form-group > .button-block, .panel-body > .button-block, td.col-dropdown-visible > .button-block {margin-top:0;}
+.button-block button, .button-block a.btn, .button-block input.btn, .button-block div.btn-group {margin-right:1em;}
+.button-block button.pull-right:first-child, .button-block a.btn.pull-right:first-child, .button-block div.btn-group.pull-right:first-child, 
+.button-block div.btn-group button, .button-block div.btn-group a.btn {margin-right:0;}
+div.field-add-delete a.btn {margin:0 1em 0 0;}
+div.field-add-delete a.btn:last-child {margin-right:0;}
+div.field-add-delete a.btn.compound-field-btn {margin-top:1.8em;}
+div.field-add-delete a.btn.nolabel-field-btn {margin-top:0;}
+
+/* Featured Dataverses*/
+#carouselBlocksWrapper {border-bottom:1px solid #ddd; margin-bottom:1em;}
+#featuredDataversesBlock {overflow: hidden; padding-top:.5em; border-top:1px solid #ddd;}
+#featuredDataversesBlock div.customNavigation {width:4%;float:left;padding:28px 0;}
+#featuredDataversesBlock div.customNavigation span.glyphicon {color:#999999;font-size:2em;}
+#featuredDataversesList {width:90%; float:left;}
+#featuredDataversesList .item {min-height:80px;}
+#featuredDataversesList .item a {display:block;}
+#featuredDataversesList .item .icon-dataverse {font-size:50px;line-height:normal;color:#c55b28;}
+#featuredDataversesList .item img {max-width:160px; max-height:60px;}
+.owl-carousel {margin-bottom:.5em;}
 .owl-carousel .item {text-align: center; padding: 10px; border: 1px solid #e3e3e3; border-radius: 4px; margin: 10px;}
 
 .logoPreview {max-width:80px;max-height:80px;}
 
+#metadataFieldOptionsPanel-Block {width:70%; margin-left:60px; margin-top:.5em;}
+#metadataFieldOptionsPanel-Body {padding:0; max-height:400px; overflow-y:scroll;}
 #metadataFieldOptions td {vertical-align: middle;}
+#metadataFieldOptions div.checkbox.child-field {padding-left:18px;}
 
 /* -------- SEARCH -------- */
 .panelLayoutBlock.panelSerchForm > .ui-widget-content {border:0;padding:0;}
@@ -240,10 +344,16 @@ table.ui-selectmanycheckbox.metadata-blocks-select label.ui-state-disabled {back
 #resultsCountPaginatorBlock .pagination {margin:0;}
 
 span.search-term-match {font-weight: bold;}
-div[id$='resultsTable'] div.ui-datatable-tablewrapper table td > div {clear:left; margin-bottom: .5em;}
 div[id$='resultsTable'] div.ui-datatable-tablewrapper table td > div > span.label {vertical-align:text-bottom; line-height: normal; margin-left:.5em;}
 div[id$='resultsTable'] .resultDatasetCitationBlock {display:block;margin:4px 0 .5em 60px;padding:4px;}
 div[id$='resultsTable'] .resultDatasetCitationBlock span.search-term-match {font-weight: normal;}
+div[id$='resultsTable'] div.card-title-icon-block span[class^='icon'],
+div[id$='resultsTable'] div.card-title-icon-block span[class^='glyphicon'] {font-size:1.3em;}
+div[id$='resultsTable'] div.card-title-icon-block span[class^='glyphicon'] {margin-top:3px;}
+div[id$='resultsTable'] div.card-preview-icon-block {width:48px; float:left; margin:4px 12px 6px 0;}
+div[id$='resultsTable'] div.card-preview-icon-block a {display:block;line-height:normal;}
+div[id$='resultsTable'] div.card-preview-icon-block span[class^='icon'],
+div[id$='resultsTable'] div.card-preview-icon-block span[class^='glyphicon'] {font-size:2.8em;}
 
 form[id$='facetType'] > div.clearfix {margin-bottom:4px;}
 form[id$='facetType'] > div.clearfix:last-child {margin-bottom:0;}
@@ -253,18 +363,10 @@ form[id$='facetType'] > div.clearfix a.facetTypeLink {display:block; float:left;
 
 form[id$='facetType'] > div.clearfix a.facetTypeLink span {padding:4px 0px;}
 
-/*form[id$='facetType'] > div.clearfix a.facetTypeLink span {padding:4px 0px 4px 30px;}
-form[id$='facetType'] > div.clearfix a.facetTypeLink span.facetTypeDataverse {background: url(/resources/images/icon_dataverse.png) no-repeat 4px 50% / 18px;}
-form[id$='facetType'] > div.clearfix a.facetTypeLink.facetSelected span.facetTypeDataverse {background: url(/resources/images/icon_dataverse_dark.png) no-repeat 4px 50% / 18px;}
-form[id$='facetType'] > div.clearfix a.facetTypeLink span.facetTypeDataset {background: url(/resources/images/icon_dataset.png) no-repeat 4px 50% / 18px;}
-form[id$='facetType'] > div.clearfix a.facetTypeLink.facetSelected span.facetTypeDataset {background: url(/resources/images/icon_dataset_dark.png) no-repeat 4px 50% / 18px;}
-form[id$='facetType'] > div.clearfix a.facetTypeLink span.facetTypeFile {background: url(/resources/images/icon_file.png) no-repeat 4px 50% / 18px;}
-form[id$='facetType'] > div.clearfix a.facetTypeLink.facetSelected span.facetTypeFile {background: url(/resources/images/icon_file_dark.png) no-repeat 4px 50% / 18px;}*/
-
-div[id$='facetCategoryList'] {padding:4px; border:1px solid #DDD;}
+form[id$='facetCategoryForm'] {margin-top:1em;}
 div[id$='facetCategoryList'] ul, div[id$='facetCategoryList'] li, div[id$='facetCategoryList'] div {margin:0; padding:0; list-style: none; border:0;}
 div[id$='facetCategoryList'] > div > ul > li {border-bottom:1px solid #DDD; margin-bottom:.5em;}
-div[id$='facetCategoryList'] > div > ul > li:last-child {border-bottom:0; margin-bottom:0;}
+div/*[id$='facetCategoryList'] > div > ul > li:last-child {border-bottom:0; margin-bottom:0;}*/
 div[id$='facetCategoryList'] div li div {padding:4px 0px;}
 div[id$='facetCategoryList'] div li div.ui-datalist-empty-message {padding:4px 0px; font-style:italic; color:#AAA;}
 div[id$='facetCategoryList'] div.ui-datalist, div[id$='facetCategoryList'] div.ui-datalist div.ui-datalist-content {padding-top:0;}
@@ -311,7 +413,7 @@ div.headerless-table .ui-datatable-tablewrapper table > thead {display:none;}
 
 /* -------- POPUP -------- */
 div.ui-dialog.smallPopUp {max-width:600px;}
-div.ui-dialog.largePopUp {min-width:60%;}
+div.ui-dialog.largePopUp {min-width:60%; max-width:80%; overflow-y:scroll;}
 
 div.ui-dialog div.highlight {
     background-color: #f7f7f9;
@@ -335,56 +437,66 @@ div.ui-tabs-panels .ui-tabs.ui-tabs-top .ui-tabs-nav.ui-widget-header {border-bo
 /* -------- PERMISSIONS -------- */
 div[id$='roleDisplay'] span.label, div[id$='roleDetails'] span.label {display:inline-block; margin-bottom:4px;}
 
-
 /* -------- DATASET -------- */
-.panelgridLayoutTable.titleCitationBlock, 
-.panelgridLayoutTable.titleCitationBlock tr.ui-widget-content, 
-.panelgridLayoutTable.titleCitationBlock tr.ui-widget-content td {border:0;}
-
 #datasetVersionBlock span.label {vertical-align:text-top; line-height:normal; margin-left: 1em;}
 
-span[id$='editDataSet'] .ui-button-text {white-space: nowrap;}
-
-#replicationDataButton {margin-top:5px;}
-                                    
-#title {/*display:block;*/font-size:1.5em;font-weight:bold; /*margin-bottom:.5em;*/}
+#title {font-size:1.5em;font-weight:bold;}
 #author, #contact {display:block; margin-bottom:.5em;}
+#citation-block {margin-bottom:.5em;}
+.bg-citation {background:#ECF6FB;}
 #citation, #citation-download {padding:.5em;}
 #description {display:block; margin-bottom:.5em;}
 #keywords, #subject, #note, #publication {display:block; margin-bottom:.5em;}
 
+div.panel-body div.form-group:last-child, div.panel-body div.form-group:last-child label {margin-bottom:0 !important;}
+
+/* Buttons */
+.button-block.form-top {border-top: 1px solid #dddddd; padding:1em 0;}
+span[id$='editDataSet'] .ui-button-text {white-space: nowrap;}
+#replicationDataButton {margin-top:5px;}
+
+#deaccession-reason-block {padding:4px; margin-bottom:.5em;}
+
 div.form-group .glyphicon.glyphicon-asterisk {font-size:.5em; vertical-align:text-top;}
 #datasetForm .form-group, #templateForm .form-group {overflow: hidden;}
-#datasetForm .form-col-container .form-col-container, #templateForm .form-col-container .form-col-container {padding-left:0;}
-#datasetForm .form-col-container .form-col-container .ui-selectonemenu, #templateForm .form-col-container .form-col-container .ui-selectonemenu {display:block;}
+div.form-col-container div.form-col-container {padding-left:0;}
+div.form-group .ui-selectonemenu {display:block;}
+div.form-col-container.edit-compound-field div.form-col-container {margin-bottom:.5em;}
 
-.panel .panel-body .form-group {overflow: hidden;}
-
+div.panel-group div.panel {margin-bottom:1em;}
+div.panel div.panel-body div.form-group {overflow: hidden;}
+div.edit-field div.ui-message {margin:6px 0;}
 .metadata-logo {max-width:180px;max-height:40px;}
 
 /* Primefaces vs Bootstrap selectOneMenu fix */
-.form-group div.ui-selectonemenu.form-control {padding:0px;}
-.form-group .ui-selectonemenu .ui-selectonemenu-label {padding:6px 4px;}
-.form-group .ui-selectonemenu .ui-selectonemenu-trigger {border-radius:0; width:24px;}
-.form-group .ui-selectonemenu .ui-selectonemenu-trigger .ui-icon {margin-top:8px;}
+div.ui-selectonemenu.form-control {padding:0px;}
+.ui-selectonemenu .ui-selectonemenu-label {padding:6px 4px;}
+.ui-selectonemenu .ui-selectonemenu-trigger {border-radius:0; width:24px;}
+.ui-selectonemenu .ui-selectonemenu-trigger .ui-icon {margin-top:8px;}
 
 /* Primefaces vs Bootstrap selectOneRadio fix */
-.form-group table.ui-selectoneradio {border-collapse:separate;}
-.form-group table.ui-selectoneradio td {padding:1px;}
-.form-group table.ui-selectoneradio span.ui-icon-bullet, .form-group .ui-radiobutton-box span.ui-icon-bullet {background-position: -81.3px -145.1px;}
-.form-group table.ui-selectoneradio label {font-weight: normal; margin-right:1em;}
-.form-group .ui-radiobutton-box span.ui-radiobutton-icon {height: 16px; width: 16px; display: block; overflow: hidden;}
+table.ui-selectoneradio {border-collapse:separate;}
+table.ui-selectoneradio td {padding:1px;}
+table.ui-selectoneradio span.ui-icon-bullet, .ui-radiobutton-box span.ui-icon-bullet {background-position: -81.3px -145.1px;}
+table.ui-selectoneradio label {font-weight: normal; margin-right:1em;}
+.ui-radiobutton-box span.ui-radiobutton-icon {height: 16px; width: 16px; display: block; overflow: hidden;}
 
+div.ui-radiobutton {margin:0; vertical-align:text-bottom;}
+div.radio.no-padding-left label {padding-left:0;}
 
 /* Primefaces vs Bootstrap checkbox fix */
-.form-group .ui-chkbox .ui-chkbox-box {margin: 4px 0 0 0;}
-.form-group .ui-chkbox .ui-chkbox-label {display:inline;}
+.ui-chkbox .ui-chkbox-box {margin: 4px 0 0 0; vertical-align:top;}
+.ui-chkbox .ui-chkbox-label {display:inline; vertical-align:text-top;}
 
 .ui-selectcheckboxmenu.form-control {height:auto;padding:0;}
 .ui-selectcheckboxmenu .ui-selectcheckboxmenu-trigger {width:30px; padding:6px; border-radius:0 4px 4px 0;}
 .ui-selectcheckboxmenu a.ui-selectcheckboxmenu-label-container {color:black; text-decoration:none !important;}
 .ui-selectcheckboxmenu label.ui-selectcheckboxmenu-label, .ui-selectcheckboxmenu label.ui-selectcheckboxmenu-label.ui-state-hover {font-weight:normal; margin-bottom:0; padding:6px 40px 6px 12px;}
 .ui-selectcheckboxmenu label, .ui-selectcheckboxmenu-item label {font-weight:normal; margin-bottom:0;}
+
+/* pickList */
+table.ui-picklist.ui-widget td {padding: 0 5px; vertical-align:bottom;}
+table.ui-picklist div.ui-picklist-filter-container {padding-bottom:5px;}
 
 .ui-tieredmenu.form-control {width:auto;height:auto;}
 
@@ -406,6 +518,11 @@ div.popover.fade.top.in div.popover-content {text-align:center; vertical-align: 
 
 div[id$="filesTable"] .ui-datatable-tablewrapper thead {display:none;}
 div[id$="versionsTable"] .ui-datatable-tablewrapper thead {display:none;}
+
+div[id$="filesTable"] div.ui-datatable-header.ui-widget-header {padding:0; background:none; border:0;}
+
+span.ingest-warning {display:inline-block; font-size:30px; line-height:1.42857; vertical-align: middle;}
+span.ingest-warning span.glyphicon {top:5px;} 
 
 div[id$='versionsTab'] .ui-state-highlight .ui-icon, div[id$='filesTable'] .ui-state-highlight .ui-icon {background-image: url("/javax.faces.resource/images/ui-icons_333333_256x240.png.xhtml?ln=primefaces-bootstrap");}
 div[id$='versionsTab'] .ui-state-highlight .ui-commandlink {color:#FFFFFF;}

@@ -17,7 +17,7 @@ import edu.harvard.iq.dataverse.engine.command.impl.DeleteDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.PublishDatasetCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.PublishDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDatasetCommand;
-import edu.harvard.iq.dataverse.metadataimport.ForeignMetadataImportServiceBean;
+import edu.harvard.iq.dataverse.api.imports.ImportGenericServiceBean;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +54,7 @@ public class ContainerManagerImpl implements ContainerManager {
     @PersistenceContext(unitName = "VDCNet-ejbPU")
     EntityManager em;
     @EJB
-    ForeignMetadataImportServiceBean foreignMetadataImportService;
+    ImportGenericServiceBean importGenericService;
     @Inject
     SwordAuth swordAuth;
     @Inject
@@ -131,12 +131,13 @@ public class ContainerManagerImpl implements ContainerManager {
                         datasetVersion.setDatasetFields(emptyDatasetFields);
                         String foreignFormat = SwordUtil.DCTERMS;
                         try {
-                            foreignMetadataImportService.importXML(deposit.getSwordEntry().toString(), foreignFormat, datasetVersion);
+                            importGenericService.importXML(deposit.getSwordEntry().toString(), foreignFormat, datasetVersion);
                         } catch (Exception ex) {
                             throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "problem calling importXML: " + ex);
                         }
                         swordService.addDatasetContact(datasetVersion, user);
-                        swordService.addDatasetSubject(datasetVersion);
+                        swordService.addDatasetDepositor(datasetVersion, user);
+                        swordService.addDatasetSubjectIfMissing(datasetVersion);
                         swordService.setDatasetLicenseAndTermsOfUse(datasetVersion, deposit.getSwordEntry());
                         try {
                             engineSvc.submit(new UpdateDatasetCommand(dataset, user));
@@ -242,7 +243,7 @@ public class ContainerManagerImpl implements ContainerManager {
                                 }
                             } else {
                                 // we should never get here. throw an error explaining why
-                                throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "dataset is in illegal state (not released yet not in draft)");
+                                throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "dataset is in illegal state (not published yet not in draft)");
                             }
                         }
                     } else {
@@ -320,10 +321,10 @@ public class ContainerManagerImpl implements ContainerManager {
                                     DepositReceipt depositReceipt = receiptGenerator.createDatasetReceipt(baseUrl, dataset);
                                     return depositReceipt;
                                 } else {
-                                    throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Latest version of dataset " + globalId + " has already been released.");
+                                    throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Latest version of dataset " + globalId + " has already been published.");
                                 }
                             } else {
-                                throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Pass 'In-Progress: false' header to release a dataset.");
+                                throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Pass 'In-Progress: false' header to publish a dataset.");
                             }
                         } else {
                             throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "User " + user.getDisplayInfo().getTitle() + " is not authorized to modify dataverse " + dvThatOwnsDataset.getAlias());

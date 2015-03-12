@@ -76,7 +76,16 @@ public class SolrSearchResult {
     private boolean draftState;
     private boolean deaccessionedState;
     private long datasetVersionId;
+    //Determine if the search result is owned by any of the dvs in the tree of the DV displayed
+    private boolean isInTree; 
 
+    public boolean isIsInTree() {
+        return isInTree;
+    }
+
+    public void setIsInTree(boolean isInTree) {
+        this.isInTree = isInTree;
+    }
 //    public boolean isStatePublished() {
 //        return statePublished;
 //    }
@@ -330,7 +339,8 @@ public class SolrSearchResult {
                  */
                 .add("published_at", getDateTimePublished())
                 /**
-                 * @todo Maybe we should expose MIME Type also.
+                 * @todo Expose MIME Type:
+                 * https://github.com/IQSS/dataverse/issues/1595
                  */
                 .add("file_type", this.filetype)
                 .add("size_in_bytes", getFileSizeInBytes())

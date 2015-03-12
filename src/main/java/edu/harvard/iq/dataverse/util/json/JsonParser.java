@@ -81,12 +81,16 @@ public class JsonParser {
             }
             dv.setDataverseContacts(dvContactList);
         }
+        
+        /*  We decided that subject is not user set, but gotten from the subject of the dataverse's
+            datasets - leavig this code in for now, in case we need to go back to it at some point
+        
         if (jobj.containsKey("dataverseSubjects")) {
             List<ControlledVocabularyValue> dvSubjectList = new LinkedList<>();
             DatasetFieldType subjectType = datasetFieldSvc.findByName(DatasetFieldConstant.subject);
             List<JsonString> subjectList = jobj.getJsonArray("dataverseSubjects").getValuesAs(JsonString.class);
             if (subjectList.size() > 0) {
-                // check first valie for "all"
+                // check first value for "all"
                 if (subjectList.get(0).getString().trim().toLowerCase().equals("all")) {
                     dvSubjectList.addAll(subjectType.getControlledVocabularyValues());
                 } else {
@@ -102,7 +106,8 @@ public class JsonParser {
             }
             dv.setDataverseSubjects(dvSubjectList);
         }
-
+        */
+                
         return dv;
     }
 
@@ -167,8 +172,12 @@ public class JsonParser {
             dsv.setDeaccessionLink(obj.getString("deaccessionLink", null));
             dsv.setVersionNumber((long) obj.getInt("versionNumber", -1));
             dsv.setMinorVersionNumber(parseLong(obj.getString("minorVersionNumber", null)));
-            dsv.setId(parseLong(obj.getString("id", null)));
-
+            // if the existing datasetversion doesn not have an id
+            // use the id from the json object.
+            if (dsv.getId()==null) {
+                 dsv.setId(parseLong(obj.getString("id", null)));
+            }
+           
             String versionStateStr = obj.getString("versionState", null);
             if (versionStateStr != null) {
                 dsv.setVersionState(DatasetVersion.VersionState.valueOf(versionStateStr));
@@ -393,7 +402,7 @@ public class JsonParser {
         List<ControlledVocabularyException> vocabExceptions = new ArrayList<>();
         List<DatasetFieldCompoundValue> vals = new LinkedList<>();
         if (json.getBoolean("multiple")) {
-     
+            int order = 0;
             for (JsonObject obj : json.getJsonArray("value").getValuesAs(JsonObject.class)) {
                 DatasetFieldCompoundValue cv = new DatasetFieldCompoundValue();
                 List<DatasetField> fields = new LinkedList<>();
@@ -416,14 +425,16 @@ public class JsonParser {
                 }
                 if (!fields.isEmpty()) {
                     cv.setChildDatasetFields(fields);
+                    cv.setDisplayOrder(order);
                     vals.add(cv);
                 }
+                order++;
             }
 
            
 
         } else {
-
+            
             DatasetFieldCompoundValue cv = new DatasetFieldCompoundValue();
             List<DatasetField> fields = new LinkedList<>();
             JsonObject value = json.getJsonObject("value");
@@ -479,7 +490,7 @@ public class JsonParser {
                 String strValue = strVal.getString();
                 ControlledVocabularyValue cvv = datasetFieldSvc.findControlledVocabularyValueByDatasetFieldTypeAndStrValue(cvvType, strValue,lenient);
                 if (cvv == null) {
-                    ControlledVocabularyException ex = new ControlledVocabularyException("Value '" + strValue + "' does not exist in type '" + cvvType.getName() + "'", cvvType, strValue);
+                    throw new ControlledVocabularyException("Value '" + strValue + "' does not exist in type '" + cvvType.getName() + "'", cvvType, strValue);
                 }
                 vals.add(cvv);
             }

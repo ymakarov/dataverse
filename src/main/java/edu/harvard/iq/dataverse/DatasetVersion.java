@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.util.StringUtil;
@@ -103,10 +98,6 @@ public class DatasetVersion implements Serializable {
         this.UNF = UNF;
     }
     
-    private String UNF;
-
-    @Version
-    private Long version;
 
     /**
      * This is JPA's optimistic locking mechanism, and has no semantic meaning in the DV object model.
@@ -118,6 +109,11 @@ public class DatasetVersion implements Serializable {
 
     public void setVersion(Long version) {
     }
+    
+    private String UNF;
+
+    @Version
+    private Long version;
 
     private Long versionNumber;
     private Long minorVersionNumber;
@@ -179,8 +175,10 @@ public class DatasetVersion implements Serializable {
      private List<VersionContributor> versionContributors;
      */
     @Temporal(value = TemporalType.TIMESTAMP)
+    @Column( nullable=false )
     private Date createTime;
     @Temporal(value = TemporalType.TIMESTAMP)
+    @Column( nullable=false )
     private Date lastUpdateTime;
     @Temporal(value = TemporalType.TIMESTAMP)
     private Date releaseTime;
@@ -235,6 +233,16 @@ public class DatasetVersion implements Serializable {
     
     @Column(columnDefinition="TEXT") 
     private String studyCompletion;
+    
+    private boolean fileAccessRequest;
+
+    public boolean isFileAccessRequest() {
+        return fileAccessRequest;
+    }
+
+    public void setFileAccessRequest(boolean fileAccessRequest) {
+        this.fileAccessRequest = fileAccessRequest;
+    }
     
     private boolean inReview;
     public void setInReview(boolean inReview){
@@ -437,23 +445,23 @@ public class DatasetVersion implements Serializable {
     }
 
     @OneToMany(mappedBy = "datasetVersion")
-    private List<DatasetVersionUser> datasetVersionDataverseUsers;
+    private List<DatasetVersionUser> datasetVersionUsers;
 
-    public List<DatasetVersionUser> getDatasetVersionDataverseUsers() {
-        return datasetVersionDataverseUsers;
+    public List<DatasetVersionUser> getDatasetVersionUsers() {
+        return datasetVersionUsers;
     }
 
-    public void setUserDatasets(List<DatasetVersionUser> datasetVersionDataverseUsers) {
-        this.datasetVersionDataverseUsers = datasetVersionDataverseUsers;
+    public void setUserDatasets(List<DatasetVersionUser> datasetVersionUsers) {
+        this.datasetVersionUsers = datasetVersionUsers;
     }
 
     public List<String> getVersionContributorIdentifiers() {
-        if (this.getDatasetVersionDataverseUsers() == null) {
+        if (this.getDatasetVersionUsers() == null) {
             return Collections.emptyList();
         }
         List<String> ret = new LinkedList<>();
-        for (DatasetVersionUser contributor : this.getDatasetVersionDataverseUsers()) {
-            ret.add(contributor.getUserIdentifier());
+        for (DatasetVersionUser contributor : this.getDatasetVersionUsers()) {
+            ret.add(contributor.getAuthenticatedUser().getIdentifier());
         }
         return ret;
     }
@@ -582,7 +590,22 @@ public class DatasetVersion implements Serializable {
             }
         }
         if (this.getDataset().getReleasedVersion() != null) {
-            return this.getFileMetadatas().size() == this.getDataset().getReleasedVersion().getFileMetadatas().size();
+            if (this.getFileMetadatas().size() != this.getDataset().getReleasedVersion().getFileMetadatas().size()){
+                return false;
+            } else {
+                List <DataFile> current = new ArrayList();
+                List <DataFile> previous = new ArrayList();
+                for (FileMetadata fmdc : this.getFileMetadatas()){
+                    current.add(fmdc.getDataFile());
+                }
+                for (FileMetadata fmdc : this.getDataset().getReleasedVersion().getFileMetadatas()){
+                    previous.add(fmdc.getDataFile());
+                }
+                for (DataFile fmd: current){
+                    previous.remove(fmd);
+                }
+                return previous.isEmpty();                
+            }           
         }
         return true;
     }
@@ -653,10 +676,10 @@ public class DatasetVersion implements Serializable {
     }
 
     public String getTitle() {
-        String retVal = "Dataset Title";
+        String retVal = "";
         for (DatasetField dsfv : this.getDatasetFields()) {
             if (dsfv.getDatasetFieldType().getName().equals(DatasetFieldConstant.title)) {
-                retVal = dsfv.getValue();
+                retVal = dsfv.getDisplayValue();
             }
         }
         return retVal;
@@ -671,22 +694,48 @@ public class DatasetVersion implements Serializable {
         //todo get "List of Authors" from datasetfieldvalue table
         List retList = new ArrayList();
         for (DatasetField dsf : this.getDatasetFields()) {
+            Boolean addAuthor = true;
             if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.author)) {
                 for (DatasetFieldCompoundValue authorValue : dsf.getDatasetFieldCompoundValues()) {
                     DatasetAuthor datasetAuthor = new DatasetAuthor();
                     for (DatasetField subField : authorValue.getChildDatasetFields()) {
                         if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.authorName)) {
+                            if (subField.isEmptyForDisplay()) {
+                                addAuthor = false;
+                            }
                             datasetAuthor.setName(subField);
                         }
                         if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.authorAffiliation)) {
                             datasetAuthor.setAffiliation(subField);
                         }
                     }
-                    retList.add(datasetAuthor);
+                    if (addAuthor) {
+                        retList.add(datasetAuthor);
+                    }
                 }
             }
         }
         return retList;
+    }
+    
+    public String getDatasetProducersString(){
+        String retVal = "";
+        for (DatasetField dsf : this.getDatasetFields()) {
+            if (dsf.getDatasetFieldType().getName().equals(DatasetFieldConstant.producer)) {
+                for (DatasetFieldCompoundValue authorValue : dsf.getDatasetFieldCompoundValues()) {
+                    for (DatasetField subField : authorValue.getChildDatasetFields()) {
+                        if (subField.getDatasetFieldType().getName().equals(DatasetFieldConstant.producerName)) {
+                            if (retVal.isEmpty()){
+                                retVal = subField.getDisplayValue();
+                            } else {
+                                retVal += ", " +  subField.getDisplayValue();
+                            }                           
+                        }
+                    }
+                }
+            }
+        }
+        return retVal;
     }
 
     public void setDatasetAuthors(List<DatasetAuthor> authors) {
@@ -705,6 +754,8 @@ public class DatasetVersion implements Serializable {
         String authors = this.getAuthorsStr(includeAffiliation);
         if (!StringUtil.isEmpty(authors)) {
             str += authors;
+        } else {
+            str += getDatasetProducersString();
         }
 
         if (this.getDataset().getPublicationDate() == null || StringUtil.isEmpty(this.getDataset().getPublicationDate().toString())) {
@@ -719,7 +770,6 @@ public class DatasetVersion implements Serializable {
             }
             str += new SimpleDateFormat("yyyy").format(new Timestamp(this.getDataset().getPublicationDate().getTime()));
         }
-
         if (this.getTitle() != null) {
             if (!StringUtil.isEmpty(this.getTitle())) {
                 if (!StringUtil.isEmpty(str)) {
@@ -733,7 +783,7 @@ public class DatasetVersion implements Serializable {
                 str += ", ";
             }
             if (isOnlineVersion) {
-                str += "<a href=\"" + this.getDataset().getPersistentURL() + "\">" + this.getDataset().getIdentifier() + "</a>";
+                str += "<a href=\"" + this.getDataset().getPersistentURL() + "\">" + this.getDataset().getPersistentURL() + "</a>";
             } else {
                 str += this.getDataset().getPersistentURL();
             }
@@ -773,7 +823,7 @@ public class DatasetVersion implements Serializable {
             if (!StringUtil.isEmpty(str)) {
                 str += " ";
             }
-            str += getUNF();
+            str += "[" + getUNF() + "]";
         }
          /*
          String distributorNames = getDistributorNames();

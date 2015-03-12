@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse.api;
 
+import edu.harvard.iq.dataverse.actionlogging.ActionLogRecord;
 import edu.harvard.iq.dataverse.api.dto.RoleDTO;
 import edu.harvard.iq.dataverse.authorization.AuthenticationProvider;
 import edu.harvard.iq.dataverse.authorization.exceptions.AuthenticationProviderFactoryNotFoundException;
@@ -8,8 +9,6 @@ import edu.harvard.iq.dataverse.authorization.providers.AuthenticationProviderFa
 import edu.harvard.iq.dataverse.authorization.providers.AuthenticationProviderRow;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.settings.Setting;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObjectBuilder;
@@ -213,10 +212,16 @@ public class Admin extends AbstractApiBean {
     @Path("roles")
     @POST
     public Response createNewBuiltinRole(RoleDTO roleDto) {
+        ActionLogRecord alr = new ActionLogRecord(ActionLogRecord.ActionType.Admin, "createBuiltInRole")
+                .setInfo(roleDto.getAlias() + ":" + roleDto.getDescription() );
         try {
             return okResponse(json(rolesSvc.save(roleDto.asRole())));
         } catch (Exception e) {
+            alr.setActionResult(ActionLogRecord.Result.InternalError);
+            alr.setInfo( alr.getInfo() + "// " + e.getMessage() );
             return errorResponse(Response.Status.INTERNAL_SERVER_ERROR, e.getMessage());
+        } finally {
+            actionLogSvc.log(alr);
         }
     }
     
@@ -234,6 +239,8 @@ public class Admin extends AbstractApiBean {
     @Path("superuser/{identifier}")
     @POST
     public Response toggleSuperuser(@PathParam("identifier") String identifier) {
+        ActionLogRecord alr = new ActionLogRecord(ActionLogRecord.ActionType.Admin, "toggleSuperuser")
+                .setInfo( identifier );
        try {
           AuthenticatedUser user = authSvc.getAuthenticatedUser(identifier);
           
@@ -241,8 +248,12 @@ public class Admin extends AbstractApiBean {
             
             return okResponse("User " + user.getIdentifier() + " " + (user.isSuperuser() ? "set": "removed") + " as a superuser.");
         } catch (Exception e) {
+            alr.setActionResult(ActionLogRecord.Result.InternalError);
+            alr.setInfo( alr.getInfo() + "// " + e.getMessage() );
             return errorResponse(Response.Status.INTERNAL_SERVER_ERROR, e.getMessage());
-        }
+        } finally {
+           actionLogSvc.log(alr);
+       }
     }    
     
 }

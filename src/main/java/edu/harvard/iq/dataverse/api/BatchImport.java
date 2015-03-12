@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse.api;
 
+import edu.harvard.iq.dataverse.api.imports.ImportServiceBean;
 import edu.harvard.iq.dataverse.DatasetFieldServiceBean;
 import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.Dataverse;
@@ -7,17 +8,13 @@ import edu.harvard.iq.dataverse.DataverseServiceBean;
 import edu.harvard.iq.dataverse.MetadataBlockServiceBean;
 
 import edu.harvard.iq.dataverse.api.imports.ImportException;
-import edu.harvard.iq.dataverse.api.imports.ImportUtil;
 import edu.harvard.iq.dataverse.api.imports.ImportUtil.ImportType;
+import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
-import java.io.File;
 import java.io.IOException;
-import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
-import javax.json.Json;
-import javax.json.JsonArrayBuilder;
 import javax.json.JsonObjectBuilder;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -28,7 +25,6 @@ import javax.ws.rs.core.Response;
 @Stateless
 @Path("batch")
 public class BatchImport extends AbstractApiBean  {
-    private static final Logger logger = Logger.getLogger(BatchImport.class.getCanonicalName());
     @EJB
     DatasetServiceBean datasetService;
     @EJB
@@ -54,13 +50,13 @@ public class BatchImport extends AbstractApiBean  {
      */
     @GET
     @Path("migrate")
-    public Response migrate(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf, @QueryParam("key") String apiKey) {
+    public Response migrate(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf, @QueryParam("key") String apiKey) throws IOException {
           return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.MIGRATION);
     }
     
     @GET
     @Path("harvest")
-    public Response harvest(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf, @QueryParam("key") String apiKey) {
+    public Response harvest(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf, @QueryParam("key") String apiKey) throws IOException {
           return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.HARVEST);
   
     }
@@ -102,14 +98,16 @@ public class BatchImport extends AbstractApiBean  {
      */
     @GET 
     @Path("import")
-    public Response getImport(@QueryParam("path") String fileDir, @QueryParam("identifier") String parentIdtf, @QueryParam("key") String apiKey) {
-      return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.NEW);
+    public Response getImport(@QueryParam("path") String fileDir, @QueryParam("identifier") String parentIdtf, @QueryParam("key") String apiKey)  {
+      
+        return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.NEW);
+     
     }
     
     
     private Response startBatchJob( String fileDir, String parentIdtf, String apiKey, ImportType importType) {
-        
-        User u = findUserByApiToken(apiKey);
+       
+        AuthenticatedUser u = findUserByApiToken(apiKey);
         if (u == null) {
             return badApiKey(apiKey);
         }
@@ -124,11 +122,8 @@ public class BatchImport extends AbstractApiBean  {
              batchService.processFilePath(fileDir, parentIdtf, u,owner, importType);
           } catch (ImportException e) {
             e.printStackTrace();
-            return this.errorResponse(Response.Status.BAD_REQUEST, "Import Exception!!");
-        } catch(IOException e) {
-            e.printStackTrace();
-              return this.errorResponse(Response.Status.BAD_REQUEST, "IOException!!");
-        }
+            return this.errorResponse(Response.Status.BAD_REQUEST, "Import Exception, "+ e.getMessage());
+        } 
         return this.accepted();
     }
     

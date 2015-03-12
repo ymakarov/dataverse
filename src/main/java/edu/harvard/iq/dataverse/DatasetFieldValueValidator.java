@@ -6,6 +6,7 @@
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.DatasetFieldType.FieldType;
+import edu.harvard.iq.dataverse.util.StringUtil;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.ParseException;
@@ -69,6 +70,9 @@ public class DatasetFieldValueValidator implements ConstraintValidator<ValidateD
             String YYYYformat = "yyyy";
             if (!valid ) {
                 valid = isValidDate(value.getValue(), YYYYformat);
+                if(!StringUtils.isNumeric(value.getValue())){
+                    valid = false;
+                }
             }
             if (!valid) {
                 // TODO: 
@@ -107,12 +111,8 @@ public class DatasetFieldValueValidator implements ConstraintValidator<ValidateD
                 return false;
             }
         }
-        
-        if (fieldType.equals(FieldType.TEXT)  && value.getValue().length() > 255) {
-                 context.buildConstraintViolationWithTemplate(dsfType.getDisplayName() + " may not be more than 255 characters.").addConstraintViolation(); 
-                 return false;
-        }
-        
+        // Note, length validation for FieldType.TEXT was removed to accommodate migrated data that is greater than 255 chars.
+                
         if (fieldType.equals(FieldType.URL) && !lengthOnly) {
             try {
                 URL url = new URL(value.getValue());
@@ -134,11 +134,11 @@ public class DatasetFieldValueValidator implements ConstraintValidator<ValidateD
         private boolean isValidDate(String dateString, String pattern) {
         boolean valid=true;
         Date date;
-        SimpleDateFormat sdf = new SimpleDateFormat(pattern);
+        SimpleDateFormat sdf = new SimpleDateFormat(pattern);       
         sdf.setLenient(false);
         try {
             dateString = dateString.trim();
-            date = sdf.parse(dateString);
+            date = sdf.parse(dateString);           
             Calendar calendar = Calendar.getInstance();
             calendar.setTime(date);
             int year = calendar.get(Calendar.YEAR);

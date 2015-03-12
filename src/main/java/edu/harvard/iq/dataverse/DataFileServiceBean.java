@@ -6,10 +6,15 @@
 
 package edu.harvard.iq.dataverse;
 
+import edu.harvard.iq.dataverse.authorization.Permission;
+import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
+import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.dataaccess.ImageThumbConverter;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
@@ -33,6 +38,8 @@ public class DataFileServiceBean implements java.io.Serializable {
     private static final Logger logger = Logger.getLogger(DataFileServiceBean.class.getCanonicalName());
     @EJB
     DatasetServiceBean datasetService;
+    @EJB
+    PermissionServiceBean permissionService;
 
     @PersistenceContext(unitName = "VDCNet-ejbPU")
     private EntityManager em;
@@ -130,16 +137,20 @@ public class DataFileServiceBean implements java.io.Serializable {
            Sure, we don't have *studies* any more, in 4.0; it's a tribute 
            to the past. -- L.A.
         */
-        Query query = em.createQuery("select object(o) from DataFile as o where o.dataset.id =:studyId order by o.id");
+        Query query = em.createQuery("select o from DataFile o where o.owner.id = :studyId order by o.id");
         query.setParameter("studyId", studyId);
         return query.getResultList();
     }  
 
     public List<DataFile> findIngestsInProgress() {
-        Query query = em.createQuery("select object(o) from DataFile as o where o.ingestStatus =:scheduledStatusCode or o.ingestStatus =:progressStatusCode order by o.id");
-        query.setParameter("scheduledStatusCode", DataFile.INGEST_STATUS_SCHEDULED);
-        query.setParameter("progressStatusCode", DataFile.INGEST_STATUS_INPROGRESS);
-        return query.getResultList();
+        if ( em.isOpen() ) {
+            Query query = em.createQuery("select object(o) from DataFile as o where o.ingestStatus =:scheduledStatusCode or o.ingestStatus =:progressStatusCode order by o.id");
+            query.setParameter("scheduledStatusCode", DataFile.INGEST_STATUS_SCHEDULED);
+            query.setParameter("progressStatusCode", DataFile.INGEST_STATUS_INPROGRESS);
+            return query.getResultList();
+        } else {
+            return Collections.emptyList();
+        }
     }
     
     public DataTable findDataTableByFileId(Long fileId) {
@@ -176,25 +187,24 @@ public class DataFileServiceBean implements java.io.Serializable {
     }
     
     public String generateStorageIdentifier() {
-        String storageIdentifier = null; 
         
         UUID uid = UUID.randomUUID();
                 
-        logger.fine("UUID value: "+uid.toString());
+        logger.log(Level.FINE, "UUID value: {0}", uid.toString());
         
         // last 6 bytes, of the random UUID, in hex: 
         
         String hexRandom = uid.toString().substring(24);
         
-        logger.fine("UUID (last 6 bytes, 12 hex digits): "+hexRandom);
+        logger.log(Level.FINE, "UUID (last 6 bytes, 12 hex digits): {0}", hexRandom);
         
         String hexTimestamp = Long.toHexString(new Date().getTime());
         
-        logger.fine("(not UUID) timestamp in hex: "+hexTimestamp);
+        logger.log(Level.FINE, "(not UUID) timestamp in hex: {0}", hexTimestamp);
             
-        storageIdentifier = hexTimestamp + "-" + hexRandom;
+        String storageIdentifier = hexTimestamp + "-" + hexRandom;
         
-        logger.fine("timestamp/UUID hybrid: "+storageIdentifier);
+        logger.log(Level.FINE, "timestamp/UUID hybrid: {0}", storageIdentifier);
         return storageIdentifier; 
     }
     
@@ -250,16 +260,54 @@ public class DataFileServiceBean implements java.io.Serializable {
      * ready to be downloaded. (it will try to generate a thumbnail for supported
      * file types, if not yet available)
     */
-    public boolean isThumbnailAvailable (DataFile file) {
+    public boolean isThumbnailAvailable (DataFile file, DataverseSession session) {
+        // If thumbnails are not even supported for this class of files, 
+        // there's notthing to talk about: 
+        
         if (!thumbnailSupported(file)) {
             return false;
         }
         
+        // Also, thumbnails are only shown to users who have permission to see 
+        // the full-size image file. So before we do anything else, let's
+        // do some authentication and authorization:
+        
+        AuthenticatedUser user = null;
+        
+        if (session != null) {
+            if (session.getUser() != null) {
+                if (session.getUser().isAuthenticated()) {
+                    user = (AuthenticatedUser) session.getUser();
+                } else {
+                    logger.fine("User associated with the session is not an authenticated user. (Guest access will be assumed).");
+                    if (session.getUser() instanceof GuestUser) {
+                        logger.fine("User associated with the session is indeed a guest user.");
+                    }
+                }
+            } else {
+                logger.fine("No user associated with the session.");
+            }
+        } else {
+            logger.fine("Session is null.");
+        } 
+        
+        if (!permissionService.userOn(user, file).has(Permission.DownloadFile)) { 
+            logger.fine("No permission to download the file.");
+            return false; 
+        }
+        
+        
+        
        return ImageThumbConverter.isThumbnailAvailable(file);      
     }
     
- 
-    public boolean isPreviewAvailable (Long fileId) {
+    
+    /* 
+        TODO: 
+        rename this method "isCardThumbnailAvailable" 
+        -- L.A. 4.0 beta14
+    */
+    public boolean isPreviewAvailable (Long fileId, DataverseSession dataverseSession) {
         if (fileId == null) {
             return false; 
         }
@@ -270,7 +318,35 @@ public class DataFileServiceBean implements java.io.Serializable {
             return false; 
         }
         
-        return isThumbnailAvailable(file); 
+        return isThumbnailAvailable(file, dataverseSession); 
+    }
+    
+    // TODO: 
+    // Document this.
+    // -- L.A. 4.0 beta14
+    
+    public boolean isTemporaryPreviewAvailable(String fileSystemId, String mimeType) {
+        
+        String filesRootDirectory = System.getProperty("dataverse.files.directory");
+        if (filesRootDirectory == null || filesRootDirectory.equals("")) {
+            filesRootDirectory = "/tmp/files";
+        }
+
+        String fileSystemName = filesRootDirectory + "/temp/" + fileSystemId;
+        
+        String imageThumbFileName = null;
+        
+        if ("application/pdf".equals(mimeType)) {
+            imageThumbFileName = ImageThumbConverter.generatePDFThumb(fileSystemName);
+        } else if (mimeType != null && mimeType.startsWith("image/")) {
+            imageThumbFileName = ImageThumbConverter.generateImageThumb(fileSystemName);
+        }
+        
+        if (imageThumbFileName != null) {
+            return true; 
+        }
+            
+        return false;
     }
     
     /* 

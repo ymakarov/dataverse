@@ -88,6 +88,11 @@ public class SearchFields {
     public static final String FILE_NAME = "filename_en";
     public static final String FILE_DESCRIPTION = "fileDescription_en";
     public static final String FILE_TYPE_SEARCHABLE = "filetype_en";
+    /**
+     * @todo this is not named properly. We want to expose an acutal MIME Type
+     * in https://github.com/IQSS/dataverse/issues/1595 . See also cleanup
+     * ticket at https://github.com/IQSS/dataverse/issues/1314
+     */
     public static final String FILE_TYPE_MIME = "filetypemime_s";
     public static final String FILE_TYPE = "filetype_s";
     /**
@@ -145,7 +150,7 @@ public class SearchFields {
      */
     public static final String PARENT_CITATION = "parent_citation_s";
 
-    public static final String DATASET_DESCRIPTION = "dsDescription";
+    public static final String DATASET_DESCRIPTION = "dsDescriptionValue";
     /**
      * @todo Add this to schema.xml with no "_s" and make it indexed=false
      */

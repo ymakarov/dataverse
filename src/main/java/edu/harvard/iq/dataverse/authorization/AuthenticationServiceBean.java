@@ -1,6 +1,8 @@
 package edu.harvard.iq.dataverse.authorization;
 
 import edu.harvard.iq.dataverse.IndexServiceBean;
+import edu.harvard.iq.dataverse.actionlogging.ActionLogRecord;
+import edu.harvard.iq.dataverse.actionlogging.ActionLogServiceBean;
 import edu.harvard.iq.dataverse.authorization.exceptions.AuthenticationFailedException;
 import edu.harvard.iq.dataverse.authorization.exceptions.AuthenticationProviderFactoryNotFoundException;
 import edu.harvard.iq.dataverse.authorization.exceptions.AuthorizationSetupException;
@@ -27,7 +29,6 @@ import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
 import javax.ejb.EJB;
 import javax.ejb.Singleton;
-import javax.faces.application.FacesMessage;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.NonUniqueResultException;
@@ -53,9 +54,13 @@ public class AuthenticationServiceBean {
     
     @EJB
     BuiltinUserServiceBean builtinUserServiceBean;
+    
     @EJB
     IndexServiceBean indexService;
-
+    
+    @EJB
+    protected ActionLogServiceBean actionLogSvc;
+    
     @PersistenceContext(unitName = "VDCNet-ejbPU")
     private EntityManager em;
     
@@ -125,11 +130,16 @@ public class AuthenticationServiceBean {
                     "Duplicate id " + aProvider.getId() + " for authentication provider.");
         }
         authenticationProviders.put( aProvider.getId(), aProvider);
-        logger.log( Level.INFO, "Registered Authentication Provider {0} as {1}", new Object[]{aProvider.getInfo().getTitle(), aProvider.getId()});
+        actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Auth, "registerProvider")
+            .setInfo(aProvider.getId() + ":" + aProvider.getInfo().getTitle()));
+        
     }
 
     public void deregisterProvider( String id ) {
         authenticationProviders.remove( id );
+        actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Auth, "deregisterProvider")
+            .setInfo(id));
+
         logger.log(Level.INFO,"Deregistered provider {0}", new Object[]{id});
         logger.log(Level.INFO,"Providers left {0}", new Object[]{getAuthenticationProviderIds()});
     }
@@ -195,8 +205,11 @@ public class AuthenticationServiceBean {
                 BuiltinUser builtin = builtinUserServiceBean.findByUserName(user.getUserIdentifier());
                 em.remove(builtin);
             }
+            actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Auth, "deleteUser")
+                .setInfo(user.getUserIdentifier()));
             em.remove(user.getAuthenticatedUserLookup());         
             em.remove(user);
+
         }
     }
             
@@ -216,10 +229,10 @@ public class AuthenticationServiceBean {
                     .setParameter("email", email)
                     .getSingleResult();
         } catch ( NoResultException ex ) {
-            logger.info("no user found using " + email);
+            logger.log(Level.INFO, "no user found using {0}", email);
             return null;
         } catch ( NonUniqueResultException ex ) {
-            logger.info("multiple users found using " + email + ": " + ex);
+            logger.log(Level.INFO, "multiple users found using {0}: {1}", new Object[]{email, ex});
             return null;
         }
     }
@@ -235,7 +248,8 @@ public class AuthenticationServiceBean {
             AuthenticatedUser user = lookupUser(authenticationProviderId, resp.getUserId());
 
             return ( user == null ) ?
-                createAuthenticatedUser( authenticationProviderId, resp.getUserId(), resp.getUserDisplayInfo() )
+                AuthenticationServiceBean.this.createAuthenticatedUser(
+                        new UserRecordIdentifier(authenticationProviderId, resp.getUserId()), resp.getUserId(), resp.getUserDisplayInfo(), true )
                 : updateAuthenticatedUser( user, resp.getUserDisplayInfo() );
 
         } else { 
@@ -303,7 +317,9 @@ public class AuthenticationServiceBean {
         c.roll(Calendar.YEAR, 1);
         apiToken.setExpireTime(new Timestamp(c.getTimeInMillis()));
         save(apiToken);
-        
+        actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Auth, "generateApiToken")
+            .setInfo("user:" + au.getIdentifier() + " token:" +  apiToken.getTokenString()));
+
         return apiToken;
     }
 
@@ -345,58 +361,51 @@ public class AuthenticationServiceBean {
 
     /**
      * Creates an authenticated user based on the passed
-     * {@code userDisplayInfo}, and creates a lookup entry (within the passed
-     * authenticationProviderId) and an internal user identifier for them both
-     * based on the passed authPrvUserPersistentId.
-     *
-     * @param authenticationProviderId
-     * @param authPrvUserPersistentId
-     * @param userDisplayInfo 
-     * @return the newly created user.
-     */
-    public AuthenticatedUser createAuthenticatedUser(String authenticationProviderId, String authPrvUserPersistentId, AuthenticatedUserDisplayInfo userDisplayInfo) {
-        UserIdentifier userIdentifier = new UserIdentifier(authPrvUserPersistentId, authPrvUserPersistentId);
-        return createAuthenticatedUserWithDecoupledIdentifiers(authenticationProviderId, userIdentifier, userDisplayInfo);
-    }
-
-    /**
-     * Creates an authenticated user based on the passed
      * {@code userDisplayInfo}, a lookup entry for them based
      * UserIdentifier.getLookupStringPerAuthProvider (within the supplied
      * authentication provider), and internal user identifier (used for role
      * assignments, etc.) based on UserIdentifier.getInternalUserIdentifer.
      *
-     * @param authenticationProviderId
-     * @param userIdentifier
+     * @param userRecordId
+     * @param proposedAuthenticatedUserIdentifier
      * @param userDisplayInfo
-     * @return the newly created user.
+     * @param generateUniqueIdentifier if {@code true}, create a new, unique user identifier for the created user, if the suggested one exists.
+     * @return the newly created user, or {@code null} if the proposed identifier exists and {@code generateUniqueIdentifier} was {@code false}.
      */
-    public AuthenticatedUser createAuthenticatedUserWithDecoupledIdentifiers(String authenticationProviderId, UserIdentifier userIdentifier, AuthenticatedUserDisplayInfo userDisplayInfo) {
-        AuthenticatedUser auus = new AuthenticatedUser();
-        auus.applyDisplayInfo(userDisplayInfo);
-        String internalUserIdentifer = userIdentifier.getInternalUserIdentifer();
+    public AuthenticatedUser createAuthenticatedUser(UserRecordIdentifier userRecordId,
+                                                     String proposedAuthenticatedUserIdentifier,
+                                                     AuthenticatedUserDisplayInfo userDisplayInfo,
+                                                     boolean generateUniqueIdentifier) {
+        AuthenticatedUser authenticatedUser = new AuthenticatedUser();
+        authenticatedUser.applyDisplayInfo(userDisplayInfo);
         
-        // we now select a username
-        // TODO make a better username selection
-            // Better - throw excpetion to the provider, which has a better chance of getting this right.
+        // we now select a username for the generated AuthenticatedUser, or give up
+        String internalUserIdentifer = proposedAuthenticatedUserIdentifier;
         // TODO should lock table authenticated users for write here
         if ( identifierExists(internalUserIdentifer) ) {
+            if ( ! generateUniqueIdentifier ) {
+                return null;
+            }
             int i=1;
             String identifier = internalUserIdentifer + i;
             while ( identifierExists(identifier) ) {
                 i += 1;
             }
-            auus.setUserIdentifier(identifier);
+            authenticatedUser.setUserIdentifier(identifier);
         } else {
-            auus.setUserIdentifier(internalUserIdentifer);
+            authenticatedUser.setUserIdentifier(internalUserIdentifer);
         }
-        auus = save( auus );
+        authenticatedUser = save( authenticatedUser );
         // TODO should unlock table authenticated users for write here
-        String lookupStringPerAuthProvider = userIdentifier.getLookupStringPerAuthProvider();
-        AuthenticatedUserLookup auusLookup = new AuthenticatedUserLookup(lookupStringPerAuthProvider, authenticationProviderId, auus);
+        AuthenticatedUserLookup auusLookup = userRecordId.createAuthenticatedUserLookup(authenticatedUser);
         em.persist( auusLookup );
-        auus.setAuthenticatedUserLookup(auusLookup);
-        return auus;
+        authenticatedUser.setAuthenticatedUserLookup(auusLookup);
+        
+        actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Auth, "createUser")
+            .setInfo(authenticatedUser.getIdentifier()));
+
+        
+        return authenticatedUser;
     }
     
     public boolean identifierExists( String idtf ) {
@@ -407,6 +416,8 @@ public class AuthenticationServiceBean {
     
     public AuthenticatedUser updateAuthenticatedUser(AuthenticatedUser user, AuthenticatedUserDisplayInfo userDisplayInfo) {
         user.applyDisplayInfo(userDisplayInfo);
+        actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Auth, "updateUser")
+            .setInfo(user.getIdentifier()));
         return update(user);
     }
     
@@ -427,6 +438,8 @@ public class AuthenticationServiceBean {
         return new Timestamp(new Date().getTime());
     }
 
+    // TODO should probably be moved to the Shib provider - this is a classic Shib-specific
+    //      use case. This class should deal with general autnetications.
     public AuthenticatedUser convertBuiltInToShib(AuthenticatedUser builtInUserToConvert, String shibProviderId, UserIdentifier newUserIdentifierInLookupTable) {
         logger.info("converting user " + builtInUserToConvert.getId() + " from builtin to shib");
         String builtInUserIdentifier = builtInUserToConvert.getIdentifier();

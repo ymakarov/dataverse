@@ -19,7 +19,7 @@ public class IpGroupProvider implements GroupProvider<IpGroup> {
     private static final Logger logger = Logger.getLogger(IpGroupProvider.class.getCanonicalName());
 
     private final IpGroupsServiceBean ipGroupsService;
-
+    
     public IpGroupProvider(IpGroupsServiceBean ipGroupsService) {
         this.ipGroupsService = ipGroupsService;
     }
@@ -50,7 +50,6 @@ public class IpGroupProvider implements GroupProvider<IpGroup> {
              */
             UserRequestMetadata userRequestMetadata = u.getRequestMetadata();
             if (userRequestMetadata == null) {
-                logger.info("In the groupsFor(User u) method, u.getRequestMetadata() was null for user \"" + u.getIdentifier() + "\". Returning empty set. See also https://github.com/IQSS/dataverse/issues/1354");
                 return Collections.EMPTY_SET;
             }
             return updateProvider(ipGroupsService.findAllIncludingIp(u.getRequestMetadata().getIpAddress()));

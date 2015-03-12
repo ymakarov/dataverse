@@ -17,14 +17,16 @@ public class JsfHelper {
 	public static final JsfHelper JH = new JsfHelper();
 
         public static void addSuccessMessage(String message) {
-              FacesContext.getCurrentInstance().getExternalContext().getFlash().put("msg", message);     
-        }         
-        
-        public static void addFlashMessage(String message) {
-              FacesContext.getCurrentInstance().getExternalContext().getFlash().put("msg", message);
+              FacesContext.getCurrentInstance().getExternalContext().getFlash().put("successMsg", message);
       
         } 
-    
+        public static void addFlashMessage(String message) {
+            addSuccessMessage(message);
+        }
+        public static void addErrorMessage(String message) {
+              FacesContext.getCurrentInstance().getExternalContext().getFlash().put("errorMsg", message);
+      
+        } 
 	public void addMessage( FacesMessage.Severity s, String summary, String details ) {
 		FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(s, summary, details));
 	}

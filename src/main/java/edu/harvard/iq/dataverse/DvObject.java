@@ -2,6 +2,7 @@ package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Objects;
 import javax.persistence.*;
 
@@ -44,13 +45,30 @@ public abstract class DvObject implements java.io.Serializable {
             return df.getFileMetadata().getLabel();
         }
     };
+    public static final Visitor<String> NameIdPrinter = new Visitor<String>(){
+
+        @Override
+        public String visit(Dataverse dv) {
+            return "[" + dv.getId() + " " + dv.getName() + "]";
+        }
+
+        @Override
+        public String visit(Dataset ds) {
+            return "[" + ds.getId() + " " + ds.getLatestVersion().getTitle() + "]";
+        }
+
+        @Override
+        public String visit(DataFile df) {
+            return "[" + df.getId() + " " + df.getFileMetadata().getLabel() + "]";
+        }
+    };
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(cascade = CascadeType.MERGE)
-    private DvObjectContainer owner;
+    private DvObject owner;
 
     private Timestamp publicationDate;
 
@@ -58,6 +76,7 @@ public abstract class DvObject implements java.io.Serializable {
     @ManyToOne
     private AuthenticatedUser releaseUser;
     
+    @Column( nullable = false )
     private Timestamp createDate;
 
     @Column(nullable = false)
@@ -85,6 +104,7 @@ public abstract class DvObject implements java.io.Serializable {
     /**
      * modificationTime is used for comparison with indexTime so we know if the
      * Solr index is stale.
+     * @param modificationTime
      */
     public void setModificationTime(Timestamp modificationTime) {
         this.modificationTime = modificationTime;
@@ -97,6 +117,7 @@ public abstract class DvObject implements java.io.Serializable {
     /**
      * indexTime is used for comparison with modificationTime so we know if the
      * Solr index is stale.
+     * @param indexTime
      */
     public void setIndexTime(Timestamp indexTime) {
         this.indexTime = indexTime;
@@ -114,7 +135,7 @@ public abstract class DvObject implements java.io.Serializable {
     /**
      * Sets the owner of the object. This is {@code protected} rather than
      * {@code public}, since different sub-classes have different possible owner
-     * types: a {@link DataFile} can only have a {@link DataSet}, for example.
+     * types: a {@link DataFile} can only have a {@link Dataset}, for example.
      *
      * @param newOwner
      */
@@ -123,7 +144,7 @@ public abstract class DvObject implements java.io.Serializable {
     }
 
     public DvObjectContainer getOwner() {
-        return owner;
+        return (DvObjectContainer)owner;
     }
 
     public Long getId() {
@@ -241,4 +262,7 @@ public abstract class DvObject implements java.io.Serializable {
         
         return null;
     }    
+    
+    @OneToMany(mappedBy = "definitionPoint",cascade={ CascadeType.REMOVE, CascadeType.MERGE,CascadeType.PERSIST}, orphanRemoval=true)
+    List<RoleAssignment> roleAssignments;
 }

@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
@@ -30,7 +25,6 @@ import edu.harvard.iq.dataverse.util.StringUtil;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -122,6 +116,17 @@ public class ManagePermissionsPage implements java.io.Serializable {
     /* 
      main page - role assignment table
      */
+    
+    // used by remove Role Assignment
+    private RoleAssignment selectedRoleAssignment;
+
+    public RoleAssignment getSelectedRoleAssignment() {
+        return selectedRoleAssignment;
+    }
+
+    public void setSelectedRoleAssignment(RoleAssignment selectedRoleAssignment) {
+        this.selectedRoleAssignment = selectedRoleAssignment;
+    }    
   
     public List<RoleAssignmentRow> getRoleAssignments() {
         List<RoleAssignmentRow> raList = null;
@@ -142,9 +147,9 @@ public class ManagePermissionsPage implements java.io.Serializable {
         }
         return raList;
     }
-    
-    public void removeRoleAssignment(Long roleAssignmentId) {
-        revokeRole(roleAssignmentId);
+      
+    public void removeRoleAssignment() {
+        revokeRole(selectedRoleAssignment);
 
         if (dvObject instanceof Dataverse) {
             initAccessSettings(); // in case the revoke was for the AuthenticatedUsers group
@@ -154,9 +159,8 @@ public class ManagePermissionsPage implements java.io.Serializable {
     }
     
     // internal method used by removeRoleAssignment and saveConfiguration
-    private void revokeRole(Long roleAssignmentId) {
+    private void revokeRole(RoleAssignment ra) {
         try {
-            RoleAssignment ra = em.find(RoleAssignment.class, roleAssignmentId);
             commandEngine.submit(new RevokeRoleCommand(ra, session.getUser()));
             JsfHelper.addSuccessMessage(ra.getRole().getName() + " role for " + roleAssigneeService.getRoleAssignee(ra.getAssigneeIdentifier()).getDisplayInfo().getTitle() + " was removed.");
         } catch (PermissionException ex) {
@@ -255,7 +259,7 @@ public class ManagePermissionsPage implements java.io.Serializable {
                 if (currentRole.equals(roleToAssign)) {
                     roleToAssign = null; // found the role, so no need to assign
                 } else {
-                    revokeRole(roleAssignment.getId());
+                    revokeRole(roleAssignment);
                 }
             }
         }
@@ -460,9 +464,10 @@ public class ManagePermissionsPage implements java.io.Serializable {
     ============================================================================
     */
     
+    String explicitGroupIdentifier = "";
     String explicitGroupName = "";
-    String explicitGroupFriendlyName = "";
     String newExplicitGroupDescription = "";
+    UIInput explicitGroupIdentifierField;
     
     @EJB
     ExplicitGroupServiceBean explicitGroupSvc;
@@ -471,17 +476,19 @@ public class ManagePermissionsPage implements java.io.Serializable {
     
     public void initExplicitGroupDialog(ActionEvent ae) {
         showNoMessages();
-        setExplicitGroupFriendlyName("");
         setExplicitGroupName("");
+        setExplicitGroupIdentifier("");
         setNewExplicitGroupDescription("");
         setNewExplicitGroupRoleAssignees(new LinkedList<RoleAssignee>());
+        FacesContext context = FacesContext.getCurrentInstance();
+        
     }
 
     public void saveExplicitGroup(ActionEvent ae) {
         
         ExplicitGroup eg = explicitGroupSvc.getProvider().makeGroup();
-        eg.setDisplayName( getExplicitGroupFriendlyName() );
-        eg.setGroupAliasInOwner( getExplicitGroupName() );
+        eg.setDisplayName( getExplicitGroupName() );
+        eg.setGroupAliasInOwner( getExplicitGroupIdentifier() );
         eg.setDescription( getNewExplicitGroupDescription() );
         
         if ( getNewExplicitGroupRoleAssignees()!= null ) {
@@ -497,8 +504,15 @@ public class ManagePermissionsPage implements java.io.Serializable {
             }
         }
         try {
+            logger.info( "Attempting to create group " + eg.getGroupAliasInOwner() ); // TODO MBS remove
             eg = commandEngine.submit( new CreateExplicitGroupCommand(session.getUser(), (Dataverse) getDvObject(), eg));
             JsfHelper.addSuccessMessage("Succesfully created group " + eg.getDisplayName());
+        
+        } catch ( CreateExplicitGroupCommand.GroupAliasExistsException gaee ) {
+            logger.info( "Got me then message " + gaee.getMessage() ); // TODO MBS remove
+            explicitGroupIdentifierField.setValid( false );
+            FacesContext.getCurrentInstance().addMessage(explicitGroupIdentifierField.getClientId(),
+                           new FacesMessage( FacesMessage.SEVERITY_ERROR, gaee.getMessage(), null));
             
         } catch (CommandException ex) {
             logger.log(Level.WARNING, "Group creation failed", ex);
@@ -507,45 +521,54 @@ public class ManagePermissionsPage implements java.io.Serializable {
                                     ex.getMessage());
         } catch (Exception ex) {
             JH.addMessage(FacesMessage.SEVERITY_FATAL, "The role was not able to be saved.");
-            logger.log(Level.SEVERE, "Error saving role: " + ex.getMessage(), ex);
+             logger.log(Level.SEVERE, "Error saving role: " + ex.getMessage(), ex);
         }
         showAssignmentMessages();
     }
 
-    public void setExplicitGroupFriendlyName(String explicitGroupFriendlyName) {
-        this.explicitGroupFriendlyName = explicitGroupFriendlyName;
-    }
-
-    public String getExplicitGroupFriendlyName() {
-        return explicitGroupFriendlyName;
-    }
-
-    public void setExplicitGroupName(String explicitGroupName) {
-        this.explicitGroupName = explicitGroupName;
+    public void setExplicitGroupName(String explicitGroupFriendlyName) {
+        this.explicitGroupName = explicitGroupFriendlyName;
     }
 
     public String getExplicitGroupName() {
         return explicitGroupName;
     }
 
-    public void validateGroupName(FacesContext context, UIComponent toValidate, Object rawValue) {
+    public void setExplicitGroupIdentifier(String explicitGroupName) {
+        this.explicitGroupIdentifier = explicitGroupName;
+    }
+
+    public String getExplicitGroupIdentifier() {
+        return explicitGroupIdentifier;
+    }
+
+    public UIInput getExplicitGroupIdentifierField() {
+        return explicitGroupIdentifierField;
+    }
+
+    public void setExplicitGroupIdentifierField(UIInput explicitGroupIdentifierField) {
+        this.explicitGroupIdentifierField = explicitGroupIdentifierField;
+    }
+    
+    public void validateGroupIdentifier(FacesContext context, UIComponent toValidate, Object rawValue) {
         String value = (String) rawValue;
         UIInput input = (UIInput) toValidate;
-        
         input.setValid(true); // Optimistic approach
         
-        if (context.getExternalContext().getRequestParameterMap().get("DO_GROUP_VALIDATION") != null &&
-	   !StringUtils.isEmpty(value) ) {
+        if ( context.getExternalContext().getRequestParameterMap().get("DO_GROUP_VALIDATION") != null 
+                && !StringUtils.isEmpty(value) ) {
             
             // cheap test - regex
             if (! Pattern.matches("^[a-zA-Z0-9\\_\\-]+$", value) ) {
                 input.setValid(false);
-                input.setValidatorMessage( JH.localize("dataverse.permissions.explicitGroupEditDialog.groupName.invalid") );
+                context.addMessage(toValidate.getClientId(),
+                    new FacesMessage(FacesMessage.SEVERITY_ERROR, "", JH.localize("dataverse.permissions.explicitGroupEditDialog.groupIdentifier.invalid")));
             
             } else if ( explicitGroupSvc.findInOwner(getDvObject().getId(), value) != null ) {
                 // Ok, see that the alias is not taken
                 input.setValid(false);
-                input.setValidatorMessage( JH.localize("dataverse.permissions.explicitGroupEditDialog.groupName.taken") );
+                context.addMessage(toValidate.getClientId(),
+                    new FacesMessage(FacesMessage.SEVERITY_ERROR, "", JH.localize("dataverse.permissions.explicitGroupEditDialog.groupIdentifier.taken")));
             }
         }
     }
@@ -634,6 +657,10 @@ public class ManagePermissionsPage implements java.io.Serializable {
             ra = anRa;
             assigneeDisplayInfo = disInf;
         }
+        
+        public RoleAssignment getRoleAssignment() {
+            return ra;
+        }        
 
         public RoleAssigneeDisplayInfo getAssigneeDisplayInfo() {
             return assigneeDisplayInfo;
@@ -646,6 +673,7 @@ public class ManagePermissionsPage implements java.io.Serializable {
         public String getRoleName() {
             return getRole().getName();
         }
+                
 
         public DvObject getDefinitionPoint() {
             return ra.getDefinitionPoint();

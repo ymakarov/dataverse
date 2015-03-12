@@ -21,14 +21,12 @@ import edu.harvard.iq.dataverse.PermissionServiceBean;
 import edu.harvard.iq.dataverse.authorization.Permission;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.GuestUser;
-import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.dataaccess.OptionalAccessService;
 import edu.harvard.iq.dataverse.dataaccess.ImageThumbConverter;
 import edu.harvard.iq.dataverse.datavariable.DataVariable;
 import edu.harvard.iq.dataverse.datavariable.VariableServiceBean;
 import edu.harvard.iq.dataverse.export.DDIExportServiceBean;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
-import edu.harvard.iq.dataverse.worldmapauth.WorldMapToken;
 import edu.harvard.iq.dataverse.worldmapauth.WorldMapTokenServiceBean;
 
 import java.util.List;
@@ -39,7 +37,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Properties;
 import javax.inject.Inject;
 
@@ -79,11 +76,7 @@ import edu.harvard.iq.dataverse.api.exceptions.AuthorizationRequiredException;
 @Path("access")
 public class Access extends AbstractApiBean {
     private static final Logger logger = Logger.getLogger(Access.class.getCanonicalName());
-    
-    private static final String DEFAULT_FILE_ICON = "icon_file.png";
-    private static final String DEFAULT_DATASET_ICON = "icon_dataset.png";
-    private static final String DEFAULT_DATAVERSE_ICON = "icon_dataverse.png";
-    
+        
     @EJB
     DataFileServiceBean dataFileService;
     @EJB 
@@ -313,10 +306,10 @@ public class Access extends AbstractApiBean {
         return downloadInstance;
     }
     
-    @Path("imagethumb/{fileSystemId}")
+    @Path("tempPreview/{fileSystemId}")
     @GET
     @Produces({"image/png"})
-    public InputStream imagethumb(@PathParam("fileSystemId") String fileSystemId, @Context UriInfo uriInfo, @Context HttpHeaders headers, @Context HttpServletResponse response) /*throws NotFoundException, ServiceUnavailableException, PermissionDeniedException, AuthorizationRequiredException*/ {
+    public InputStream tempPreview(@PathParam("fileSystemId") String fileSystemId, @Context UriInfo uriInfo, @Context HttpHeaders headers, @Context HttpServletResponse response) /*throws NotFoundException, ServiceUnavailableException, PermissionDeniedException, AuthorizationRequiredException*/ {
         
         String filesRootDirectory = System.getProperty("dataverse.files.directory");
         if (filesRootDirectory == null || filesRootDirectory.equals("")) {
@@ -327,7 +320,7 @@ public class Access extends AbstractApiBean {
         
         String mimeTypeParam = uriInfo.getQueryParameters().getFirst("mimetype");
         String imageThumbFileName = null;
-        
+                
         if ("application/pdf".equals(mimeTypeParam)) {
             imageThumbFileName = ImageThumbConverter.generatePDFThumb(fileSystemName);
         } else {
@@ -340,10 +333,21 @@ public class Access extends AbstractApiBean {
         // (or maybe we shouldn't delete it - but instead move it into the 
         // permanent location... so that it doesn't have to be generated again?)
         // -- L.A. Aug. 21 2014
+        // Update: 
+        // the temporary thumbnail file does get cleaned up now; 
+        // but yeay, maybe we should be saving it permanently instead, as 
+        // the above suggested...
+        // -- L.A. Feb. 28 2015
+        
         
         if (imageThumbFileName == null) {
+            return null; 
+        }
+        /* 
+         removing the old, non-vector default icon: 
             imageThumbFileName = getWebappImageResource(DEFAULT_FILE_ICON);
         }
+        */
 
         InputStream in;
 
@@ -359,10 +363,10 @@ public class Access extends AbstractApiBean {
     
     
     
-    @Path("preview/{fileId}")
+    @Path("fileCardImage/{fileId}")
     @GET
     @Produces({ "image/png" })
-    public InputStream preview(@PathParam("fileId") Long fileId, @Context UriInfo uriInfo, @Context HttpHeaders headers, @Context HttpServletResponse response) /*throws NotFoundException, ServiceUnavailableException, PermissionDeniedException, AuthorizationRequiredException*/ {        
+    public InputStream fileCardImage(@PathParam("fileId") Long fileId, @Context UriInfo uriInfo, @Context HttpHeaders headers, @Context HttpServletResponse response) /*throws NotFoundException, ServiceUnavailableException, PermissionDeniedException, AuthorizationRequiredException*/ {        
         
         
         
@@ -380,9 +384,13 @@ public class Access extends AbstractApiBean {
             imageThumbFileName = ImageThumbConverter.generateImageThumb(df.getFileSystemLocation().toString(), 48);
         } else if ("application/zipped-shapefile".equalsIgnoreCase(df.getContentType())) {
             imageThumbFileName = ImageThumbConverter.generateWorldMapThumb(df.getFileSystemLocation().toString(), 48);
-        } else {
+        } 
+        /* 
+         * Removing the old, non-vector default icon: 
+        else {
             imageThumbFileName = getWebappImageResource (DEFAULT_FILE_ICON);
         }
+        */
         
         if (imageThumbFileName != null) {
             InputStream in;
@@ -398,10 +406,10 @@ public class Access extends AbstractApiBean {
         return null; 
     }
     
-    @Path("dsPreview/{versionId}")
+    @Path("dsCardImage/{versionId}")
     @GET
     @Produces({ "image/png" })
-    public InputStream dsPreview(@PathParam("versionId") Long versionId, @Context UriInfo uriInfo, @Context HttpHeaders headers, @Context HttpServletResponse response) /*throws NotFoundException, ServiceUnavailableException, PermissionDeniedException, AuthorizationRequiredException*/ {        
+    public InputStream dsCardImage(@PathParam("versionId") Long versionId, @Context UriInfo uriInfo, @Context HttpHeaders headers, @Context HttpServletResponse response) /*throws NotFoundException, ServiceUnavailableException, PermissionDeniedException, AuthorizationRequiredException*/ {        
         
         
         /*
@@ -455,10 +463,6 @@ public class Access extends AbstractApiBean {
                     break;
                 }
             }
-        }
-        
-        if (imageThumbFileName == null) {
-            imageThumbFileName = getWebappImageResource (DEFAULT_DATASET_ICON);
         }
         
         if (imageThumbFileName != null) {
@@ -548,13 +552,6 @@ public class Access extends AbstractApiBean {
             }
         }
         
-        // Finally, if we haven't found anything - we'll give them the default 
-        // dataverse icon: 
-        
-        if (imageThumbFileName == null) {
-            imageThumbFileName = getWebappImageResource (DEFAULT_DATAVERSE_ICON);
-        }
-        
         if (imageThumbFileName != null) {
             InputStream in;
 
@@ -568,6 +565,10 @@ public class Access extends AbstractApiBean {
 
         return null; 
     }
+    
+    // TODO: 
+    // put this method into the dataverseservice; use it there
+    // -- L.A. 4.0 beta14
     
     private File getLogo(Dataverse dataverse) {
         if (dataverse.getId() == null) {
@@ -591,6 +592,8 @@ public class Access extends AbstractApiBean {
         return null;         
     }
     
+    /* 
+        removing: 
     private String getWebappImageResource(String imageName) {
         String imageFilePath = null;
         String persistenceFilePath = null;
@@ -610,6 +613,7 @@ public class Access extends AbstractApiBean {
 
         return null;
     }
+    */
     
     
     // TODO: 

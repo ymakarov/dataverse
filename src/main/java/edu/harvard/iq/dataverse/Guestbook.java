@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Set;
 import javax.faces.application.FacesMessage;
 import javax.faces.context.FacesContext;
+import javax.persistence.Column;
+import javax.persistence.OrderBy;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import javax.persistence.Transient;
@@ -46,6 +48,7 @@ public class Guestbook implements Serializable {
     private Dataverse dataverse;
     
     @OneToMany(mappedBy="guestbook",cascade={CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST},orphanRemoval=true)
+    @OrderBy("displayOrder")
     private List<CustomQuestion> customQuestions;
     
     @NotBlank(message="Enter a name for the guestbook")
@@ -57,9 +60,10 @@ public class Guestbook implements Serializable {
     private boolean institutionRequired;   
     private boolean positionRequired; 
     @Temporal(value = TemporalType.TIMESTAMP)
+    @Column( nullable = false )
     private Date createTime;
     
-    /** WE PROBABLY NEED HELP INFO TEXT...
+    /* WE PROBABLY NEED HELP INFO TEXT...
      * public String guestbook() {
         FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Edit Guestbook", " – Edit your dataset guestbook and click Save Changes. Asterisks indicate required fields."));
         return null;
@@ -164,13 +168,15 @@ public class Guestbook implements Serializable {
                 target.setGuestbook(newGuestbook);
                 target.setHidden(sq.isHidden());
                 target.setRequired(sq.isRequired());
+                target.setDisplayOrder(sq.getDisplayOrder());
                 target.setQuestionString(sq.getQuestionString());
                 if(!sq.getCustomQuestionValues().isEmpty()){
+                    target.setCustomQuestionValues(new ArrayList());
                     for (CustomQuestionValue scqv: sq.getCustomQuestionValues()){
                         CustomQuestionValue newVal = new CustomQuestionValue();
-
                         newVal.setValueString(scqv.getValueString());
                         newVal.setCustomQuestion(target);
+                        target.getCustomQuestionValues().add(newVal);
                     }
                 }
                 newGuestbook.getCustomQuestions().add(target);

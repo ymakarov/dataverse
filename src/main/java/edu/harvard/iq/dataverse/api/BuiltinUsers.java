@@ -1,8 +1,11 @@
 package edu.harvard.iq.dataverse.api;
 
+import edu.harvard.iq.dataverse.actionlogging.ActionLogRecord;
+import edu.harvard.iq.dataverse.authorization.UserRecordIdentifier;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinAuthenticationProvider;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUser;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUserServiceBean;
+import edu.harvard.iq.dataverse.authorization.providers.builtin.PasswordEncryption;
 import edu.harvard.iq.dataverse.authorization.users.ApiToken;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.json;
@@ -72,23 +75,42 @@ public class BuiltinUsers extends AbstractApiBean {
     public Response create(BuiltinUser user, @PathParam("password") String password, @PathParam("key") String key) {
         return internalSave(user, password, key);
     }
+    
+    @POST
+    public Response save(BuiltinUser user, @QueryParam("password") String password, @QueryParam("key") String key) {
+        return internalSave(user, password, key);
+    }
 
     private Response internalSave(BuiltinUser user, String password, String key) {
         String expectedKey = settingsSvc.get(API_KEY_IN_SETTINGS);
+        
         if (expectedKey == null) {
             return errorResponse(Status.SERVICE_UNAVAILABLE, "Dataverse config issue: No API key defined for built in user management");
         }
         if (!expectedKey.equals(key)) {
             return badApiKey(key);
         }
+        
+        ActionLogRecord alr = new ActionLogRecord(ActionLogRecord.ActionType.BuiltinUser, "create");
+        
         try {
+            
             if (password != null) {
-                user.setEncryptedPassword(builtinUserSvc.encryptPassword(password));
+                user.updateEncryptedPassword(PasswordEncryption.get().encrypt(password), PasswordEncryption.getLatestVersionNumber());
+            }
+            
+            // Make sure the identifier is unique
+            if ( (builtinUserSvc.findByUserName(user.getUserName()) != null)
+                    || ( authSvc.identifierExists(user.getUserName())) ) {
+                return errorResponse(Status.BAD_REQUEST, "username '" + user.getUserName() + "' already exists");
             }
             user = builtinUserSvc.save(user);
 
-            AuthenticatedUser au = authSvc.createAuthenticatedUser(BuiltinAuthenticationProvider.PROVIDER_ID, user.getUserName(), user.getDisplayInfo());
-
+            AuthenticatedUser au = authSvc.createAuthenticatedUser(
+                    new UserRecordIdentifier(BuiltinAuthenticationProvider.PROVIDER_ID, user.getUserName()),
+                    user.getUserName(), 
+                    user.getDisplayInfo(),
+                    false);
             ApiToken token = new ApiToken();
 
             token.setTokenString(java.util.UUID.randomUUID().toString());
@@ -103,9 +125,13 @@ public class BuiltinUsers extends AbstractApiBean {
             JsonObjectBuilder resp = Json.createObjectBuilder();
             resp.add("user", json(user));
             resp.add("apiToken", token.getTokenString());
+            
+            alr.setInfo("builtinUser:" + user.getUserName() + " authenticatedUser:" + au.getIdentifier() );
             return okResponse(resp);
             
         } catch ( EJBException ejbx ) {
+            alr.setActionResult(ActionLogRecord.Result.InternalError);
+            alr.setInfo( alr.getInfo() + "// " + ejbx.getMessage());
             if ( ejbx.getCausedByException() instanceof IllegalArgumentException ) {
                 return errorResponse(Status.BAD_REQUEST, "Bad request: can't save user. " + ejbx.getCausedByException().getMessage());
             } else {
@@ -115,13 +141,12 @@ public class BuiltinUsers extends AbstractApiBean {
             
         } catch (Exception e) {
             logger.log(Level.WARNING, "Error saving user", e);
+            alr.setActionResult(ActionLogRecord.Result.InternalError);
+            alr.setInfo( alr.getInfo() + "// " + e.getMessage());
             return errorResponse(Status.INTERNAL_SERVER_ERROR, "Can't save user: " + e.getMessage());
+        } finally {
+            actionLogSvc.log(alr);
         }
-    }
-
-    @POST
-    public Response save(BuiltinUser user, @QueryParam("password") String password, @QueryParam("key") String key) {
-        return internalSave(user, password, key);
     }
 
 }

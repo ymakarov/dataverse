@@ -33,14 +33,14 @@ import org.apache.commons.lang.StringUtils;
 @Named
 @Stateless
 public class ShibServiceBean {
-
+    
     private static final Logger logger = Logger.getLogger(ShibServiceBean.class.getCanonicalName());
-
+    
     @EJB
     AuthenticationServiceBean authSvc;
     @EJB
     BuiltinUserServiceBean builtinUserService;
-
+    
     public AuthenticatedUser findAuthUserByEmail(String emailToFind) {
         return authSvc.getAuthenticatedUserByEmail(emailToFind);
     }
@@ -48,10 +48,14 @@ public class ShibServiceBean {
     public BuiltinUser findBuiltInUserByAuthUserIdentifier(String authUserIdentifier) {
         return builtinUserService.findByUserName(authUserIdentifier);
     }
-
+    
     public AuthenticatedUser canLogInAsBuiltinUser(String username, String password) {
         logger.info("checking to see if " + username + " knows the password...");
-
+        if (password == null) {
+            logger.info("password was null");
+            return null;
+        }
+        
         AuthenticationRequest authReq = new AuthenticationRequest();
         authReq.putCredential("Username", username);
         authReq.putCredential("Password", password);
@@ -71,6 +75,10 @@ public class ShibServiceBean {
         }
     }
 
+    /**
+     * @todo Move the getAffiliation method from the Shib JSF backing bean to
+     * here.
+     */
     public String getFriendlyInstitutionName(String entityId) {
         /**
          * @todo Look for the entityId (i.e.
@@ -112,7 +120,7 @@ public class ShibServiceBean {
         } catch (IOException ex) {
             Logger.getLogger(Shib.class.getName()).log(Level.SEVERE, null, ex);
         }
-
+        
         JsonParser jp = new JsonParser();
         JsonElement root = null;
         try {

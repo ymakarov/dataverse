@@ -244,7 +244,7 @@ public class DatasetField implements Serializable {
         String returnString = "";
         for (String value : getValues()) {
             if(value == null) value="";
-            returnString += (returnString.equals("") ? "" : "; ") + value;
+            returnString += (returnString.equals("") ? "" : "; ") + value.trim();
         }
         return returnString;
     }
@@ -255,7 +255,7 @@ public class DatasetField implements Serializable {
             for (DatasetField dsf : dscv.getChildDatasetFields()) {
                 for (String value : dsf.getValues()) {
                     if (!(value == null)) {
-                        returnString += (returnString.equals("") ? "" : "; ") + value;
+                        returnString += (returnString.equals("") ? "" : "; ") + value.trim();
                     }
                 }
             }
@@ -320,15 +320,65 @@ public class DatasetField implements Serializable {
     }
     
     @Transient 
-    private boolean required;
-    
-    public void setRequired(boolean required){
-        this.required = required;
+    private Boolean required;
+       
+    public boolean isRequired() {
+        if (required == null) {
+            required = false;
+            if (this.datasetFieldType.isPrimitive() && this.datasetFieldType.isRequired()) {
+                required = true;
+            }
+
+            if (this.datasetFieldType.isHasRequiredChildren()) {
+                required = true;
+            }
+
+            Dataverse dv = getDataverse();
+            while (!dv.isMetadataBlockRoot()) {
+                if (dv.getOwner() == null) {
+                    break; // we are at the root; which by defintion is metadata blcok root, regarldess of the value
+                }
+                dv = dv.getOwner();
+            }
+
+            List<DataverseFieldTypeInputLevel> dftilListFirst = dv.getDataverseFieldTypeInputLevels();
+            if (!getDatasetFieldType().isHasChildren()) {
+                for (DataverseFieldTypeInputLevel dsftil : dftilListFirst) {
+                    if (dsftil.getDatasetFieldType().equals(this.datasetFieldType)) {
+                        required = dsftil.isRequired();
+                    }
+                }
+            }
+
+            if (getDatasetFieldType().isHasChildren() && (!dftilListFirst.isEmpty())) {
+                for (DatasetFieldType child : getDatasetFieldType().getChildDatasetFieldTypes()) {
+                    for (DataverseFieldTypeInputLevel dftilTest : dftilListFirst) {
+                        if (child.equals(dftilTest.getDatasetFieldType())) {
+                            if (dftilTest.isRequired()) {
+                                required = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+        // System.out.print("at return  " + this.datasetFieldType.getDisplayName() + " " + required);
+        return required;
     }
     
-    public boolean isRequired(){
-        return this.required;
+    public Dataverse getDataverse() {
+        if (datasetVersion != null) {
+            return datasetVersion.getDataset().getOwner();
+        } else if (parentDatasetFieldCompoundValue != null) {
+            return parentDatasetFieldCompoundValue.getParentDatasetField().getDataverse();
+        } else if (template != null) {
+            return template.getDataverse();
+        } else {
+            throw new IllegalStateException("DatasetField is in an illegal state: no dataset version, compound value, or template is set as its parent.");
+        }
     }
+
     
     @Transient 
     private boolean include;
