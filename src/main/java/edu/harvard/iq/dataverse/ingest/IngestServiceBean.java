@@ -398,7 +398,7 @@ public class IngestServiceBean {
                         }
 
                         String fileEntryName = zipEntry.getName();
-                        logger.info("ZipEntry, file: "+fileEntryName);
+                        logger.fine("ZipEntry, file: "+fileEntryName);
 
                         if (fileEntryName != null && !fileEntryName.equals("")) {
 
@@ -416,8 +416,9 @@ public class IngestServiceBean {
                                 if (!fileEntryName.equals(shortName)) {
                                     String categoryName = fileEntryName.replaceFirst("[\\/][^\\/]*$", "");
                                     if (!"".equals(categoryName)) {
-                                        logger.info("setting category to "+categoryName);
-                                        datafile.getFileMetadata().setCategory(categoryName.replaceAll("[\\/]", "-"));
+                                        logger.fine("setting category to " + categoryName);
+                                        //datafile.getFileMetadata().setCategory(categoryName.replaceAll("[\\/]", "-"));
+                                        datafile.getFileMetadata().addCategoryByName(categoryName.replaceAll("[\\/]", "-"));
                                     }
                                 }
                                 
@@ -473,10 +474,16 @@ public class IngestServiceBean {
                     }
                     version.getFileMetadatas().add(datafile.getFileMetadata());
                     datafile.getFileMetadata().setDatasetVersion(version);
+                    
+                    /* TODO!!
+                    // re-implement this in some way that does not use the 
+                    // deprecated .getCategory() on FileMeatadata:
                     if (datafile.getFileMetadata().getCategory() != null) {
                         datafile.getFileMetadata().addCategoryByName(datafile.getFileMetadata().getCategory());
                         datafile.getFileMetadata().setCategory(null);
+                        -- done? see above?
                     }
+                    */
                     version.getDataset().getFiles().add(datafile);
                 }
                 // remove the uploaded zip file: 
@@ -1021,7 +1028,11 @@ public class IngestServiceBean {
         
         for (DataFile dataFile : dataset.getFiles()) {
             if (dataFile.isIngestScheduled()) {
-                dataFile.SetIngestInProgress();
+                // todo: investigate why when calling save with the file object
+                // gotten from the loop, the roles assignment added at create is removed
+                // (switching to refinding via id resolves that)                
+                dataFile = fileService.find(dataFile.getId());
+                dataFile.SetIngestInProgress();               
                 dataFile = fileService.save(dataFile);
 
                 scheduledFiles.add(dataFile);

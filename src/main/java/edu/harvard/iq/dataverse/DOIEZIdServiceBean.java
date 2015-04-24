@@ -44,7 +44,7 @@ public class DOIEZIdServiceBean  {
         ezidService = new EZIDService (baseURLString);    
         USERNAME  = System.getProperty("doi.username");
         PASSWORD  = System.getProperty("doi.password");
-        logger.log(Level.INFO, "baseURLString " + baseURLString);
+        logger.log(Level.FINE, "baseURLString " + baseURLString);
         try {
            ezidService.login(USERNAME, PASSWORD);  
         } catch(Exception e){
@@ -63,7 +63,7 @@ public class DOIEZIdServiceBean  {
         metadata.put("_status", "reserved");;       
         try {
             retString = ezidService.createIdentifier(identifier, metadata);
-            logger.log(Level.INFO, "create DOI identifier retString : " + retString);
+            logger.log(Level.FINE, "create DOI identifier retString : " + retString);
         } catch (EZIDException e) {
             logger.log(Level.INFO, "Identifier not created: create failed");
             logger.log(Level.INFO, "String " + e.toString());
@@ -98,8 +98,8 @@ public class DOIEZIdServiceBean  {
        try {
               metadata = ezidService.getMetadata(identifierOut);
             }  catch (EZIDException e){                
-            logger.log(Level.INFO, "None existing so we can use this identifier");
-            logger.log(Level.INFO, "identifier: " + identifierOut );  
+            logger.log(Level.FINE, "None existing so we can use this identifier");
+            logger.log(Level.FINE, "identifier: " + identifierOut);
             return metadata;
         }         
        return metadata;
@@ -110,17 +110,19 @@ public class DOIEZIdServiceBean  {
     }
     
     
-    public void modifyIdentifier(Dataset dataset, HashMap metadata ){
-        String identifier = getIdentifierFromDataset(dataset);
+    public String modifyIdentifier(Dataset dataset, HashMap metadata ){
+       String identifier = getIdentifierFromDataset(dataset);
        try {
                ezidService.setMetadata(identifier, metadata);
+               return identifier;
             }  catch (EZIDException e){                
             logger.log(Level.INFO, "modifyMetadata failed");
             logger.log(Level.INFO, "String " + e.toString() );
             logger.log(Level.INFO, "localized message " + e.getLocalizedMessage());
             logger.log(Level.INFO, "cause " + e.getCause());
             logger.log(Level.INFO, "message " + e.getMessage());    
-        }                
+        } 
+       return null;
     }
     
     public void deleteIdentifier(Dataset datasetIn) {
@@ -184,7 +186,7 @@ public class DOIEZIdServiceBean  {
         
     }
     
-    private HashMap getMetadataFromStudyForCreateIndicator(Dataset datasetIn) {
+    public HashMap getMetadataFromStudyForCreateIndicator(Dataset datasetIn) {
         HashMap<String, String> metadata = new HashMap<String, String>();
         
         String authorString = datasetIn.getLatestVersion().getAuthorsStr();
@@ -208,10 +210,28 @@ public class DOIEZIdServiceBean  {
         DOISHOULDER = "doi:" + datasetIn.getAuthority();
         
         if (inetAddress.equals("localhost")){                    
-           targetUrl ="http://localhost:8080" + "/dataset.xhtml?globalId=" + DOISHOULDER 
+           targetUrl ="http://localhost:8080" + "/dataset.xhtml?persistentId=" + DOISHOULDER 
                     + datasetIn.getDoiSeparator()       + datasetIn.getIdentifier();
         } else{
-           targetUrl = inetAddress + "/dataset.xhtml?globalId=" + DOISHOULDER 
+           targetUrl = inetAddress + "/dataset.xhtml?persistentId=" + DOISHOULDER 
+                + datasetIn.getDoiSeparator()     + datasetIn.getIdentifier();
+        }            
+        metadata.put("_target", targetUrl);
+        return metadata;
+    }
+    
+    public HashMap getMetadataFromDatasetForTargetURL(Dataset datasetIn) {
+        HashMap<String, String> metadata = new HashMap<String, String>();
+        
+        String inetAddress = getSiteUrl();
+        String targetUrl = "";     
+        DOISHOULDER = "doi:" + datasetIn.getAuthority();
+        
+        if (inetAddress.equals("localhost")){                    
+           targetUrl ="http://localhost:8080" + "/dataset.xhtml?persistentId=" + DOISHOULDER 
+                    + datasetIn.getDoiSeparator()       + datasetIn.getIdentifier();
+        } else{
+           targetUrl = inetAddress + "/dataset.xhtml?persistentId=" + DOISHOULDER 
                 + datasetIn.getDoiSeparator()     + datasetIn.getIdentifier();
         }            
         metadata.put("_target", targetUrl);

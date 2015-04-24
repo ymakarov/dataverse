@@ -199,7 +199,7 @@ public class ContainerManagerImpl implements ContainerManager {
                 throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Dataverses can not be deleted via the Data Deposit API but other Dataverse APIs may support this operation.");
             } else if ("study".equals(targetType)) {
                 String globalId = urlManager.getTargetIdentifier();
-                logger.info("globalId: " + globalId);
+                logger.fine("globalId: " + globalId);
                 if (globalId != null) {
                     Dataset dataset = dataset = datasetService.findByGlobalId(globalId);
                     if (dataset != null) {
@@ -224,8 +224,6 @@ public class ContainerManagerImpl implements ContainerManager {
                                 throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Lastest version of dataset " + dataset.getGlobalId() + " has already been deaccessioned.");
                             } else if (datasetVersionState.equals(DatasetVersion.VersionState.ARCHIVED)) {
                                 throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Lastest version of dataset " + dataset.getGlobalId() + " has been archived and can not be deleted or deaccessioned.");
-                            } else if (datasetVersionState.equals(DatasetVersion.VersionState.IN_REVIEW)) {
-                                throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Lastest version of dataset " + dataset.getGlobalId() + " is in review and can not be deleted or deaccessioned.");
                             } else {
                                 throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Operation not valid for dataset " + dataset.getGlobalId() + " in state " + datasetVersionState);
                             }
@@ -234,7 +232,7 @@ public class ContainerManagerImpl implements ContainerManager {
                             if (datasetVersionState.equals(DatasetVersion.VersionState.DRAFT)) {
                                 try {
                                     engineSvc.submit(new DeleteDatasetCommand(dataset, user));
-                                    logger.info("dataset deleted");
+                                    logger.fine("dataset deleted");
                                 } catch (CommandExecutionException ex) {
                                     // internal error
                                     throw new SwordError(UriRegistry.ERROR_BAD_REQUEST, "Can't delete dataset: " + ex.getMessage());

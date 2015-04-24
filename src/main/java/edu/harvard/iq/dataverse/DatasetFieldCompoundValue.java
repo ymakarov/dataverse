@@ -17,9 +17,11 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.OrderBy;
+import javax.persistence.Table;
 import org.apache.commons.lang.StringUtils;
 
 /**
@@ -27,6 +29,7 @@ import org.apache.commons.lang.StringUtils;
  * @author gdurand
  */
 @Entity
+@Table(indexes = {@Index(columnList="parentdatasetfield_id")})
 public class DatasetFieldCompoundValue implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -144,10 +147,11 @@ public class DatasetFieldCompoundValue implements Serializable {
                 // replace the special values in the format (note: we replace #VALUE last since we don't
                 // want any issues if the value itself has #NAME in it)
                 String displayValue = format
-                        .replaceAll("#NAME", childDatasetField.getDatasetFieldType().getTitle())
+                        .replace("#NAME", childDatasetField.getDatasetFieldType().getTitle())
                         //todo: this should be handled in more generic way for any other text that can then be internationalized
-                        .replaceAll("#EMAIL", ResourceBundle.getBundle("Bundle").getString("dataset.email.hiddenMessage"))
-                        .replaceAll("#VALUE", childDatasetField.getValue());
+                        // if we need to use replaceAll for regexp, then make sure to use: java.util.regex.Matcher.quoteReplacement(<target string>)
+                        .replace("#EMAIL", ResourceBundle.getBundle("Bundle").getString("dataset.email.hiddenMessage"))
+                        .replace("#VALUE", childDatasetField.getValue());
 
                 fieldMap.put(childDatasetField,displayValue);
             }

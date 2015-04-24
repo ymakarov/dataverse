@@ -19,6 +19,18 @@ function bind_bsui_components(){
     // Tooltip + popover functionality
     bind_tooltip_popover();
 
+    // Disabled
+    disabledLinks();
+    
+    // Sharrre
+    sharrre();
+    
+    // Custom Popover with HTML code snippet -- from dataverse_template
+    popoverHTML();
+    
+    //Metrics
+    metricsTabs();
+
 }
 
 function dataverseuser_page_rebind(){
@@ -35,7 +47,15 @@ function bind_tooltip_popover(){
 }
 
 function toggle_dropdown(){
-    $('.btn-group.open').removeClass('open');;
+    $('.btn-group.open').removeClass('open');
+}
+
+function disabledLinks(){
+    $('ul.pagination li').on('click', 'a', function (e) {
+        if ($(this).parent().hasClass('disabled')){
+            e.preventDefault();
+        }
+    });
 }
 
 /*
@@ -121,10 +141,10 @@ function post_edit_metadata(){
 }
 
 /*
- * Called after "Edit License and Terms"
+ * Called after "Edit Terms"
  */
 
-function post_edit_license(){
+function post_edit_terms(){
    bind_bsui_components();
 }
 
@@ -143,6 +163,57 @@ function post_differences(){
        var dialogHeader = $('div[id$="detailsBlocks"] .ui-dialog-titlebar').outerHeight();
        var dialogScroll = dialogHeight - dialogHeader;
        $('div[id$="detailsBlocks"] .ui-dialog-content').css('height', dialogScroll);
+}
+
+/*
+ * Sharrre
+ */
+function sharrre(){
+    $('#sharrre-widget').sharrre({
+        share: {
+            facebook: true,
+            twitter: true,
+            googlePlus: true
+        },
+        template: '<div id="sharrre-block" class="clearfix">\n\
+                    <input type="hidden" id="sharrre-total" name="sharrre-total" value="{total}"/> \n\
+                    <a href="#" class="sharrre-facebook"><span class="socicon socicon-facebook"/></a> \n\
+                    <a href="#" class="sharrre-twitter"><span class="socicon socicon-twitter"/></a> \n\
+                    <a href="#" class="sharrre-google"><span class="socicon socicon-google"/></a>\n\
+                    </div>',
+        enableHover: false,
+        enableTracking: true,
+        urlCurl: '',
+        render: function(api, options){
+            $(api.element).on('click', '.sharrre-twitter', function() {
+                api.openPopup('twitter');
+            });
+            $(api.element).on('click', '.sharrre-facebook', function() {
+                api.openPopup('facebook');
+            });
+            $(api.element).on('click', '.sharrre-google', function() {
+                api.openPopup('googlePlus');
+            });
+            
+            // Count not working... Coming soon...
+            // var sharrrecount = $('#sharrre-total').val();
+            // $('#sharrre-count').prepend(sharrrecount);
+        }
+    });
+}
+
+/*
+ * Metrics Tabs
+ */
+function metricsTabs() {
+    $('#metrics-tabs a[data-toggle="tab"]').on('shown', function (e) {
+        e.target // activated tab
+        e.relatedTarget // previous tab
+    });
+    $('#metrics-tabs a[data-toggle="tab"]').mouseover(function(){
+        $(this).click();
+    });
+    $('#metrics-tabs a.first[data-toggle="tab"]').tab('show');
 }
 
 function handleResizeDialog(dialog) {

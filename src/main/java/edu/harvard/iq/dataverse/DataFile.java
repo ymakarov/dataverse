@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse;
 
+import edu.harvard.iq.dataverse.DatasetVersion.VersionState;
 import edu.harvard.iq.dataverse.api.WorldMapRelatedData;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.dataaccess.DataAccess;
@@ -55,6 +56,7 @@ public class DataFile extends DvObject {
     @Column( nullable = false )
     private String fileSystemName;
     
+    @Column( nullable = false )
     private String md5;
 
     @Column(nullable=true)
@@ -283,10 +285,23 @@ public class DataFile extends DvObject {
     private FileMetadata getLatestFileMetadata() {
         FileMetadata fmd = null;
 
+        // for newly added or harvested, just return the one fmd
+        if (fileMetadatas.size() == 1) {
+            return fileMetadatas.get(0);
+        }
+        
         for (FileMetadata fileMetadata : fileMetadatas) {
-            if (fmd == null || fileMetadata.getDatasetVersion().getId().compareTo( fmd.getDatasetVersion().getId() ) > 0 ) {
+            // if it finds a draft, return it
+            if (fileMetadata.getDatasetVersion().getVersionState().equals(VersionState.DRAFT)) {
+                return fileMetadata;
+            }            
+            
+            // otherwise return the one with the latest version number
+            if (fmd == null || fileMetadata.getDatasetVersion().getVersionNumber().compareTo( fmd.getDatasetVersion().getVersionNumber() ) > 0 ) {
                 fmd = fileMetadata;
-            }                       
+            } else if ((fileMetadata.getDatasetVersion().getVersionNumber().compareTo( fmd.getDatasetVersion().getVersionNumber())==0 )&& 
+                   ( fileMetadata.getDatasetVersion().getMinorVersionNumber().compareTo( fmd.getDatasetVersion().getMinorVersionNumber()) > 0 )   )
+                fmd = fileMetadata;
         }
         return fmd;
     }
@@ -516,7 +531,37 @@ public class DataFile extends DvObject {
     }
     
         
+    public boolean isHarvested() {
+        // TODO: 
+        // alternatively, we can determine whether this is a harvested file
+        // by looking at the storage identifier of the physical file; 
+        // if it's something that's not a filesystem path (URL, etc.) - 
+        // then it's a harvested object. 
+        // -- L.A. 4.0 
+        Dataset ownerDataset = this.getOwner();
+        if (ownerDataset != null) {
+            return ownerDataset.isHarvested(); 
+        }
+        return false; 
+    }
     
+    public String getRemoteArchiveURL() {
+        if (isHarvested()) {
+            Dataset ownerDataset = this.getOwner();
+            return ownerDataset.getRemoteArchiveURL();
+        }
+        
+        return null; 
+    }
+    
+    public String getHarvestingDescription() {
+        if (isHarvested()) {
+            Dataset ownerDataset = this.getOwner();
+            return ownerDataset.getHarvestingDescription();
+        }
+        
+        return null;
+    }
     
     @Override
     public boolean equals(Object object) {

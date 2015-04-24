@@ -95,6 +95,8 @@ public class SettingsServiceBean {
         DataDepositApiMaxUploadInBytes,
         /** Key for if Shibboleth is enabled or disabled. */
         ShibEnabled,
+        /** Key for if ScrubMigrationData is enabled or disabled. */
+        ScrubMigrationData,
         /** Key for the url to send users who want to sign up to. */
         SignUpUrl,
         /** Key for whether we allow users to sign up */
@@ -116,7 +118,13 @@ public class SettingsServiceBean {
         /* zip download size limit */
         ZipDonwloadLimit,
         /* zip upload number of files limit */
-        ZipUploadFilesLimit;
+        ZipUploadFilesLimit,
+        /* status message that will appear on the home page */
+        StatusMessageHeader,
+        /* full text of status message, to appear in popup */
+        StatusMessageText,
+        /* return email address for system emails such as notifications */
+        SystemEmail;
         
         @Override
         public String toString() {

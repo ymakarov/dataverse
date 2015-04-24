@@ -1,4 +1,4 @@
-<div xmlns="http://www.w3.org/1999/xhtml"
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
      xmlns:h="http://java.sun.com/jsf/html"
      xmlns:f="http://java.sun.com/jsf/core"
      xmlns:ui="http://java.sun.com/jsf/facelets"
@@ -9,10 +9,8 @@
 
     <!-- View Mode -->
 
-    <div class="panel-group" jsf:rendered="${((empty DatasetPage.editMode) and (empty TemplatePage.editMode)) or ManageTemplatesPage.selectedTemplate != null}">
-        <ui:repeat value="#{(!empty DatasetPage.datasetVersionUI.metadataBlocksForView.entrySet().toArray()) 
-                            ? DatasetPage.datasetVersionUI.metadataBlocksForView.entrySet().toArray() 
-                            : TemplatePage.template.metadataBlocksForView.entrySet().toArray() }" 
+  <div class="panel-group" jsf:rendered="${empty editMode  or managePage}">
+        <ui:repeat value="#{metadataBlocks}"  
                    var="metadataBlockVal" varStatus="block">
             <div class="panel panel-default">
                 <div data-toggle="collapse" data-target="#panelCollapse#{block.index}" class="panel-heading text-info">
@@ -20,6 +18,28 @@
                 </div>
                 <div id="panelCollapse#{block.index}" class="collapse #{block.first?'in':''}">
                     <div class="panel-body">
+                        <ui:fragment rendered="#{block.index == '0' and datasetPage}">
+                            <div class="form-group">
+                                <label for="metadata_publicationDate" class="col-sm-3 control-label">
+                                    <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="#{bundle['dataset.metadata.persistentId.tip']}">
+                                        #{bundle['dataset.metadata.persistentId']}
+                                    </span>
+                                </label>
+                                <div class="col-sm-9">
+                                    #{globalId}
+                                </div>
+                            </div>
+                            <div class="form-group" jsf:rendered="#{!empty publicationDate}">
+                                <label for="metadata_publicationDate" class="col-sm-3 control-label">
+                                    <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="#{bundle['dataset.metadata.publicationDate.tip']}">
+                                        #{bundle['dataset.metadata.publicationDate']}
+                                    </span>
+                                </label>
+                                <div class="col-sm-9">
+                                    #{publicationDate}
+                                </div>
+                            </div>
+                        </ui:fragment>
                         <ui:repeat value="#{metadataBlockVal.value}" var="dsf">
                             <div class="form-group">
                                 <label for="metadata_#{dsf.datasetFieldType.name}" class="col-sm-3 control-label">
@@ -29,17 +49,25 @@
                                 </label>
                                 <!-- Primitive datasetFields -->
                                 <div class="col-sm-9" jsf:rendered="#{dsf.datasetFieldType.primitive}">
-                                    <h:outputText value="#{dsf.value}" rendered="#{!dsf.datasetFieldType.allowMultiples}"/>
+                                    <h:outputText value="#{dsf.value}" rendered="#{!dsf.datasetFieldType.allowMultiples}"
+                                                  escape="#{dsf.datasetFieldType.fieldType ne 'TEXTBOX'}"/>
                                     <ui:repeat value="#{dsf.values}" var="value" varStatus="loop" rendered="#{dsf.datasetFieldType.allowMultiples}">
-                                        <h:outputText value="#{loop.first?'':'; '}#{value}"/>
+                                        <h:outputText value="#{loop.first?'':'; '}#{value}" escape="#{dsf.datasetFieldType.fieldType ne 'TEXTBOX'}"/>
                                     </ui:repeat>
                                 </div>
                                 <!-- Compound datasetFields -->
                                 <div class="col-sm-9" jsf:rendered="#{dsf.datasetFieldType.compound}">
+                                    <ui:fragment rendered="#{dsf.datasetFieldType.name == 'datasetContact'}">
+                                        <p class="help-block">
+                                            <span class="glyphicon glyphicon-info-sign"/> 
+                                            <h:outputText value=" #{bundle['dataset.contact.tip']}"/>
+                                        </p>
+                                    </ui:fragment>
                                     <ui:repeat value="#{dsf.datasetFieldCompoundValues}" var="compoundValue">
                                         <ui:repeat value="#{compoundValue.displayValueMap.entrySet().toArray()}" var="cvPart" varStatus="partStatus">
                                             <h:outputText value="#{dsf.datasetFieldType.displayFormat} " rendered="${!partStatus.first}"/>
-                                            <h:outputText value="#{cvPart.value}" escape="#{cvPart.key.datasetFieldType.fieldType ne 'URL'}"/>
+                                            <h:outputText value="#{cvPart.value}" escape="#{cvPart.key.datasetFieldType.fieldType ne 'URL' and
+                                                                                            cvPart.key.datasetFieldType.fieldType ne 'TEXTBOX'}"/>
                                         </ui:repeat>
                                         <br/>                                                    
                                     </ui:repeat>
@@ -53,21 +81,23 @@
     </div>
 
     <!-- Edit Mode -->
-    <ui:fragment rendered="${(!empty DatasetPage.editMode) or (!empty TemplatePage.editMode)}">
+    <ui:fragment rendered="${(!empty editMode)}">
         <o:importFunctions type="java.util.Collections" />
         <div class="panel-group">
-            <ui:repeat value="#{(!empty DatasetPage.datasetVersionUI.metadataBlocksForEdit.entrySet().toArray()) ? 
-                                DatasetPage.datasetVersionUI.metadataBlocksForEdit.entrySet().toArray() : TemplatePage.template.metadataBlocksForEdit.entrySet().toArray()}" var="metadataBlockVal" varStatus="block">
-                <div class="panel panel-default" jsf:rendered="#{(DatasetPage.editMode == 'METADATA' or metadataBlockVal.key.displayOnCreate or !metadataBlockVal.key.isEmpty() or metadataBlockVal.key.isHasRequired() ) or (!empty TemplatePage.editMode) }">
+            <ui:repeat value="#{metadataBlocks}" var="metadataBlockVal" varStatus="block">
+                <div class="panel panel-default" jsf:rendered="#{(editMode == 'METADATA' or metadataBlockVal.key.displayOnCreate or !metadataBlockVal.key.isEmpty() 
+                                                                 or metadataBlockVal.key.isHasRequired()) 
+                                                                 or (!datasetPage) }">                
+
                     <div data-toggle="collapse" data-target="#panelCollapse#{block.index}" class="panel-heading text-info">
                         #{metadataBlockVal.key.displayName} <span class="glyphicon #{block.first?'glyphicon-chevron-up':'glyphicon-chevron-down'}"/>
                     </div>
-                    <div id="panelCollapse#{block.index}" class="collapse #{block.first || DatasetPage.editMode == 'CREATE'?'in':''}">
+                    <div id="panelCollapse#{block.index}" class="collapse #{block.first || editMode == 'CREATE'?'in':''}">
                         <div class="panel-body">
                             <ui:repeat value="#{metadataBlockVal.value}" var="dsf">
-                                <ui:fragment rendered="#{((DatasetPage.editMode == 'METADATA' 
+                                <ui:fragment rendered="#{((editMode == 'METADATA' 
                                                          or dsf.datasetFieldType.displayOnCreate or !dsf.isEmpty() or dsf.required or dsf.datasetFieldType.hasRequiredChildren) and dsf.include)
-                                                         or (!empty TemplatePage.editMode and dsf.include)}">
+                                                         or (!datasetPage and dsf.include)}">
 
                                     <div class="form-group">
                                         <label for="metadata_#{dsf.datasetFieldType.name}" class="col-sm-3 control-label">
@@ -121,7 +151,7 @@
                                                             <div class="ui-inputfield form-control select-scroll-block" jsf:rendered="#{dsf.datasetFieldType.allowMultiples}">
                                                                 <p:selectManyCheckbox value="#{dsf.controlledVocabularyValues}" converter="controlledVocabularyValueConverter"
                                                                                       layout="pageDirection">
-                                                                    <f:selectItem itemLabel="#{bundle.select}" itemValue="" noSelectionOption="true"/>
+                                                                    <f:selectItem itemLabel="#{bundle.select}" class="chkbox-label-margin" itemValue="" noSelectionOption="true"/>
                                                                     <f:selectItems value="#{dsf.datasetFieldType.controlledVocabularyValues}" var="cvv" itemLabel="#{cvv.strValue}" itemValue="#{cvv}" />
                                                                 </p:selectManyCheckbox>
                                                             </div>
@@ -142,6 +172,14 @@
                                                         <!-- Sub Fields -->
                                                         <ui:repeat value="#{compoundValue.childDatasetFields}" var="subdsf">
                                                             <div class="form-col-container #{(subdsf.datasetFieldType.fieldType == 'TEXTBOX') ? 'col-sm-12' : 'col-sm-6'}">
+                                                                <ui:fragment rendered="#{subdsf.datasetFieldType.name == 'dsDescriptionValue'}">
+                                                                    <p class="help-block">
+                                                                        <span class="glyphicon glyphicon-info-sign"/> 
+                                                                        <h:outputFormat value=" #{bundle.htmlAllowedMsg}" escape="false">
+                                                                            <f:param value="#{bundle.htmlAllowedTags}"/>
+                                                                        </h:outputFormat>
+                                                                    </p>
+                                                                </ui:fragment>
                                                                 <label class="control-label" for="metadata_#{subdsf.datasetFieldType.name}">
                                                                     <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="#{subdsf.datasetFieldType.description}">#{subdsf.datasetFieldType.title}</span>
                                                                     <h:outputText styleClass="glyphicon glyphicon-asterisk text-danger" value="" rendered="#{subdsf.required}" />
@@ -159,9 +197,6 @@
                                                                         <f:selectItem itemLabel="#{bundle.select}" itemValue="" noSelectionOption="true"/>
                                                                         <f:selectItems value="#{subdsf.datasetFieldType.controlledVocabularyValues}" var="cvv" itemLabel="#{cvv.strValue}" itemValue="#{cvv}" />
                                                                     </p:selectOneMenu>
-                                                                    <div class="alert-danger" jsf:rendered="#{!empty subdsf.validationMessage}">
-                                                                        <strong>#{subdsf.validationMessage}</strong>
-                                                                    </div>
                                                                     <div class="ui-inputfield form-control select-scroll-block" jsf:rendered="#{subdsf.datasetFieldType.allowMultiples}">
                                                                         <p:selectManyCheckbox value="#{subdsf.controlledVocabularyValues}" converter="controlledVocabularyValueConverter"
                                                                                               layout="pageDirection">
@@ -202,4 +237,4 @@
             </ui:repeat>
         </div>
     </ui:fragment>
-</div>
+</ui:composition>

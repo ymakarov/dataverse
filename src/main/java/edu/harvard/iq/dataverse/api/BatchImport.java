@@ -13,6 +13,7 @@ import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.io.IOException;
+import java.io.PrintWriter;
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.json.JsonObjectBuilder;
@@ -50,14 +51,14 @@ public class BatchImport extends AbstractApiBean  {
      */
     @GET
     @Path("migrate")
-    public Response migrate(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf, @QueryParam("key") String apiKey) throws IOException {
-          return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.MIGRATION);
+    public Response migrate(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf,@QueryParam("createDV") Boolean createDV, @QueryParam("key") String apiKey) throws IOException {
+          return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.MIGRATION,createDV);
     }
     
     @GET
     @Path("harvest")
-    public Response harvest(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf, @QueryParam("key") String apiKey) throws IOException {
-          return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.HARVEST);
+    public Response harvest(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf,@QueryParam("createDV") Boolean createDV, @QueryParam("key") String apiKey) throws IOException {
+          return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.HARVEST, createDV);
   
     }
     
@@ -83,9 +84,11 @@ public class BatchImport extends AbstractApiBean  {
             return errorResponse(Response.Status.NOT_FOUND, "Can't find dataverse with identifier='" + parentIdtf + "'");
         }
         try { 
-            JsonObjectBuilder status = importService.doImport(u,owner,body, ImportType.NEW);
+            PrintWriter cleanupLog = null; // Cleanup log isn't needed for ImportType == NEW. We don't do any data cleanup in this mode.
+            String filename = null;  // Since this is a single input from a POST, there is no file that we are reading from.
+            JsonObjectBuilder status = importService.doImport(u,owner,body, filename, ImportType.NEW,cleanupLog);
             return this.okResponse(status);
-        } catch(ImportException e) {
+        } catch(ImportException | IOException e) {
             return this.errorResponse(Response.Status.BAD_REQUEST, e.getMessage());
         }
     }
@@ -98,32 +101,38 @@ public class BatchImport extends AbstractApiBean  {
      */
     @GET 
     @Path("import")
-    public Response getImport(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf, @QueryParam("key") String apiKey)  {
+    public Response getImport(@QueryParam("path") String fileDir, @QueryParam("dv") String parentIdtf,@QueryParam("createDV") Boolean createDV, @QueryParam("key") String apiKey)  {
       
-        return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.NEW);
+        return startBatchJob(fileDir, parentIdtf, apiKey, ImportType.NEW, createDV);
      
     }
     
     
-    private Response startBatchJob( String fileDir, String parentIdtf, String apiKey, ImportType importType) {
-       
-        AuthenticatedUser u = findUserByApiToken(apiKey);
-        if (u == null) {
-            return badApiKey(apiKey);
-        }
-        if (parentIdtf == null) {
-            parentIdtf = "root";
-        }
-        Dataverse owner = findDataverse(parentIdtf);
-        if (owner == null) {
-            return errorResponse(Response.Status.NOT_FOUND, "Can't find dataverse with identifier='" + parentIdtf + "'");
+    private Response startBatchJob(String fileDir, String parentIdtf, String apiKey, ImportType importType, Boolean createDV) {
+        if (createDV==null) {
+            createDV=Boolean.FALSE;
         }
         try {
-             batchService.processFilePath(fileDir, parentIdtf, u,owner, importType);
-          } catch (ImportException e) {
-            e.printStackTrace();
-            return this.errorResponse(Response.Status.BAD_REQUEST, "Import Exception, "+ e.getMessage());
-        } 
+            AuthenticatedUser u = findUserByApiToken(apiKey);
+            if (u == null) {
+                return badApiKey(apiKey);
+            }
+            if (parentIdtf == null) {
+                parentIdtf = "root";
+            }
+            Dataverse owner = findDataverse(parentIdtf);
+            if (owner == null) {
+                if (createDV) {
+                    owner = importService.createDataverse(parentIdtf, u);
+                } else {
+                    return errorResponse(Response.Status.NOT_FOUND, "Can't find dataverse with identifier='" + parentIdtf + "'");
+                }
+            }
+            batchService.processFilePath(fileDir, parentIdtf, u, owner, importType, createDV);
+          
+        } catch (ImportException e) {
+            return this.errorResponse(Response.Status.BAD_REQUEST, "Import Exception, " + e.getMessage());
+        }
         return this.accepted();
     }
     

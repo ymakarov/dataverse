@@ -8,6 +8,8 @@ import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.search.Highlight;
 import edu.harvard.iq.dataverse.search.SearchException;
+import edu.harvard.iq.dataverse.search.SearchUtil;
+import edu.harvard.iq.dataverse.util.JsfHelper;
 import edu.harvard.iq.dataverse.util.SystemConfig;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -55,15 +57,28 @@ public class SearchServiceBean {
      * @todo Can we do without the DatasetFieldServiceBean?
      */
     @EJB
+    DvObjectServiceBean dvObjectService;
+    @EJB
+    DataverseServiceBean dataverseService;
+    @EJB
+    DatasetServiceBean datasetService;
+    @EJB
+    DatasetVersionServiceBean datasetVersionService;
+    @EJB            
+    DataFileServiceBean dataFileService;
+    @EJB
     DatasetFieldServiceBean datasetFieldService;
     @EJB
     GroupServiceBean groupService;
     @EJB
     SystemConfig systemConfig;
 
+    public static final JsfHelper JH = new JsfHelper();
+
     public SolrQueryResponse search(User user, Dataverse dataverse, String query, List<String> filterQueries, String sortField, String sortOrder, int paginationStart, boolean onlyDatatRelatedToMe, int numResultsPerPage) throws SearchException {
         SolrServer solrServer = new HttpSolrServer("http://" + systemConfig.getSolrHostColonPort() + "/solr");
         SolrQuery solrQuery = new SolrQuery();
+        query = SearchUtil.sanitizeQuery(query);
         solrQuery.setQuery(query);
 //        SortClause foo = new SortClause("name", SolrQuery.ORDER.desc);
 //        if (query.equals("*") || query.equals("*:*")) {
@@ -79,12 +94,13 @@ public class SearchServiceBean {
         Map<String, String> solrFieldsToHightlightOnMap = new HashMap<>();
         solrFieldsToHightlightOnMap.put(SearchFields.NAME, "Name");
         solrFieldsToHightlightOnMap.put(SearchFields.AFFILIATION, "Affiliation");
-        solrFieldsToHightlightOnMap.put(SearchFields.FILE_TYPE_MIME, "File Type");
+        solrFieldsToHightlightOnMap.put(SearchFields.FILE_TYPE_FRIENDLY, "File Type");
         solrFieldsToHightlightOnMap.put(SearchFields.DESCRIPTION, "Description");
         solrFieldsToHightlightOnMap.put(SearchFields.VARIABLE_NAME, "Variable Name");
         solrFieldsToHightlightOnMap.put(SearchFields.VARIABLE_LABEL, "Variable Label");
         solrFieldsToHightlightOnMap.put(SearchFields.FILE_TYPE_SEARCHABLE, "File Type");
         solrFieldsToHightlightOnMap.put(SearchFields.DATASET_PUBLICATION_DATE, "Publication Date");
+        solrFieldsToHightlightOnMap.put(SearchFields.DATASET_PERSISTENT_ID, localize("advanced.search.datasets.persistentId"));
         /**
          * @todo Dataverse subject and affiliation should be highlighted but
          * this is commented out right now because the "friendly" names are not
@@ -109,6 +125,7 @@ public class SearchServiceBean {
             // String displayName = entry.getValue();
             solrQuery.addHighlightField(solrField);
         }
+        solrQuery.setParam("fl", "*,score");
         solrQuery.setParam("qt", "/spell");
         solrQuery.setParam("facet", "true");
         /**
@@ -312,7 +329,7 @@ public class SearchServiceBean {
             } else {
                 error += messageFromSolr;
             }
-            logger.info(error);
+            logger.fine(error);
             SolrQueryResponse exceptionSolrQueryResponse = new SolrQueryResponse();
             exceptionSolrQueryResponse.setError(error);
 
@@ -363,6 +380,8 @@ public class SearchServiceBean {
             String id = (String) solrDocument.getFieldValue(SearchFields.ID);
             Long entityid = (Long) solrDocument.getFieldValue(SearchFields.ENTITY_ID);
             String type = (String) solrDocument.getFieldValue(SearchFields.TYPE);
+            float score = (Float) solrDocument.getFieldValue(SearchFields.RELEVANCE);
+            logger.fine("score for " + id + ": " + score);
             String identifier = (String) solrDocument.getFieldValue(SearchFields.IDENTIFIER);
             String citation = (String) solrDocument.getFieldValue(SearchFields.DATASET_CITATION);
             String persistentUrl = (String) solrDocument.getFieldValue(SearchFields.PERSISTENT_URL);
@@ -371,12 +390,11 @@ public class SearchServiceBean {
 //            ArrayList titles = (ArrayList) solrDocument.getFieldValues(SearchFields.TITLE);
             String title = (String) solrDocument.getFieldValue(titleSolrField);
             Long datasetVersionId = (Long) solrDocument.getFieldValue(SearchFields.DATASET_VERSION_ID);
+            String deaccessionReason = (String) solrDocument.getFieldValue(SearchFields.DATASET_DEACCESSION_REASON);
 //            logger.info("titleSolrField: " + titleSolrField);
 //            logger.info("title: " + title);
-            /**
-             * @todo Investigate odd variable naming of MIME vs. non-MIME.
-             */
-            String filetype = (String) solrDocument.getFieldValue(SearchFields.FILE_TYPE_MIME);
+            String filetype = (String) solrDocument.getFieldValue(SearchFields.FILE_TYPE_FRIENDLY);
+            String fileContentType = (String) solrDocument.getFieldValue(SearchFields.FILE_CONTENT_TYPE);
             Date release_or_create_date = (Date) solrDocument.getFieldValue(SearchFields.RELEASE_OR_CREATE_DATE);
             String dateToDisplayOnCard = (String) solrDocument.getFirstValue(SearchFields.RELEASE_OR_CREATE_DATE_SEARCHABLE_TEXT);
             List<String> matchedFields = new ArrayList<>();
@@ -426,9 +444,11 @@ public class SearchServiceBean {
 //            logger.info(id + ": " + description);
             solrSearchResult.setId(id);
             solrSearchResult.setEntityId(entityid);
+            solrSearchResult.setEntity(dvObjectService.findDvObject(entityid));
             solrSearchResult.setIdentifier(identifier);
             solrSearchResult.setPersistentUrl(persistentUrl);
             solrSearchResult.setType(type);
+            solrSearchResult.setScore(score);
             solrSearchResult.setNameSort(nameSort);
             solrSearchResult.setReleaseOrCreateDate(release_or_create_date);
             solrSearchResult.setDateToDisplayOnCard(dateToDisplayOnCard);
@@ -439,6 +459,7 @@ public class SearchServiceBean {
             Map<String, String> parent = new HashMap<>();
             String description = (String) solrDocument.getFieldValue(SearchFields.DESCRIPTION);
             solrSearchResult.setDescriptionNoSnippet(description);
+            solrSearchResult.setDeaccessionReason(deaccessionReason);
             /**
              * @todo start using SearchConstants class here
              */
@@ -456,7 +477,7 @@ public class SearchServiceBean {
             } else if (type.equals("datasets")) {
                 solrSearchResult.setHtmlUrl(baseUrl + "/dataset.xhtml?globalId=" + identifier);
                 solrSearchResult.setApiUrl(baseUrl + "/api/datasets/" + entityid);
-                solrSearchResult.setImageUrl(baseUrl + "/api/access/dsPreview/" + datasetVersionId);
+                solrSearchResult.setImageUrl(baseUrl + "/api/access/dsCardImage/" + datasetVersionId);
                 /**
                  * @todo Could use getFieldValues (plural) here.
                  */
@@ -468,12 +489,14 @@ public class SearchServiceBean {
                     }
                 }
                 solrSearchResult.setDatasetVersionId(datasetVersionId);
+                    
                 solrSearchResult.setCitation(citation);
                 if (title != null) {
 //                    solrSearchResult.setTitle((String) titles.get(0));
                     solrSearchResult.setTitle((String) title);
                 } else {
-                    solrSearchResult.setTitle("NULL: NO TITLE INDEXED OR PROBLEM FINDING TITLE DATASETFIELD");
+                    logger.info("No title indexed. Setting to empty string to prevent NPE. Dataset id " + entityid + " and version id " + datasetVersionId);
+                    solrSearchResult.setTitle("");
                 }
                 List<String> authors = (ArrayList) solrDocument.getFieldValues(DatasetFieldConstant.authorName);
                 if (authors != null) {
@@ -486,7 +509,7 @@ public class SearchServiceBean {
                     parentGlobalId = (String) parentGlobalIdObject;
                     parent.put(SolrSearchResult.PARENT_IDENTIFIER, parentGlobalId);
                 }
-                solrSearchResult.setHtmlUrl(baseUrl + "/dataset.xhtml?globalId=" + parentGlobalId);
+                solrSearchResult.setHtmlUrl(baseUrl + "/dataset.xhtml?persistentId=" + parentGlobalId);
                 solrSearchResult.setDownloadUrl(baseUrl + "/api/access/datafile/" + entityid);
                 /**
                  * @todo We are not yet setting the API URL for files because
@@ -496,9 +519,10 @@ public class SearchServiceBean {
                  * JSON.
                  */
 //                solrSearchResult.setApiUrl(baseUrl + "/api/meta/datafile/" + entityid);
-                solrSearchResult.setImageUrl(baseUrl + "/api/access/preview/" + entityid);
+                solrSearchResult.setImageUrl(baseUrl + "/api/access/fileCardImage/" + entityid);
                 solrSearchResult.setName(name);
                 solrSearchResult.setFiletype(filetype);
+                solrSearchResult.setFileContentType(fileContentType);
                 Object fileSizeInBytesObject = solrDocument.getFieldValue(SearchFields.FILE_SIZE_IN_BYTES);
                 if (fileSizeInBytesObject != null) {
                     try {
@@ -674,6 +698,16 @@ public class SearchServiceBean {
         solrQueryResponse.setStaticSolrFieldFriendlyNamesBySolrField(staticSolrFieldFriendlyNamesBySolrField);
         solrQueryResponse.setFilterQueriesActual(Arrays.asList(solrQuery.getFilterQueries()));
         return solrQueryResponse;
+    }
+
+    private static String localize(String bundleKey) {
+        try {
+            String value = JH.localize(bundleKey);
+            return value;
+        } catch (Exception e) {
+            // can throw MissingResourceException
+            return "Match";
+        }
     }
 
     public String getCapitalizedName(String name) {

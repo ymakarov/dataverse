@@ -136,18 +136,14 @@ public class GuestbookPage implements java.io.Serializable {
             // create mode for a new template
             dataverse = dataverseService.find(ownerId);
             guestbook = new Guestbook();
-            guestbook.setDataverse(dataverse);
+            guestbook.setDataverse(dataverse);            
             guestbook.setCustomQuestions(new ArrayList());
             initCustomQuestion();
         } else if (ownerId != null && sourceId != null && editMode.equals(GuestbookPage.EditMode.CLONE)) {
             // create mode for a new template
             dataverse = dataverseService.find(ownerId);
-            for (Guestbook dvGb : dataverse.getGuestbooks()) {
-                if (dvGb.getId().longValue() == sourceId) {
-                    sourceGB = dvGb;
-                }
-            }
-            guestbook = sourceGB.copyGuestbook(sourceGB);
+            sourceGB = guestbookService.find(sourceId);
+            guestbook = sourceGB.copyGuestbook(sourceGB, dataverse);
             String name = "Copy of " + sourceGB.getName();
             guestbook.setName(name);
             guestbook.setUsageCount(new Long(0));
@@ -258,10 +254,16 @@ public class GuestbookPage implements java.io.Serializable {
             }
             int i = 0;
             for (CustomQuestion cq : guestbook.getCustomQuestions()) {
+                int j = 0;
                 cq.setDisplayOrder(i);
+                if (cq.getCustomQuestionValues() != null &&  !cq.getCustomQuestionValues().isEmpty()){
+                    for (CustomQuestionValue cqv : cq.getCustomQuestionValues()){
+                        cqv.setDisplayOrder(j);
+                        j++;
+                    }
+                }
                 i++;
-            }
-            
+            }            
         }
            
         Command<Dataverse> cmd;
@@ -269,8 +271,9 @@ public class GuestbookPage implements java.io.Serializable {
             if (editMode == EditMode.CREATE || editMode == EditMode.CLONE ) {
                 guestbook.setCreateTime(new Timestamp(new Date().getTime()));
                 guestbook.setUsageCount(new Long(0));
+                guestbook.setEnabled(true);
                 dataverse.getGuestbooks().add(guestbook);
-                cmd = new UpdateDataverseCommand(dataverse, null, null, session.getUser(), null);
+                cmd = new UpdateDataverseCommand(dataverse, null, null, session.getUser(), null);                
                 commandEngine.submit(cmd);
                 create = true;
             } else {

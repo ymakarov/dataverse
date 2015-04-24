@@ -3,6 +3,7 @@ package edu.harvard.iq.dataverse;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -12,9 +13,12 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.JoinColumn;
+import javax.persistence.JoinTable;
 import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
+import javax.persistence.Table;
 import javax.persistence.Version;
 import org.hibernate.validator.constraints.NotBlank;
 import javax.validation.constraints.Pattern;
@@ -24,6 +28,7 @@ import javax.validation.constraints.Pattern;
  *
  * @author skraffmiller
  */
+@Table(indexes = {@Index(columnList="datafile_id"), @Index(columnList="datasetversion_id")} )
 @Entity
 public class FileMetadata implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -36,8 +41,8 @@ public class FileMetadata implements Serializable {
     private String label = "";
     @Column(columnDefinition = "TEXT")
     private String description = "";
-    @Column(columnDefinition="TEXT")
-    private String category = ""; // TODO: remove! -- L.A. 4.0 beta 10
+    //@Column(columnDefinition="TEXT")
+    //private String category = ""; // TODO: remove! -- L.A. 4.0 beta 10
     private boolean restricted;
 
     @ManyToOne
@@ -65,13 +70,13 @@ public class FileMetadata implements Serializable {
     }
 
     // TODO: remove the following 2 methods: -- L.A. beta 10
-    public String getCategory() {
-        return category;
-    }
+    //public String getCategory() {
+    //    return category;
+    //}
 
-    public void setCategory(String category) {
-        this.category = category;
-    }
+    //public void setCategory(String category) {
+    //    this.category = category;
+    //}
 
     public boolean isRestricted() {
         return restricted;
@@ -81,12 +86,12 @@ public class FileMetadata implements Serializable {
         this.restricted = restricted;
     }
     
-    
 
     /* 
      * File Categories to which this version of the DataFile belongs: 
      */
     @ManyToMany (cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST})
+    @JoinTable(indexes = {@Index(columnList="filecategories_id"),@Index(columnList="filemetadatas_id")})
     private List<DataFileCategory> fileCategories;
     
     public List<DataFileCategory> getCategories() {
@@ -193,7 +198,7 @@ public class FileMetadata implements Serializable {
 
                 
                 if (fileCategory != null) {
-                    logger.log(Level.INFO, "Found file category for {0}", newCategoryName);
+                    logger.log(Level.FINE, "Found file category for {0}", newCategoryName);
 
                     this.addCategory(fileCategory);
                     fileCategory.addFileMetadata(this);
@@ -330,4 +335,10 @@ public class FileMetadata implements Serializable {
         return "edu.harvard.iq.dvn.core.study.FileMetadata[id=" + id + "]";
     }
     
+    public static final Comparator<FileMetadata> compareByLabel = new Comparator<FileMetadata>() {
+        @Override
+        public int compare(FileMetadata o1, FileMetadata o2) {
+            return o1.getLabel().toUpperCase().compareTo(o2.getLabel().toUpperCase());
+        }
+    };    
 }

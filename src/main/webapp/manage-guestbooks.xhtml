@@ -13,7 +13,7 @@
         <f:metadata>
             <f:viewParam name="dataverseId" value="#{manageGuestbooksPage.dataverseId}"/>
             <f:viewAction action="#{manageGuestbooksPage.init}"/>
-            <f:viewAction action="#{dataverseHeaderFragment.initBreadcrumbs(manageGuestbooksPage.dataverse, 'Dataset Guestbook')}"/>
+            <f:viewAction action="#{dataverseHeaderFragment.initBreadcrumbs(manageGuestbooksPage.dataverse, bundle['dataset.manageGuestbooks.pageTitle'])}"/>
         </f:metadata>
         <ui:composition template="/dataverse_template.xhtml">
             <ui:param name="pageTitle" value="#{bundle['dataset.manageGuestbooks.pageTitle']}"/>
@@ -34,101 +34,108 @@
                         </ui:fragment>
 
                         <div class="pull-right">
-                            <h:outputLink styleClass="btn btn-default"
+                            <h:outputLink type="button" styleClass="btn btn-default"
                                           value="/guestbook.xhtml?ownerId=#{manageGuestbooksPage.dataverse.id}&#38;editMode=CREATE">
                                 <span class="glyphicon glyphicon-plus"/> <h:outputText value="#{bundle['dataset.manageGuestbooks.createBtn']}"/>
                             </h:outputLink>
                         </div>
                     </div>
                     <div>
-                        <div id="no-guestbooks-message" jsf:rendered="#{empty manageGuestbooksPage.guestbooks}">
-                            <span class="help-block h3">#{bundle['dataset.manageGuestbooks.noGuestbooks.why.header']}</span>
-                            <ul>
-                                <li><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.why.reason1']}" escape="false"/></li>
-                                <li><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.why.reason2']}" escape="false"/></li>
-                            </ul>
-                            <span class="help-block h3">#{bundle['dataset.manageGuestbooks.noGuestbooks.how.header']}</span>
-                            <ul>
-                                <li><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.how.tip1']}" escape="false"/></li>
-                                <li>
-                                    <h:outputFormat value="#{bundle['dataset.manageGuestbooks.noGuestbooks.how.tip2']}" escape="false">
-                                        <f:param value="#{manageTemplatesPage.dataverse.alias}"/>
-                                    </h:outputFormat>
-                                </li>
-                            </ul>
-                            <p><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.getStarted']}" escape="false"/></p>
+                        <div id="no-guestbooks-message" class="panel panel-default" jsf:rendered="#{empty manageGuestbooksPage.guestbooks}">
+                            <div class="panel-body">
+                                <span class="help-block h3">#{bundle['dataset.manageGuestbooks.noGuestbooks.why.header']}</span>
+                                <ul>
+                                    <li><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.why.reason1']}" escape="false"/></li>
+                                    <li><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.why.reason2']}" escape="false"/></li>
+                                </ul>
+                                <span class="help-block h3">#{bundle['dataset.manageGuestbooks.noGuestbooks.how.header']}</span>
+                                <ul>
+                                    <li><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.how.tip1']}" escape="false"/></li>
+                                    <li>
+                                        <h:outputFormat value="#{bundle['dataset.manageGuestbooks.noGuestbooks.how.tip2']}" escape="false">
+                                            <f:param value="#{manageTemplatesPage.dataverse.alias}"/>
+                                        </h:outputFormat>
+                                    </li>
+                                </ul>
+                                <p><h:outputText value="#{bundle['dataset.manageGuestbooks.noGuestbooks.getStarted']}" escape="false"/></p>
+                            </div>
                         </div>
                         
                         <p:dataTable id="allGuestbooks" var="guestbook" value="#{manageGuestbooksPage.guestbooks}"
                                      rendered="#{!empty manageGuestbooksPage.guestbooks}">
-                            <p:column width="29%" sortBy="name" headerText="#{bundle['dataset.manageGuestbooks.tab.header.name']}">
+                            <p:column width="31%" sortBy="name" headerText="#{bundle['dataset.manageGuestbooks.tab.header.name']}">
                                 <h:outputText value="#{guestbook.name}" />
                             </p:column>
-                            <p:column width="14%" sortBy="createDate" headerText="#{bundle['dataset.manageGuestbooks.tab.header.date']}">
+                            <p:column width="13%" sortBy="createDate" headerText="#{bundle['dataset.manageGuestbooks.tab.header.date']}">
                                 <h:outputText value="#{guestbook.createDate}" />
                             </p:column>
-                            <p:column width="9%" class="text-center" sortBy="usageCount" headerText="#{bundle['dataset.manageGuestbooks.tab.header.usage']}">
+                            <p:column width="8%" class="text-center" sortBy="usageCount" headerText="#{bundle['dataset.manageGuestbooks.tab.header.usage']}">
                                 <h:outputText value="#{guestbook.usageCount}" />
                             </p:column>
-                            <p:column width="13%" class="text-center" sortBy="usageCount" headerText="#{bundle['dataset.manageGuestbooks.tab.header.responses']}">
+                            <p:column width="10%" class="text-center" sortBy="usageCount" headerText="#{bundle['dataset.manageGuestbooks.tab.header.responses']}">
                                 <h:outputText value="#{guestbook.responseCount}" />
                             </p:column>
-                            <p:column width="35%" class="text-center" headerText="#{bundle['dataset.manageGuestbooks.tab.header.action']}">
-                                <p:commandLink styleClass="btn btn-default btn-sm"
-                                               value="#{bundle['dataset.manageGuestbooks.tab.action.btn.enable']}"
-                                               rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id and !guestbook.enabled}"
-                                               action="#{manageGuestbooksPage.enableGuestbook(guestbook)}"
-                                               update="@form,:messagePanel"
-                                               oncomplete="bind_tooltip_popover();"/>
-                                <p:commandLink styleClass="btn btn-default btn-sm"
-                                               value="#{bundle['dataset.manageGuestbooks.tab.action.btn.disable']}"
-                                               rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id and guestbook.enabled}"
-                                               action="#{manageGuestbooksPage.disableGuestbook(guestbook)}"
-                                               update="@form,:messagePanel"
-                                               oncomplete="bind_tooltip_popover();"/>
-                                <p:commandLink styleClass="btn btn-default btn-sm"
-                                               rendered="#{guestbook.responseCount > 0}"
-                                               value="#{bundle['dataset.manageGuestbooks.tab.action.btn.viewCollectedData']}"
-                                               action="#{manageGuestbooksPage.viewSelectedGuestbookResponses(guestbook)}"
-                                               oncomplete="viewGuestbookCollectedData.show();bind_tooltip_popover();"
-                                               update=":manageGuestbooksForm"/>
-                                <div class="btn-group" role="group">
-                                    <p:commandLink styleClass="btn btn-default bootstrap-button-tooltip"
-                                                   action="#{manageGuestbooksPage.viewSelectedGuestbook(guestbook)}"
-                                                   oncomplete="viewGuestbook.show()"
-                                                   update=":manageGuestbooksForm"
-                                                   title="#{bundle['dataset.manageGuestbooks.tab.action.btn.view']}">
-                                        <span class="glyphicon glyphicon-eye-open"></span>
-                                    </p:commandLink>
-                                    <h:outputLink styleClass="btn btn-default bootstrap-button-tooltip"
-                                                  rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id}"
-                                                  value="/guestbook.xhtml?ownerId=#{manageGuestbooksPage.dataverse.id}&#38;editMode=CLONE&#38;sourceId=#{guestbook.id}"
-                                                  title="#{bundle['dataset.manageGuestbooks.tab.action.btn.copy']}">
-                                        <span class="glyphicon glyphicon-duplicate"></span>
+                            <p:column width="38%" class="col-manage-action text-center" headerText="#{bundle['dataset.manageGuestbooks.tab.header.action']}">
+                                <div class="button-block">
+                                    <p:commandLink type="button" styleClass="btn btn-default"
+                                                   value="#{bundle['dataset.manageGuestbooks.tab.action.btn.enable']}"
+                                                   rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id and !guestbook.enabled}"
+                                                   action="#{manageGuestbooksPage.enableGuestbook(guestbook)}"
+                                                   update="@form,:messagePanel"
+                                                   oncomplete="bind_tooltip_popover();"/>
+                                    <p:commandLink type="button" styleClass="btn btn-default"
+                                                   value="#{bundle['dataset.manageGuestbooks.tab.action.btn.disable']}"
+                                                   rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id and guestbook.enabled}"
+                                                   action="#{manageGuestbooksPage.disableGuestbook(guestbook)}"
+                                                   update="@form,:messagePanel"
+                                                   oncomplete="bind_tooltip_popover();"/>
+                                    <div class="btn-group" role="group">
+                                        <p:commandLink type="button" styleClass="btn btn-default bootstrap-button-tooltip"
+                                                       action="#{manageGuestbooksPage.viewSelectedGuestbook(guestbook)}"
+                                                       oncomplete="viewGuestbook.show()"
+                                                       update=":manageGuestbooksForm"
+                                                       title="#{bundle['dataset.manageGuestbooks.tab.action.btn.view']}">
+                                            <span class="glyphicon glyphicon-eye-open"></span>
+                                        </p:commandLink>
+                                        <h:outputLink type="button" styleClass="btn btn-default bootstrap-button-tooltip"                                                     
+                                                      value="/guestbook.xhtml?ownerId=#{manageGuestbooksPage.dataverse.id}&#38;editMode=CLONE&#38;sourceId=#{guestbook.id}"
+                                                      title="#{bundle['dataset.manageGuestbooks.tab.action.btn.copy']}">
+                                            <span class="glyphicon glyphicon-duplicate"></span>
+                                        </h:outputLink>
+                                        <h:outputLink type="button" styleClass="btn btn-default bootstrap-button-tooltip"
+                                                      rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id}"
+                                                      value="/guestbook.xhtml?id=#{guestbook.id}&#38;ownerId=#{manageGuestbooksPage.dataverse.id}&#38;editMode=METADATA"
+                                                      title="#{bundle['dataset.manageGuestbooks.tab.action.btn.edit']}">
+                                            <span class="glyphicon glyphicon-pencil"></span>
+                                        </h:outputLink>
+                                        <p:commandLink type="button" styleClass="btn btn-default bootstrap-button-tooltip"
+                                                       action="#{manageGuestbooksPage.setSelectedGuestbook(guestbook)}"
+                                                       rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id and guestbook.deletable}"
+                                                       oncomplete="deleteConfirmation.show()"
+                                                       title="#{bundle['dataset.manageGuestbooks.tab.action.btn.delete']}">
+                                            <span class="glyphicon glyphicon-trash"></span>
+                                        </p:commandLink>
+                                    </div>
+                                    <h:outputLink type="button" styleClass="btn btn-default"
+                                                  rendered="#{guestbook.responseCount > 0}"                                                
+                                                  value="/guestbook-responses.xhtml?dataverseId=#{manageGuestbooksPage.dataverse.id}&#38;guestbookId=#{guestbook.id}">
+                                        <span>#{bundle['dataset.manageGuestbooks.tab.action.btn.viewCollectedData']}</span>
                                     </h:outputLink>
-                                    <h:outputLink styleClass="btn btn-default bootstrap-button-tooltip"
-                                                  rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id}"
-                                                  value="/guestbook.xhtml?id=#{guestbook.id}&#38;ownerId=#{manageGuestbooksPage.dataverse.id}&#38;editMode=METADATA"
-                                                  title="#{bundle['dataset.manageGuestbooks.tab.action.btn.edit']}">
-                                        <span class="glyphicon glyphicon-pencil"></span>
-                                    </h:outputLink>
-                                    <p:commandLink styleClass="btn btn-default bootstrap-button-tooltip"
-                                                   action="#{manageGuestbooksPage.setSelectedGuestbook(guestbook)}"
-                                                   rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id and guestbook.deletable}"
-                                                   oncomplete="deleteConfirmation.show()"
-                                                   title="#{bundle['dataset.manageGuestbooks.tab.action.btn.delete']}">
-                                        <span class="glyphicon glyphicon-trash"></span>
-                                    </p:commandLink>
                                 </div>
                             </p:column>
                         </p:dataTable>
                     </div>
 
-                    <p:confirmDialog message="#{bundle['dataset.manageGuestbooks.tab.action.btn.delete.dialog.tip']}" header="#{bundle['dataset.manageGuestbooks.tab.action.btn.delete.dialog.header']}" widgetVar="deleteConfirmation">
-                        <p:commandButton value="#{bundle.continue}" onclick="deleteConfirmation.hide()" action="#{manageGuestbooksPage.deleteGuestbook()}" update="@all" />
-                        <p:commandButton value="#{bundle.cancel}" onclick="deleteConfirmation.hide()" type="button" />
-                    </p:confirmDialog>
-                    <p:dialog id="viewGuestbook" styleClass="largePopUp" header="#{bundle['dataset.manageGuestbooks.tab.action.btn.view.dialog.header']}" widgetVar="viewGuestbook">
+                    <p:dialog header="#{bundle['dataset.manageGuestbooks.tab.action.btn.delete.dialog.header']}" widgetVar="deleteConfirmation" modal="true">
+                        <p class="help-block">
+                            <span class="glyphicon glyphicon-warning-sign text-danger"/> <span class="text-danger">#{bundle['dataset.manageGuestbooks.tab.action.btn.delete.dialog.tip']}</span>
+                        </p>
+                        <div class="button-block">
+                            <p:commandButton value="#{bundle.continue}" onclick="deleteConfirmation.hide()" action="#{manageGuestbooksPage.deleteGuestbook()}" update="@all" />
+                            <p:commandButton value="#{bundle.cancel}" onclick="deleteConfirmation.hide()" type="button" />
+                        </div>
+                    </p:dialog>
+                    <p:dialog id="viewGuestbook" styleClass="largePopUp" header="#{bundle['dataset.manageGuestbooks.tab.action.btn.view.dialog.header']}" widgetVar="viewGuestbook" modal="true">
                         <div class="text-right">
                             <h:outputLink styleClass="btn btn-default"
                                           rendered="#{manageGuestbooksPage.dataverse.id eq guestbook.dataverse.id}"
@@ -179,45 +186,8 @@
                                 </div>
                             </div>
                         </div>
-                    </p:dialog>
-                    <p:dialog id="viewGuestbookCollectedData" styleClass="largePopUp" header="#{bundle['dataset.manageGuestbooks.tab.action.btn.viewCollectedData.dialog.header']}" widgetVar="viewGuestbookCollectedData">
-                        <div class="form-horizontal">
-                            <div class="form-group">
-                                <label for="guestbookNameStatic" class="col-sm-3 control-label">
-                                    <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="#{bundle['dataset.manageGuestbooks.tab.action.btn.view.dialog.datasetGuestbook.title']}">
-                                        #{bundle['dataset.manageGuestbooks.tab.action.btn.view.dialog.datasetGuestbook']}
-                                    </span>
-                                </label>
-                                <div class="col-sm-7">
-                                    <p class="form-control-static">
-                                        #{manageGuestbooksPage.selectedGuestbook.name}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="guestbookCollectedDataStatic" class="col-sm-3 control-label">
-                                <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="#{bundle['dataset.manageGuestbooks.tab.action.btn.view.dialog.userCollectedData.title']}">
-                                    #{bundle['dataset.manageGuestbooks.tab.action.btn.view.dialog.userCollectedData']}
-                                </span>
-                            </label>
-                            <div class="col-sm-7">
-                                <ui:repeat value="#{manageGuestbooksPage.responses}" var="response">
-                                    <p class="form-control-static">
-                                        <h:outputText value="#{response.dataset.releasedVersion.title}"/>
-                                    </p>
-                                    <p class="form-control-static">
-                                        <h:outputText value="#{response.dataFile.displayName}: #{response.name}, #{response.institution}, #{response.position}, #{response.responseTime}"/>
-                                    </p>
-                                    <ui:fragment rendered="#{response.customQuestionResponses.size() > 0}">
-                                        <ui:repeat value="#{response.customQuestionResponses}" var="customQResponse">
-                                            <p class="form-control-static">
-                                                <h:outputText value="#{customQResponse.customQuestion.questionString}: #{customQResponse.response}"/>
-                                            </p>
-                                        </ui:repeat>
-                                    </ui:fragment>
-                                </ui:repeat>
-                            </div>
+                        <div class="button-block">
+                            <p:commandButton type="button" value="#{bundle.close}" onclick="viewGuestbook.hide()" />
                         </div>
                     </p:dialog>
                 </h:form>

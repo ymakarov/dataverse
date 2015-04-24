@@ -5,6 +5,7 @@
  */
 package edu.harvard.iq.dataverse;
 
+import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.dataaccess.ImageThumbConverter;
 import java.io.File;
 import java.sql.Timestamp;
@@ -16,7 +17,6 @@ import java.util.ResourceBundle;
 import java.util.MissingResourceException;
 import java.util.Properties;
 import java.util.concurrent.Future;
-import java.util.logging.Level;
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.inject.Inject;
@@ -42,7 +42,13 @@ public class DataverseServiceBean implements java.io.Serializable {
 
     @EJB
     DatasetServiceBean datasetService;
-    
+
+    @EJB
+    DataverseLinkingServiceBean dataverseLinkingService;
+
+    @EJB
+    DatasetLinkingServiceBean datasetLinkingService;
+
     @Inject
     DataverseSession session;
 
@@ -67,6 +73,35 @@ public class DataverseServiceBean implements java.io.Serializable {
 
     public List<Dataverse> findAll() {
         return em.createQuery("select object(o) from Dataverse as o order by o.name").getResultList();
+    }
+
+    /**
+     * @param numPartitions The number of partitions you intend to split the
+     * indexing job into. Perhaps you have three Glassfish servers and you'd
+     * like each one to operate on a subset of dataverses.
+     *
+     * @param partitionId Maybe "partitionId" is the wrong term but it's what we
+     * call in the (text) UI. If you've specified three partitions the three
+     * partitionIds are 0, 1, and 2. We do `dataverseId % numPartitions =
+     * partitionId` to figure out which partition the dataverseId falls into.
+     * 
+     * @param skipIndexed If true, will skip any dvObjects that have a indexTime set 
+     *
+     * @return All dataverses if you say numPartitions=1 and partitionId=0.
+     * Otherwise, a subset of dataverses.
+     */
+    public List<Dataverse> findAllOrSubset(long numPartitions, long partitionId, boolean skipIndexed) {
+        if (numPartitions < 1) {
+            long saneNumPartitions = 1;
+            numPartitions = saneNumPartitions;
+        }
+        String skipClause = skipIndexed ? "AND o.indexTime is null " : "";
+        TypedQuery<Dataverse> typedQuery = em.createQuery("SELECT OBJECT(o) FROM Dataverse AS o WHERE MOD( o.id, :numPartitions) = :partitionId " +
+                skipClause +
+                "ORDER BY o.id", Dataverse.class);
+        typedQuery.setParameter("numPartitions", numPartitions);
+        typedQuery.setParameter("partitionId", partitionId);
+        return typedQuery.getResultList();
     }
 
     public List<Dataverse> findByOwnerId(Long ownerId) {
@@ -152,11 +187,11 @@ public class DataverseServiceBean implements java.io.Serializable {
     }
     
     public List<MetadataBlock> findSystemMetadataBlocks(){
-        return em.createQuery("select object(o) from MetadataBlock as o where o.dataverse.id=null  order by o.id").getResultList();
+        return em.createQuery("select object(o) from MetadataBlock as o where o.owner.id=null  order by o.id").getResultList();
     }
     
     public List<MetadataBlock> findMetadataBlocksByDataverseId(Long dataverse_id) {
-        return em.createQuery("select object(o) from MetadataBlock as o where o.dataverse.id=:dataverse_id order by o.id")
+        return em.createQuery("select object(o) from MetadataBlock as o where o.owner.id=:dataverse_id order by o.id")
                 .setParameter("dataverse_id", dataverse_id).getResultList();
     }
     
@@ -194,12 +229,9 @@ public class DataverseServiceBean implements java.io.Serializable {
         
         return appVersionString; 
     }
-    
-    public boolean isDataverseCardImageAvailable(Long dataverseId, DataverseSession session) {
-        Dataverse dataverse = find(dataverseId);
-        
+           
+    public boolean isDataverseCardImageAvailable(Dataverse dataverse, User user) {    
         if (dataverse == null) {
-            logger.warning("Preview: Version service could not locate a DatasetVersion object for id "+dataverseId+"!");
             return false; 
         }
         
@@ -229,12 +261,12 @@ public class DataverseServiceBean implements java.io.Serializable {
         // file in every dataset below... 
         // -- L.A. 4.0 beta14
         
-        for (Dataset dataset : datasetService.findPublishedByOwnerId(dataverseId)) {
+        for (Dataset dataset : datasetService.findPublishedByOwnerId(dataverse.getId())) {
             if (dataset != null) {
                 DatasetVersion releasedVersion = dataset.getReleasedVersion();
                 
                 if (releasedVersion != null) {
-                    if (datasetService.isDatasetCardImageAvailable(releasedVersion.getId(), session)) {
+                    if (datasetService.isDatasetCardImageAvailable(releasedVersion, user)) {
                         return true;
                     }
                 }
@@ -265,4 +297,21 @@ public class DataverseServiceBean implements java.io.Serializable {
             
         return null;         
     }
+
+    public List<Dataverse> findDataversesThisIdHasLinkedTo(long dataverseId) {
+        return dataverseLinkingService.findLinkedDataverses(dataverseId);
+    }
+
+    public List<Dataverse> findDataversesThatLinkToThisDvId(long dataverseId) {
+        return dataverseLinkingService.findLinkingDataverses(dataverseId);
+    }
+
+    public List<Dataset> findDatasetsThisIdHasLinkedTo(long dataverseId) {
+        return datasetLinkingService.findDatasetsThisDataverseIdHasLinkedTo(dataverseId);
+    }
+
+    public List<Dataverse> findDataversesThatLinkToThisDatasetId(long datasetId) {
+        return datasetLinkingService.findLinkingDataverses(datasetId);
+    }
+
 }  

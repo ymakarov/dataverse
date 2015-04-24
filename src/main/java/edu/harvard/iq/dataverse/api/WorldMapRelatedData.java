@@ -144,8 +144,10 @@ public class WorldMapRelatedData extends AbstractApiBean {
         try {
             this.mapLayerMetadataService.retrieveMapImageForIcon(mapLayerMetadata);
         } catch (IOException ex) {
-            logger.info("Failed to retrieve image. Error:" + ex);
+            logger.info("IOException. Failed to retrieve image. Error:" + ex);
           //  Logger.getLogger(WorldMapRelatedData.class.getName()).log(Level.SEVERE, null, ex);
+        }catch(Exception e2){
+            logger.info("Failed to retrieve image. Error:" + e2);
         }
         
         return okResponse( "Looks good " + identifier + " " + mapLayerMetadata.getLayerName());
@@ -448,7 +450,12 @@ public class WorldMapRelatedData extends AbstractApiBean {
 
         jsonData.add("dataverse_id", dverse.getId());      
         jsonData.add("dataverse_name", dverse.getName());
-        jsonData.add("dataverse_description", dverse.getDescription());
+
+        String dataverseDesc = dverse.getDescription();
+        if (dataverseDesc == null || dataverseDesc.equalsIgnoreCase("")){
+            dataverseDesc = "";
+        }        
+        jsonData.add("dataverse_description", dataverseDesc);
 
         //------------------------------------
         // Dataset Info
@@ -605,29 +612,16 @@ public class WorldMapRelatedData extends AbstractApiBean {
         // notify user
         userNotificationService.sendNotification(dvUser, wmToken.getCurrentTimestamp(), UserNotification.Type.MAPLAYERUPDATED, dfile.getOwner().getLatestVersion().getId());
 
-        
-        int attemptCnt = 0;
-        int max_attempts = 2;
-        while(attemptCnt < max_attempts) {
-            try {
-                // 1st attempt to retrieve icon image
-                attemptCnt++;
-                logger.info("retrieveMapImageForIcon - 1st time.  Attempt: " + attemptCnt);
-                if (this.mapLayerMetadataService.retrieveMapImageForIcon(savedMapLayerMetadata)==true){
-                    break;
-                }
-            } catch (IOException ex) {
+        // ------------------------------------------
+        // Retrieve a PNG representation from WorldMap
+        // ------------------------------------------
+        try {
+                logger.info("retrieveMapImageForIcon");
+                this.mapLayerMetadataService.retrieveMapImageForIcon(savedMapLayerMetadata);
+        } catch (IOException ex) {
                 logger.severe("Failed to retrieve image from WorldMap server");
                 Logger.getLogger(WorldMapRelatedData.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            /*
-            try {
-                Thread.sleep(2000); // Sleep 2 seconds
-            } catch (InterruptedException ex) {
-                Logger.getLogger(WorldMapRelatedData.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            */
-        }
+        }  
         
         return okResponse("map layer object saved!");
 

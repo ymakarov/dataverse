@@ -170,7 +170,12 @@ public class JsonParser {
             }
 
             dsv.setDeaccessionLink(obj.getString("deaccessionLink", null));
-            dsv.setVersionNumber((long) obj.getInt("versionNumber", -1));
+            int versionNumberInt = obj.getInt("versionNumber", -1);
+            Long versionNumber = null;
+            if (versionNumberInt !=-1) {
+                versionNumber = new Long(versionNumberInt);
+            }
+            dsv.setVersionNumber(versionNumber);
             dsv.setMinorVersionNumber(parseLong(obj.getString("minorVersionNumber", null)));
             // if the existing datasetversion doesn not have an id
             // use the id from the json object.
@@ -182,7 +187,7 @@ public class JsonParser {
             if (versionStateStr != null) {
                 dsv.setVersionState(DatasetVersion.VersionState.valueOf(versionStateStr));
             }
-
+            dsv.setInReview(obj.getBoolean("inReview", false));
             dsv.setReleaseTime(parseDate(obj.getString("releaseDate", null)));
             dsv.setLastUpdateTime(parseTime(obj.getString("lastUpdateTime", null)));
             dsv.setCreateTime(parseTime(obj.getString("createTime", null)));
@@ -370,7 +375,10 @@ public class JsonParser {
                         filteredValues.add(compoundVal);
                     } else {
                         // save the value for our subject field
-                        subjects.add(cvv);
+                        if (!subjects.contains(cvv)) 
+                        {
+                            subjects.add(cvv);
+                        }
                     }
                 }
 
@@ -470,13 +478,13 @@ public class JsonParser {
             for (JsonString val : json.getJsonArray("value").getValuesAs(JsonString.class)) {
                 DatasetFieldValue datasetFieldValue = new DatasetFieldValue();
                 datasetFieldValue.setDisplayOrder(vals.size() - 1);
-                datasetFieldValue.setValue(val.getString());
+                datasetFieldValue.setValue(val.getString().trim());
                 vals.add(datasetFieldValue);
             }
 
         } else {
             DatasetFieldValue datasetFieldValue = new DatasetFieldValue();
-            datasetFieldValue.setValue(json.getString("value", ""));
+            datasetFieldValue.setValue(json.getString("value", "").trim());
             vals.add(datasetFieldValue);
         }
 
@@ -492,7 +500,13 @@ public class JsonParser {
                 if (cvv == null) {
                     throw new ControlledVocabularyException("Value '" + strValue + "' does not exist in type '" + cvvType.getName() + "'", cvvType, strValue);
                 }
-                vals.add(cvv);
+                // Only add value to the list if it is not a duplicate 
+                if (strValue.equals("Other")) {
+                    System.out.println("vals = "+vals+", contains: "+vals.contains(cvv));
+                }
+                if (!vals.contains(cvv)) {
+                    vals.add(cvv);
+                }
             }
             return vals;
 

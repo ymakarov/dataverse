@@ -24,8 +24,10 @@ import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.exception.IllegalCommandException;
 import edu.harvard.iq.dataverse.engine.command.exception.PermissionException;
+import edu.harvard.iq.dataverse.search.savedsearch.SavedSearchServiceBean;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import edu.harvard.iq.dataverse.util.json.JsonParser;
+import edu.harvard.iq.dataverse.validation.BeanValidationServiceBean;
 import java.net.URI;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
@@ -103,7 +105,13 @@ public abstract class AbstractApiBean {
     
     @EJB
     protected ActionLogServiceBean actionLogSvc;
-    
+
+    @EJB
+    protected BeanValidationServiceBean beanValidationSvc;
+
+    @EJB
+    protected SavedSearchServiceBean savedSearchSvc;
+
 	@PersistenceContext(unitName = "VDCNet-ejbPU")
 	protected EntityManager em;
     
@@ -183,9 +191,11 @@ public abstract class AbstractApiBean {
         throw new WrappedResponse( errorResponse( Response.Status.BAD_REQUEST,errorMessage) );
     }
     
+    protected MetadataBlock findMetadataBlock(Long id)  {
+        return metadataBlockSvc.findById(id);
+    }
     protected MetadataBlock findMetadataBlock(String idtf) throws NumberFormatException {
-        return isNumeric(idtf) ? metadataBlockSvc.findById(Long.parseLong(idtf))
-                : metadataBlockSvc.findByName(idtf);
+        return metadataBlockSvc.findByName(idtf);
     }
     
     protected DatasetFieldType findDatasetFieldType(String idtf) throws NumberFormatException {
@@ -279,6 +289,10 @@ public abstract class AbstractApiBean {
     
     protected Response notFound( String msg ) {
         return errorResponse(Status.NOT_FOUND, msg);
+    }
+    
+    protected Response badRequest( String msg ) {
+        return errorResponse( Status.BAD_REQUEST, msg );
     }
     
     protected Response badApiKey( String apiKey ) {

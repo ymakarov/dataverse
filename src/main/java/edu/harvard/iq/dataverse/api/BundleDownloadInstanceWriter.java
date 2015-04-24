@@ -8,10 +8,8 @@ package edu.harvard.iq.dataverse.api;
 
 import java.lang.reflect.Type;
 import java.lang.annotation.Annotation;
-import javax.ejb.Singleton;
 import java.io.InputStream; 
 import java.io.OutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import javax.ws.rs.WebApplicationException;
@@ -25,10 +23,6 @@ import javax.ws.rs.ext.Provider;
 
 import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.dataaccess.*;
-import edu.harvard.iq.dataverse.datavariable.DataVariable;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -37,7 +31,6 @@ import java.util.zip.ZipOutputStream;
  *
  * @author Leonid Andreev
  */
-@Singleton
 @Provider
 public class BundleDownloadInstanceWriter implements MessageBodyWriter<BundleDownloadInstance> {
     
@@ -96,31 +89,39 @@ public class BundleDownloadInstanceWriter implements MessageBodyWriter<BundleDow
                     }
                     instream.close();
                     zout.closeEntry();
-
+                    instream = null; 
+                    
                     // Now, the original format: 
                     String origFormat = null; 
                     try {
                         DataAccessObject accessObjectOrig = StoredOriginalFile.retrieve(sf, (FileAccessObject) accessObject);
                         if (accessObjectOrig != null) {
                             instream = accessObjectOrig.getInputStream();
-                        }
-                        String origFileName = accessObjectOrig.getFileName();
-                        origFormat = accessObject.getMimeType();
-                        e = new ZipEntry(origFileName);
-                        zout.putNextEntry(e);
+                            if (instream != null) {
+                                String origFileName = accessObjectOrig.getFileName();
+                                origFormat = accessObject.getMimeType();
+                                e = new ZipEntry(origFileName);
+                                zout.putNextEntry(e);
 
-                        i = 0;
-                        while ((i = instream.read(data)) > 0) {
-                            zout.write(data, 0, i);
-                            zout.flush();
+                                i = 0;
+                                while ((i = instream.read(data)) > 0) {
+                                    zout.write(data, 0, i);
+                                    zout.flush();
+                                }
+                            }
                         }
-                        instream.close();
-                        zout.closeEntry();
                     } catch (IOException ioex) {
                         // ignore; if for whatever reason the original is not
                         // available, we'll just skip it. 
-                        logger.warning("failed to retrieve saved original for "+fileName);
+                        logger.warning("failed to retrieve saved original for " + fileName);
+                    } finally {
+                        if (instream != null) {
+                            try {instream.close();} catch (IOException ioex) {}
+                            try {zout.closeEntry();} catch (IOException ioex) {}
+                        }
                     }
+                   
+                    instream = null; 
                     
                     // And, if the original format was NOT RData, 
                     // add an RData version: 
@@ -134,22 +135,27 @@ public class BundleDownloadInstanceWriter implements MessageBodyWriter<BundleDow
 
                             if (accessObjectRdata != null) {
                                 instream = accessObjectRdata.getInputStream();
-                            }
-                            String rdataFileName = accessObjectRdata.getFileName();
-                            e = new ZipEntry(rdataFileName);
-                            zout.putNextEntry(e);
+                                if (instream != null) {
+                                    String rdataFileName = accessObjectRdata.getFileName();
+                                    e = new ZipEntry(rdataFileName);
+                                    zout.putNextEntry(e);
 
-                            i = 0;
-                            while ((i = instream.read(data)) > 0) {
-                                zout.write(data, 0, i);
-                                zout.flush();
+                                    i = 0;
+                                    while ((i = instream.read(data)) > 0) {
+                                        zout.write(data, 0, i);
+                                        zout.flush();
+                                    }
+                                }
                             }
-                            instream.close();
-                            zout.closeEntry();
                         } catch (IOException ioex) {
                             // ignore; if for whatever reason RData conversion is not
                             // available, we'll just skip it.
                             logger.warning("failed to convert tabular data file "+fileName+" to RData.");
+                        } finally {
+                            if (instream != null) {
+                                try{instream.close();}catch(IOException ioex){}
+                                try{zout.closeEntry();}catch(IOException ioex){}
+                            }
                         }
                     }
                         

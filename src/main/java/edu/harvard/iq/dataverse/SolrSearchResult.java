@@ -22,6 +22,7 @@ public class SolrSearchResult {
 
     private String id;
     private Long entityId;
+    private DvObject entity;
     private String identifier;
     private String type;
     private String htmlUrl;
@@ -29,6 +30,7 @@ public class SolrSearchResult {
     private String downloadUrl;
     private String apiUrl;
     private String imageUrl;
+    private boolean displayImage;
     private String query;
     private String name;
     private String nameSort;
@@ -42,6 +44,7 @@ public class SolrSearchResult {
     private String title;
     private String descriptionNoSnippet;
     private List<String> datasetAuthors = new ArrayList<>();
+    private String deaccessionReason;
     private List<Highlight> highlightsAsList = new ArrayList<>();
     private Map<SolrField, Highlight> highlightsMap;
     private Map<String, Highlight> highlightsAsMap;
@@ -53,8 +56,6 @@ public class SolrSearchResult {
      */
     public static String PARENT_IDENTIFIER = "identifier";
     private Map<String, String> parent;
-    // used on the SearchPage but not the search API
-    private List<Dataset> datasets;
     private String dataverseAffiliation;
     private String citation;
     /**
@@ -62,6 +63,7 @@ public class SolrSearchResult {
      */
     private String unf;
     private String filetype;
+    private String fileContentType;
     private Long fileSizeInBytes;
     private String fileMd5;
     private String dataverseAlias;
@@ -76,8 +78,10 @@ public class SolrSearchResult {
     private boolean draftState;
     private boolean deaccessionedState;
     private long datasetVersionId;
+    private String versionNumberFriendly;
     //Determine if the search result is owned by any of the dvs in the tree of the DV displayed
-    private boolean isInTree; 
+    private boolean isInTree;
+    private float score;
 
     public boolean isIsInTree() {
         return isInTree;
@@ -92,6 +96,7 @@ public class SolrSearchResult {
 //    public void setStatePublished(boolean statePublished) {
 //        this.statePublished = statePublished;
 //    }
+
     public boolean isUnpublishedState() {
         return unpublishedState;
     }
@@ -159,7 +164,7 @@ public class SolrSearchResult {
     }
 
     public String getFileTypeHighlightSnippet() {
-        Highlight highlight = highlightsAsMap.get(SearchFields.FILE_TYPE_MIME);
+        Highlight highlight = highlightsAsMap.get(SearchFields.FILE_TYPE_FRIENDLY);
         if (highlight != null) {
             String firstSnippet = highlight.getSnippets().get(0);
             if (firstSnippet != null) {
@@ -189,7 +194,7 @@ public class SolrSearchResult {
         for (Map.Entry<SolrField, Highlight> entry : highlightsMap.entrySet()) {
             SolrField solrField = entry.getKey();
             Highlight highlight = entry.getValue();
-            logger.info("SolrSearchResult class: " + solrField.getNameSearchable() + ":" + highlight.getSnippets());
+            logger.fine("SolrSearchResult class: " + solrField.getNameSearchable() + ":" + highlight.getSnippets());
         }
 
         Highlight highlight = highlightsAsMap.get(SearchFields.DESCRIPTION);
@@ -343,14 +348,17 @@ public class SolrSearchResult {
                  * https://github.com/IQSS/dataverse/issues/1595
                  */
                 .add("file_type", this.filetype)
+                .add("file_content_type", this.fileContentType)
                 .add("size_in_bytes", getFileSizeInBytes())
                 .add("md5", getFileMd5())
                 .add("unf", getUnf())
                 .add("dataset_citation", datasetCitation)
+                .add("deaccession_reason", this.deaccessionReason)
                 .add("citation", this.citation);
         // Now that nullSafeJsonBuilder has been instatiated, check for null before adding to it!
         if (showRelevance) {
             nullSafeJsonBuilder.add("matches", getRelevance());
+            nullSafeJsonBuilder.add("score", getScore());
         }
         if (showEntityIds) {
             if (this.entityId != null) {
@@ -384,7 +392,7 @@ public class SolrSearchResult {
     private String getDateTimePublished() {
         String datePublished = null;
         if (draftState == false) {
-            datePublished = releaseOrCreateDate==null ? null: Util.getDateTimeFormat().format(releaseOrCreateDate);
+            datePublished = releaseOrCreateDate == null ? null : Util.getDateTimeFormat().format(releaseOrCreateDate);
         }
         return datePublished;
     }
@@ -403,6 +411,14 @@ public class SolrSearchResult {
 
     public void setEntityId(Long entityId) {
         this.entityId = entityId;
+    }
+
+    public DvObject getEntity() {
+        return entity;
+    }
+
+    public void setEntity(DvObject entity) {
+        this.entity = entity;
     }
 
     public String getIdentifier() {
@@ -461,6 +477,14 @@ public class SolrSearchResult {
         this.imageUrl = imageUrl;
     }
 
+    public boolean isDisplayImage() {
+        return displayImage;
+    }
+
+    public void setDisplayImage(boolean displayImage) {
+        this.displayImage = displayImage;
+    }
+
     public String getQuery() {
         return query;
     }
@@ -501,6 +525,14 @@ public class SolrSearchResult {
         this.datasetAuthors = datasetAuthors;
     }
 
+    public String getDeaccessionReason() {
+        return deaccessionReason;
+    }
+
+    public void setDeaccessionReason(String deaccessionReason) {
+        this.deaccessionReason = deaccessionReason;
+    }
+
     public List<Highlight> getHighlightsAsListOrig() {
         return highlightsAsList;
     }
@@ -536,14 +568,6 @@ public class SolrSearchResult {
         this.parent = parent;
     }
 
-    public List<Dataset> getDatasets() {
-        return datasets;
-    }
-
-    public void setDatasets(List<Dataset> datasets) {
-        this.datasets = datasets;
-    }
-
     public String getDataverseAffiliation() {
         return dataverseAffiliation;
     }
@@ -566,6 +590,14 @@ public class SolrSearchResult {
 
     public void setFiletype(String filetype) {
         this.filetype = filetype;
+    }
+
+    public String getFileContentType() {
+        return fileContentType;
+    }
+
+    public void setFileContentType(String fileContentType) {
+        this.fileContentType = fileContentType;
     }
 
     public String getUnf() {
@@ -632,6 +664,14 @@ public class SolrSearchResult {
         this.datasetVersionId = datasetVersionId;
     }
 
+    public String getVersionNumberFriendly() {
+        return versionNumberFriendly;
+    }
+
+    public void setVersionNumberFriendly(String versionNumberFriendly) {
+        this.versionNumberFriendly = versionNumberFriendly;
+    }
+
     public String getDatasetUrl() {
         String failSafeUrl = "/dataset.xhtml?id=" + entityId + "&versionId=" + datasetVersionId;
         if (identifier != null) {
@@ -643,7 +683,19 @@ public class SolrSearchResult {
              */
             String badString = "null";
             if (!identifier.contains(badString)) {
-                return "/dataset.xhtml?globalId=" + identifier + "&versionId=" + datasetVersionId;
+                if (entity != null && entity instanceof Dataset) {
+                    if (((Dataset) entity).isHarvested()) {
+                        String remoteArchiveUrl = ((Dataset) entity).getRemoteArchiveURL();
+                        if (remoteArchiveUrl != null) {
+                            return remoteArchiveUrl;
+                        }
+                        return null;
+                    }
+                }
+                if (isDraftState()) {
+                    return "/dataset.xhtml?persistentId=" + identifier + "&version=DRAFT";
+                }
+                return "/dataset.xhtml?persistentId=" + identifier;
             } else {
                 logger.info("Dataset identifier/globalId contains \"" + badString + "\" perhaps due to https://github.com/IQSS/dataverse/issues/1147 . Fix data in database and reindex. Returning failsafe URL: " + failSafeUrl);
                 return failSafeUrl;
@@ -655,9 +707,16 @@ public class SolrSearchResult {
     }
 
     public String getFileUrl() {
+        if (entity != null && entity instanceof DataFile && ((DataFile) entity).isHarvested()) {
+            String remoteArchiveUrl = ((DataFile) entity).getRemoteArchiveURL();
+            if (remoteArchiveUrl != null) {
+                return remoteArchiveUrl;
+            }
+            return null;
+        }
         String parentDatasetGlobalId = parent.get(PARENT_IDENTIFIER);
         if (parentDatasetGlobalId != null) {
-            return "/dataset.xhtml?globalId=" + parentDatasetGlobalId + "&versionId=" + datasetVersionId;
+            return "/dataset.xhtml?persistentId=" + parentDatasetGlobalId;
         } else {
             return "/dataset.xhtml?id=" + parent.get(SearchFields.ID) + "&versionId=" + datasetVersionId;
         }
@@ -689,6 +748,14 @@ public class SolrSearchResult {
      */
     public void setDataverseParentAlias(String dataverseParentAlias) {
         this.dataverseParentAlias = dataverseParentAlias;
+    }
+
+    public float getScore() {
+        return score;
+    }
+
+    public void setScore(float score) {
+        this.score = score;
     }
 
     private String getDisplayType(String type) {

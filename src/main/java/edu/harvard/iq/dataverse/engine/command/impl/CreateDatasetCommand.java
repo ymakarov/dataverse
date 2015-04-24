@@ -82,7 +82,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
     public Dataset execute(CommandContext ctxt) throws CommandException {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd-hh.mm.ss");
        
-        if (  importType!=ImportType.MIGRATION && !ctxt.datasets().isUniqueIdentifier(theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()) ) {
+        if ( (importType != ImportType.MIGRATION && importType != ImportType.HARVEST) && !ctxt.datasets().isUniqueIdentifier(theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()) ) {
             throw new IllegalCommandException(String.format("Dataset with identifier '%s', protocol '%s' and authority '%s' already exists",
                                                              theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority()),
                                                 this);
@@ -103,7 +103,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
             throw new IllegalCommandException(validationFailedString, this);
         }
                 
-        logger.log(Level.INFO, "after validation "  + formatter.format(new Date().getTime())); // TODO remove
+        logger.log(Level.FINE, "after validation "  + formatter.format(new Date().getTime())); // TODO remove
         theDataset.setCreator((AuthenticatedUser) getUser());
         
         theDataset.setCreateDate(new Timestamp(new Date().getTime()));
@@ -123,9 +123,10 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         dsv.setLastUpdateTime(createDate);
         theDataset.setModificationTime(createDate);
         for (DataFile dataFile: theDataset.getFiles() ){
+            dataFile.setCreator((AuthenticatedUser) getUser());
             dataFile.setCreateDate(theDataset.getCreateDate());
         }
-        logger.log(Level.INFO,"after datascrub "  + formatter.format(new Date().getTime()));        
+        logger.log(Level.FINE,"after datascrub "  + formatter.format(new Date().getTime()));        
         String nonNullDefaultIfKeyNotFound = "";
         String    protocol = ctxt.settings().getValueForKey(SettingsServiceBean.Key.Protocol, nonNullDefaultIfKeyNotFound);
         String    authority = ctxt.settings().getValueForKey(SettingsServiceBean.Key.Authority, nonNullDefaultIfKeyNotFound);
@@ -159,11 +160,13 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         if (registrationRequired && theDataset.getGlobalIdCreateTime() == null) {
             throw new IllegalCommandException("Dataset could not be created.  Registration failed", this);
                }
-        logger.log(Level.INFO,"after doi "  + formatter.format(new Date().getTime()));          
+        logger.log(Level.FINE,"after doi "  + formatter.format(new Date().getTime()));          
         Dataset savedDataset = ctxt.em().merge(theDataset);
-         logger.log(Level.INFO,"after db update "  + formatter.format(new Date().getTime()));       
+         logger.log(Level.FINE,"after db update "  + formatter.format(new Date().getTime()));       
         // set the role to be default contributor role for its dataverse
-        ctxt.roles().save(new RoleAssignment(savedDataset.getOwner().getDefaultContributorRole(), getUser(), savedDataset));
+        if (importType==null || importType.equals(ImportType.NEW)) {
+            ctxt.roles().save(new RoleAssignment(savedDataset.getOwner().getDefaultContributorRole(), getUser(), savedDataset));
+         }
         
         savedDataset.setPermissionModificationTime(new Timestamp(new Date().getTime()));
         savedDataset = ctxt.em().merge(savedDataset);
@@ -176,26 +179,31 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
             /**
              * @todo Do something with the result. Did it succeed or fail?
              */
-            Future<String> indexDatasetFuture = ctxt.index().indexDataset(savedDataset);
+            boolean doNormalSolrDocCleanUp = true;
+            Future<String> indexDatasetFuture = ctxt.index().indexDataset(savedDataset, doNormalSolrDocCleanUp);
 //            logger.log(Level.INFO, "during dataset save, indexing result was: {0}", indexingResult);
         } catch ( RuntimeException e ) {
             logger.log(Level.WARNING, "Exception while indexing:" + e.getMessage(), e);
         }
-          logger.log(Level.INFO,"after index "  + formatter.format(new Date().getTime()));      
-        DatasetVersionUser datasetVersionDataverseUser = new DatasetVersionUser();     
-        String id = getUser().getIdentifier();
-        id = id.startsWith("@") ? id.substring(1) : id;
-        AuthenticatedUser au = ctxt.authentication().getAuthenticatedUser(id);
-        datasetVersionDataverseUser.setAuthenticatedUser(au);
-        datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());
-        datasetVersionDataverseUser.setLastUpdateDate((Timestamp) createDate); 
-        if (savedDataset.getLatestVersion().getId() == null){
-            logger.warning("CreateDatasetCommand: savedDataset version id is null");
-        } else {
-            datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());  
-        }       
-        ctxt.em().merge(datasetVersionDataverseUser); 
-           logger.log(Level.INFO,"after create version user "  + formatter.format(new Date().getTime()));       
+          logger.log(Level.FINE,"after index "  + formatter.format(new Date().getTime()));      
+        
+        // if we are not migrating, assign the user to this version
+        if (importType==null || importType.equals(ImportType.NEW)) {  
+            DatasetVersionUser datasetVersionDataverseUser = new DatasetVersionUser();     
+            String id = getUser().getIdentifier();
+            id = id.startsWith("@") ? id.substring(1) : id;
+            AuthenticatedUser au = ctxt.authentication().getAuthenticatedUser(id);
+            datasetVersionDataverseUser.setAuthenticatedUser(au);
+            datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());
+            datasetVersionDataverseUser.setLastUpdateDate((Timestamp) createDate); 
+            if (savedDataset.getLatestVersion().getId() == null){
+                logger.warning("CreateDatasetCommand: savedDataset version id is null");
+            } else {
+                datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());  
+            }       
+            ctxt.em().merge(datasetVersionDataverseUser); 
+        }
+           logger.log(Level.FINE,"after create version user "  + formatter.format(new Date().getTime()));       
         return savedDataset;
     }
 

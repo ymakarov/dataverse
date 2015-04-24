@@ -4,6 +4,7 @@ import edu.harvard.iq.dataverse.search.SearchFields;
 import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.search.SearchException;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
+import edu.harvard.iq.dataverse.util.SystemConfig;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -37,6 +38,8 @@ public class SearchIncludeFragment implements java.io.Serializable {
     PermissionServiceBean permissionService;
     @EJB
     SettingsServiceBean settingsService;
+    @EJB
+    SystemConfig systemConfig;
     @Inject
     DataverseSession session;
 
@@ -58,7 +61,6 @@ public class SearchIncludeFragment implements java.io.Serializable {
     private String fq7;
     private String fq8;
     private String fq9;
-    private Long dataverseId;
     private String dataverseAlias;
     private Dataverse dataverse;
     // commenting out dataverseSubtreeContext. it was not well-loved in the GUI
@@ -220,10 +222,8 @@ public class SearchIncludeFragment implements java.io.Serializable {
         List<String> filterQueriesFinal = new ArrayList<>();
         if (dataverseAlias != null) {
             this.dataverse = dataverseService.findByAlias(dataverseAlias);
-            dataverseId = dataverse.getId();
         }
-        if (dataverseId != null) {
-            this.dataverse = dataverseService.find(dataverseId);
+        if (this.dataverse != null) {
             String dataversePath = dataverseService.determineDataversePath(this.dataverse);
             String filterDownToSubtree = SearchFields.SUBTREE + ":\"" + dataversePath + "\"";
             if (!this.dataverse.equals(dataverseService.findRootDataverse())) {
@@ -344,8 +344,6 @@ public class SearchIncludeFragment implements java.io.Serializable {
                     }
 
                     if (dataverseInCard != null) {
-                        List<Dataset> datasets = datasetService.findPublishedByOwnerId(dataverseInCard.getId());
-                        solrSearchResult.setDatasets(datasets);
                         solrSearchResult.setDataverseAffiliation(dataverseInCard.getAffiliation());
                         solrSearchResult.setStatus(getCreatedOrReleasedDate(dataverseInCard, solrSearchResult.getReleaseOrCreateDate()));
                         solrSearchResult.setDataverseAlias(dataverseInCard.getAlias());
@@ -370,11 +368,11 @@ public class SearchIncludeFragment implements java.io.Serializable {
                      * encountered, no more information is available." and
                      * server.log has a stacktrace with the NPE.
                      */
-                    while (testDV.getOwner() != null){
+                    while (testDV.getOwner() != null) {
                         dvTree.add(testDV.getOwner());
                         testDV = testDV.getOwner();
                     }
-                    if (dvTree.contains(dataverse)){
+                    if (dvTree.contains(dataverse)) {
                         solrSearchResult.setIsInTree(true);
                     }
                     /**
@@ -388,15 +386,12 @@ public class SearchIncludeFragment implements java.io.Serializable {
                             if (datasetVersion.isDeaccessioned()) {
                                 solrSearchResult.setDeaccessionedState(true);
                             }
-                            try {
-                                String citation = datasetVersion.getCitation(true);
-                                if (citation != null) {
-                                    solrSearchResult.setCitation(citation);
-                                }
-                            } catch (Exception ex) {
-                                logger.info("Caught exception trying to call datasetVersion.getCitation() on " + datasetVersion.getId() + ". This will be fixed in https://github.com/IQSS/dataverse/issues/1153");
-                            }
+
                         }
+                    }
+                    String deaccesssionReason = solrSearchResult.getDeaccessionReason();
+                    if (deaccesssionReason != null) {
+                        solrSearchResult.setDescriptionNoSnippet(deaccesssionReason);
                     }
                 } else if (solrSearchResult.getType().equals("files")) {
                     DataFile dataFile = dataFileService.find(solrSearchResult.getEntityId());
@@ -404,7 +399,7 @@ public class SearchIncludeFragment implements java.io.Serializable {
                         solrSearchResult.setStatus(getCreatedOrReleasedDate(dataFile, solrSearchResult.getReleaseOrCreateDate()));
                     }
                     Long datasetId = Long.parseLong(solrSearchResult.getParent().get("id"));
-                    Dataset parentDS = datasetService.find(datasetId);                    
+                    Dataset parentDS = datasetService.find(datasetId);
                     Dataverse parentDataverse = parentDS.getOwner();
                     solrSearchResult.setIsInTree(false);
                     List<Dataverse> dvTree = new ArrayList();
@@ -677,14 +672,6 @@ public class SearchIncludeFragment implements java.io.Serializable {
         this.fq9 = fq9;
     }
 
-    public Long getDataverseId() {
-        return dataverseId;
-    }
-
-    public void setDataverseId(Long dataverseId) {
-        this.dataverseId = dataverseId;
-    }
-
     public Dataverse getDataverse() {
         return dataverse;
     }
@@ -898,15 +885,10 @@ public class SearchIncludeFragment implements java.io.Serializable {
     }
 
     public boolean isDebug() {
-        boolean safeDefaultIfKeyNotFound = false;
-        return settingsService.isTrueForKey(SettingsServiceBean.Key.Debug, safeDefaultIfKeyNotFound);
+        return  (debug && session.getUser().isSuperuser()) ||
+                systemConfig.isDebugEnabled();
     }
 
-    /**
-     * @todo Remove this. Stop letting end users expose debug information with
-     * the debug=true query parameter.
-     */
-    @Deprecated
     public void setDebug(boolean debug) {
         this.debug = debug;
     }
@@ -1095,5 +1077,25 @@ public class SearchIncludeFragment implements java.io.Serializable {
         }
 
         return "";
+    }
+
+    public void setDisplayCardValues() {
+        for (SolrSearchResult result : searchResultsList) {
+            boolean valueSet = false;
+            if (result.getType().equals("dataverses") && result.getEntity() instanceof Dataverse){
+                result.setDisplayImage(dataverseService.isDataverseCardImageAvailable((Dataverse) result.getEntity(), session.getUser()));
+                valueSet = true;
+            } else if (result.getType().equals("datasets") && result.getEntity() instanceof Dataset) {
+                result.setDisplayImage(datasetService.isDatasetCardImageAvailable(datasetVersionService.find(result.getDatasetVersionId()), session.getUser()));
+                valueSet = true;
+            } else if (result.getType().equals("files") && result.getEntity() instanceof DataFile) {
+                result.setDisplayImage(dataFileService.isThumbnailAvailable((DataFile) result.getEntity(), session.getUser()));
+                valueSet = true;
+            }
+
+            if (!valueSet) {
+                logger.warning("Index result / entity mismatch (id:resultType) - " + result.getId() + ":" + result.getType());
+            }            
+        }
     }
 }

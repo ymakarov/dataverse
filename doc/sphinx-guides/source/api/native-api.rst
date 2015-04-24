@@ -3,6 +3,8 @@ Native API
 
 Dataverse 4.0 exposes most of its GUI functionality via a REST-based API. Some API calls do not require authentication. Calls that do require authentication take an extra query parameter, ``key``, which should contain the API key of the user issuing the command.
 
+.. warning:: Dataverse 4.0's API is versioned at the URI - all API calls may include the version number like so: ``http://server-address//api/v1/...``. Omitting the ``v1`` part would default to the latest API version (currently 1). When writing scripts/applications that will be used for a long time, make sure to specify the API version, so they don't break when the API is upgraded.
+
 .. contents::
 
 Endpoints
@@ -109,6 +111,10 @@ Show a version of the dataset. The Dataset also include any metadata blocks the 
   
   GET http://$SERVER/api/datasets/$id/versions/$versionNumber?key=$apiKey
 
+Lists all the file metadata, for the given dataset and version::
+
+  GET http://$SERVER/api/datasets/$id/versions/$versionId/files?key=$apiKey
+
 Lists all the metadata blocks and their content, for the given dataset and version::
 
   GET http://$SERVER/api/datasets/$id/versions/$versionId/metadata?key=$apiKey
@@ -129,16 +135,20 @@ Deletes the draft version of dataset ``$id``. Only the draft version can be dele
 
     DELETE http://$SERVER/api/datasets/$id/versions/:draft?key=$apiKey
 
-Users
+Builtin Users
 ~~~~~
 
-This endopint deals with users of the built-in authentication provider. Note that users may come from different authentication services as well, such as Shibboleth.
+This endopint deals with users of the built-in authentication provider. Note that users may come from other authentication services as well, such as Shibboleth.
 For this service to work, the setting ``BuiltinUsers.KEY`` has to be set, and its value passed as ``key`` to
 each of the calls.
 
 Generates a new user. Data about the user are posted via JSON. *Note that the password is passed as a parameter in the query*. ::
 
-  POST http://$SERVER/api/users?password=$password&key=$key
+  POST http://$SERVER/api/bulitin-users?password=$password&key=$key
+
+Gets the API token of the user, given the password. ::
+
+  GET http://$SERVER/api/bulitin-users/$username/api-token?password=$password
 
 Roles
 ~~~~~
@@ -215,85 +225,82 @@ Return data about the block whose ``identifier`` is passed. ``identifier`` can e
   GET http://$SERVER/api/metadatablocks/$identifier
 
 
-Groups
-~~~~~~
+Admin 
+~~~~~~~~~~~~~~~~
+This is the administrative part of the API. It is probably a good idea to block it before allowing public access to a Dataverse installation. Blocking can be done using settings. See the ``post-install-api-block.sh`` script in the ``scripts/api`` folder for details.
+
+List all settings::
+
+  GET http://$SERVER/api/admin/settings
+
+Sets setting ``name`` to the body of the request::
+
+  PUT http://$SERVER/api/admin/settings/$name
+
+Get the setting under ``name``::
+
+  GET http://$SERVER/api/admin/settings/$name
+
+Delete the setting under ``name``::
+
+  DELETE http://$SERVER/api/admin/settings/$name
+
+List the authentication provider factories. The alias field of these is used while configuring the providers themselves. ::
+
+  GET http://$SERVER/api/admin/authenticationProviderFactories
+
+List all the authentication providers in the system (both enabled and disabled)::
+
+  GET http://$SERVER/api/admin/authenticationProviders
+
+Add new authentication provider. The POST data is in JSON format, similar to the JSON retrieved from this command's ``GET`` counterpart. ::
+
+  POST http://$SERVER/api/admin/authenticationProviders 
+
+Show data about an authentication provider::
+
+  GET http://$SERVER/api/admin/authenticationProviders/$id
+
+Enable or disable an authentication provider (denoted by ``id``)::
+
+  POST http://$SERVER/api/admin/authenticationProviders/$id/:enabled
+
+The body of the request should be either ``true`` or ``false``. Content type has to be ``application/json``, like so::
+
+  curl -H "Content-type: application/json"  -X POST -d"false" http://localhost:8080/api/admin/authenticationProviders/echo-dignified/:enabled
+
+Deletes an authentication provider from the system. The command succeeds even if there is no such provider, as the postcondition holds: there is no provider by that id after the command returns. ::
+
+  DELETE http://$SERVER/api/admin/authenticationProviders/$id/
+
+List all global roles in the system. ::
+
+    GET http://$SERVER/api/admin/roles
+
+Creates a global role in the Dataverse installation. The data POSTed are assumed to be a role JSON. ::
+
+    POST http://$SERVER/api/admin/roles
+
+Toggles superuser mode on the ``AuthenticatedUser`` whose ``identifier`` is passed. ::
+
+    POST http://$SERVER/api/admin/superuser/$identifier
 
 IpGroups
 ^^^^^^^^
 
 List all the ip groups::
 
-  GET http://$SERVER/api/groups/ip
+  GET http://$SERVER/api/admin/groups/ip
 
 Adds a new ip group. POST data should specify the group in JSON format. Examples are available at ``data/ipGroup1.json``. ::
 
-  POST http://$SERVER/api/groups/ip
+  POST http://$SERVER/api/admin/groups/ip
 
 Returns a the group in a JSON format. ``groupIdtf`` can either be the group id in the database (in case it is numeric), or the group alias. ::
 
-  GET http://$SERVER/api/groups/ip/$groupIdtf
+  GET http://$SERVER/api/admin/groups/ip/$groupIdtf
 
 Deletes the group specified by ``groupIdtf``. ``groupIdtf`` can either be the group id in the database (in case it is numeric), or the group alias. Note that a group can be deleted only if there are no roles assigned to it. ::
 
-  DELETE http://$SERVER/api/groups/ip/$groupIdtf
+  DELETE http://$SERVER/api/admin/groups/ip/$groupIdtf
 
-
-Admin 
-~~~~~~~~~~~~~~~~
-This is a "secure" part of the api, dealing with setup. Future releases will only allow accessing this from a whilelisted IP address, or localhost.
-
-List all settings::
-
-  GET http://$SERVER/api/s/settings
-
-Sets setting ``name`` to the body of the request::
-
-  PUT http://$SERVER/api/s/settings/$name
-
-Get the setting under ``name``::
-
-  GET http://$SERVER/api/s/settings/$name
-
-Delete the setting under ``name``::
-
-  DELETE http://$SERVER/api/s/settings/$name
-
-List the authentication provider factories. The alias field of these is used while configuring the providers themselves. ::
-
-  GET http://$SERVER/api/s/authenticationProviderFactories
-
-List all the authentication providers in the system (both enabled and disabled)::
-
-  GET http://$SERVER/api/s/authenticationProviders
-
-Add new authentication provider. The POST data is in JSON format, similar to the JSON retrieved from this command's ``GET`` counterpart. ::
-
-  POST http://$SERVER/api/s/authenticationProviders 
-
-Show data about an authentication provider::
-
-  GET http://$SERVER/api/s/authenticationProviders/$id
-
-Enable or disable an authentication provider (denoted by ``id``)::
-
-  POST http://$SERVER/api/s/authenticationProviders/$id/:enabled
-
-The body of the request should be either ``true`` or ``false``. Content type has to be ``application/json``, like so::
-
-  curl -H "Content-type: application/json"  -X POST -d"false" http://localhost:8080/api/s/authenticationProviders/echo-dignified/:enabled
-
-Deletes an authentication provider from the system. The command succeeds even if there is no such provider, as the postcondition holds: there is no provider by that id after the command returns. ::
-
-  DELETE http://$SERVER/api/s/authenticationProviders/$id/
-
-List all global roles in the system. ::
-
-    GET http://$SERVER/api/s/roles
-
-Creates a global role in the Dataverse installation. The data POSTed are assumed to be a role JSON. ::
-
-    POST http://$SERVER/api/s/roles
-
-Toggles superuser mode on the ``AuthenticatedUser`` whose ``identifier`` is passed. ::
-
-    POST http://$SERVER/api/s/superuser/$identifier

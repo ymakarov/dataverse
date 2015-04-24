@@ -16,7 +16,6 @@ import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
-import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -24,13 +23,22 @@ import javax.servlet.http.HttpServletResponse;
  * A web filter to block API administration calls.
  * @author michael
  */
-@WebFilter( urlPatterns={"/api/*"} )
 public class ApiBlockingFilter implements javax.servlet.Filter {
     private static final String UNBLOCK_KEY_QUERYPARAM = "unblock-key";
             
     interface BlockPolicy {
         public void doBlock(ServletRequest sr, ServletResponse sr1, FilterChain fc) throws IOException, ServletException;
     }
+    
+    /**
+     * A policy that allows all requests.
+     */
+    private static final BlockPolicy allow = new BlockPolicy(){
+        @Override
+        public void doBlock(ServletRequest sr, ServletResponse sr1, FilterChain fc) throws IOException, ServletException {
+            fc.doFilter(sr, sr1);
+        }
+    };
     
     /**
      * A policy that drops blocked requests.
@@ -113,6 +121,7 @@ public class ApiBlockingFilter implements javax.servlet.Filter {
     @Override
     public void init(FilterConfig fc) throws ServletException {
         updateBlockedPoints();
+        policies.put("allow", allow);
         policies.put("drop", drop);
         policies.put("localhost-only", localhostOnly);
         policies.put("unblock-key", unblockKey);
@@ -124,6 +133,7 @@ public class ApiBlockingFilter implements javax.servlet.Filter {
         for ( String endpoint : endpointList.split(",") ) {
             String endpointPrefix = canonize(endpoint);
             if ( ! endpointPrefix.isEmpty() ) {
+                endpointPrefix = endpointPrefix + "/"; 
                 logger.log(Level.INFO, "Blocking API endpoint: {0}", endpointPrefix);
                 blockedApiEndpoints.add(endpointPrefix);
             }
@@ -133,28 +143,26 @@ public class ApiBlockingFilter implements javax.servlet.Filter {
 
     @Override
     public void doFilter(ServletRequest sr, ServletResponse sr1, FilterChain fc) throws IOException, ServletException {
+        
         String endpointList = settingsSvc.getValueForKey(SettingsServiceBean.Key.BlockedApiEndpoints, "");
         if ( ! endpointList.equals(lastEndpointList) ) {
             updateBlockedPoints();
         }
         
         HttpServletRequest hsr = (HttpServletRequest) sr;
-        String apiEndpoint = canonize(hsr.getRequestURI().substring(hsr.getServletPath().length()));
-        
+        String requestURI = hsr.getRequestURI();
+        String apiEndpoint = canonize(requestURI.substring(hsr.getServletPath().length()));
         for ( String prefix : blockedApiEndpoints ) {
             if ( apiEndpoint.startsWith(prefix) ) {
                 getBlockPolicy().doBlock(sr, sr1, fc);
                 return;
             }
         }
-        
         fc.doFilter(sr, sr1);
     }
-
+    
     @Override
-    public void destroy() {
-        logger.info("WebFilter destroy");
-    }
+    public void destroy() {}
     
     private BlockPolicy getBlockPolicy() {
         String blockPolicyName = settingsSvc.getValueForKey(SettingsServiceBean.Key.BlockedApiPolicy, "");
@@ -164,7 +172,7 @@ public class ApiBlockingFilter implements javax.servlet.Filter {
         } else {
             logger.log(Level.WARNING, "Undefined block policy {0}. Available policies are {1}",
                     new Object[]{blockPolicyName, policies.keySet()});
-            return drop;
+            return allow;
         }
     }
     

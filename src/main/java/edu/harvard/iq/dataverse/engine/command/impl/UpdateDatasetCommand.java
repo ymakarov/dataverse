@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.logging.Logger;
 import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
 
 /**
  *
@@ -116,11 +117,13 @@ public class UpdateDatasetCommand extends AbstractCommand<Dataset> {
 
         Dataset savedDataset = ctxt.em().merge(theDataset);
         ctxt.em().flush();
+
         /**
          * @todo What should we do with the indexing result? Print it to the
          * log?
          */
-        Future<String> indexingResult = ctxt.index().indexDataset(savedDataset);
+        boolean doNormalSolrDocCleanUp = true;
+        Future<String> indexingResult = ctxt.index().indexDataset(savedDataset, doNormalSolrDocCleanUp);
         //String indexingResult = "(Indexing Skipped)";
 //        logger.log(Level.INFO, "during dataset save, indexing result was: {0}", indexingResult);
         DatasetVersionUser ddu = ctxt.datasets().getDatasetVersionUser(theDataset.getLatestVersion(), this.getUser());

@@ -7,18 +7,24 @@ Assumptions:
 
 
 Pre steps (contained in the migration_presteps document):
--4. Export DDI files from 3.6 for all datasets to be migrated 
--3.5. (this now includes exporting non-released versions - presteps doc. updated)
--3. Create copies of tables in 3.6 database for migrated data
--2. Run pg dump to extract tables copies
--1. Import copied tables into 4.0 database
 
+-7. Make a copy of the production db, and point an app server to it
+-6. (if there is any data that will fail validation, run scrubbing script - this will need to be custom per installation)
+-5.9 run duplicate user scrubbing scripts
+-5.8 run users as emails scripts
+-5. Export DDI files from 3.6 copy for all datasets to be migrated 
+    (this now includes exporting non-released versions - presteps doc. updated)
+-4. Create copies of tables in 3.6 database for migrated data
+-3. Run pg dump to extract tables copies
+-2. Import copied tables into 4.0 database
+-1. Run offsets on _dvn3_tables in the 4.0 DB
 
 Migration:
 
 1. run migrate_users.sql script
 2. run migrate_dataverses.sql script
-3. run custom_field_map.sql script (this must updated to contain the custom field mappings specific to 
+2a. migrate preloaded customizations
+3. run custom_field_map.sql script (this must be updated to contain the custom field mappings specific to 
     the migration source installation.)
 4. run dataset APIs: execute the following HTTP  request on the Dataverse 4.0 application to initiate dataset migration:
     
@@ -27,7 +33,7 @@ Migration:
     This will return a success message and begin an asynchronous migration job - the status of the job is viewable in the import-log file
     in the Glassfish logs directory.
 
-5. * run post dataset scrubbing
+5. run migrate_datasets.sql script (post migration scrubbing)
 6. run files script: 
 
 a. On the *destination* (4.0) server, step 1
@@ -58,16 +64,18 @@ in packlist.txt
 e. Unpack the files packaged above in the files directory on 
 the destination server.
 
-6. run migrate_permissions.sql script
+7. run migrate_permissions.sql script (may need to delete some duplicates)
+8. run migrate_links.sql script
+
+10. reset sequences
+
+11. (when ready for users to log in) add user passwords
 
 __________________________________________________
 
 Still to be migrated:
-- Permissions
-- Groups
-- Linked DVs / DSs
 - Guestbook / stats
-- Templates
+
 
 __________________________________________________
 
@@ -78,16 +86,4 @@ Not being migrated (verify?):
 -- Study locks
 -- VDCNetworkStats (generated data)
 
-__________________________________________________
-
-Other notes:
-- subnetworks are all migrated as published, using create user and date also as the release user and date
-- subnetworks use the same contact e-mails as the Dataverse 4.0 root
-- subnetwork short description is NOT migrated
-- dataverse type is set to "UNCATEGORIZED"
-- Order of dataverse contacts for dataverses is not maintained
-- IP groups are not currently migrated
-- only groups that had explicit users are copied
-- Groups were system wide in 3.6, so are migrated as belonging to the root dataverse, but it may make sense to manually move some groups to child dataverses
-- request access only exists in study, so this value is copied to dataset and all dataset versions.
 

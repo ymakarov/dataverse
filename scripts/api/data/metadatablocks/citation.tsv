@@ -1,5 +1,5 @@
-#metadataBlock	name    dataverseAlias    displayName													
-	citation		Citation Metadata													
+#metadataBlock	name	dataverseAlias	displayName												
+	citation		Citation Metadata												
 #datasetField	name	title	description	watermark	 fieldType	displayOrder	displayFormat	advancedSearchField	allowControlledVocabulary	allowmultiples	facetable	showabovefold	required	parent	metadatablock_id
 	title	Title	Full title by which the Dataset is known.	Enter title...	text	0		TRUE	FALSE	FALSE	FALSE	TRUE	TRUE		citation
 	subtitle	Subtitle	A secondary title used to amplify or state certain limitations on the main title.		text	1		FALSE	FALSE	FALSE	FALSE	FALSE	FALSE		citation
@@ -15,7 +15,7 @@
 	datasetContact	Contact	The contact(s) for this Dataset.		none	11		FALSE	FALSE	TRUE	FALSE	TRUE	FALSE		citation
 	datasetContactName	Name	The contact's Family Name, Given Name or the name of the organization.	FamilyName, GivenName or Organization	text	12	#VALUE	FALSE	FALSE	FALSE	FALSE	TRUE	FALSE	datasetContact	citation
 	datasetContactAffiliation	Affiliation	The organization with which the contact is affiliated.		text	13	(#VALUE)	FALSE	FALSE	FALSE	FALSE	TRUE	FALSE	datasetContact	citation
-	datasetContactEmail	E-mail	The e-mail address(es) of the contact(s) for the Dataset. This will not be displayed.		email	14	[#EMAIL]	FALSE	FALSE	FALSE	FALSE	TRUE	TRUE	datasetContact	citation
+	datasetContactEmail	E-mail	The e-mail address(es) of the contact(s) for the Dataset. This will not be displayed.		email	14	#EMAIL	FALSE	FALSE	FALSE	FALSE	TRUE	TRUE	datasetContact	citation
 	dsDescription	Description	A summary describing the purpose, nature, and scope of the Dataset.		none	15		FALSE	FALSE	TRUE	FALSE	TRUE	FALSE		citation
 	dsDescriptionValue	Text	A summary describing the purpose, nature, and scope of the Dataset.		textbox	16	#VALUE	TRUE	FALSE	FALSE	FALSE	TRUE	TRUE	dsDescription	citation
 	dsDescriptionDate	Date	In cases where a Dataset contains more than one description (for example, one might be supplied by the data producer and another prepared by the data repository where the data are deposited), the date attribute is used to distinguish between the two descriptions. The date attribute follows the ISO convention of YYYY-MM-DD.	YYYY-MM-DD	date	17	(#VALUE)	FALSE	FALSE	FALSE	FALSE	TRUE	FALSE	dsDescription	citation
@@ -67,7 +67,7 @@
 	kindOfData	Kind of Data	Type of data included in the file: survey data, census/enumeration data, aggregate data, clinical data, event/transaction data, program source code, machine-readable text, administrative records data, experimental data, psychological test, textual data, coded textual, coded documents, time budget diaries, observation data/ratings, process-produced data, or other.		text	63		TRUE	FALSE	TRUE	TRUE	FALSE	FALSE		citation
 	series	Series	Information about the Dataset series.		none	64	:	FALSE	FALSE	FALSE	FALSE	FALSE	FALSE		citation
 	seriesName	Name	Name of the dataset series to which the Dataset belongs.		text	65	#VALUE	TRUE	FALSE	FALSE	TRUE	FALSE	FALSE	series	citation
-	seriesInformation	Information	History of the series and summary of those features that apply to the series as a whole.		text	66	#VALUE	FALSE	FALSE	FALSE	FALSE	FALSE	FALSE	series	citation
+	seriesInformation	Information	History of the series and summary of those features that apply to the series as a whole.		textbox	66	#VALUE	FALSE	FALSE	FALSE	FALSE	FALSE	FALSE	series	citation
 	software	Software	Information about the software used to generate the Dataset.		none	67	,	FALSE	FALSE	TRUE	FALSE	FALSE	FALSE		citation
 	softwareName	Name	Name of software used to generate the Dataset.		text	68	#VALUE	FALSE	TRUE	FALSE	FALSE	FALSE	FALSE	software	citation
 	softwareVersion	Version	Version of the software used to generate the Dataset.		text	69	#NAME: #VALUE	FALSE	FALSE	FALSE	FALSE	FALSE	FALSE	software	citation
@@ -85,7 +85,7 @@
 	subject	Chemistry	D3	3											
 	subject	Earth and Environmental Sciences	D4	4											
 	subject	Engineering	D5	5											
-	subject	Medicine, Health & Life Sciences	D6	6											
+	subject	Medicine, Health and Life Sciences	D6	6											
 	subject	Computer and Information Science	D7	7											
 	subject	Law	D8	8											
 	subject	Mathematical Sciences	D9	9											
@@ -93,7 +93,7 @@
 	subject	Social Sciences	D11	11											
 	subject	Other	D12	12											
 	publicationIDType	ark		0											
-	publicationIDType	arXiv		1											
+	publicationIDType	arXiv		1	arxiv										
 	publicationIDType	bibcode		2											
 	publicationIDType	doi		3											
 	publicationIDType	ean13		4											

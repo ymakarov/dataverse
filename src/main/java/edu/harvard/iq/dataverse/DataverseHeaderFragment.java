@@ -11,6 +11,7 @@ import edu.harvard.iq.dataverse.authorization.groups.GroupServiceBean;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import static edu.harvard.iq.dataverse.util.JsfHelper.JH;
+import edu.harvard.iq.dataverse.util.SystemConfig;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -51,11 +52,19 @@ public class DataverseHeaderFragment implements java.io.Serializable {
     @EJB
     PermissionServiceBean permissionService;
 
+    @EJB
+    SystemConfig systemConfig;
+
     @Inject
     DataverseSession dataverseSession;
 
+    @EJB
+    UserNotificationServiceBean userNotificationService;
+    
     List<Breadcrumb> breadcrumbs = new ArrayList();
 
+    private Long unreadNotificationCount = null;
+    
     public List<Breadcrumb> getBreadcrumbs() {
         return breadcrumbs;
     }
@@ -71,6 +80,25 @@ public class DataverseHeaderFragment implements java.io.Serializable {
                 initBreadcrumbs(dvObject.getOwner(), dvObject instanceof Dataverse ? JH.localize("newDataverse") : 
                         dvObject instanceof Dataset ? JH.localize("newDataset") : null );
             }
+    }
+    
+    public Long getUnreadNotificationCount(Long userId){
+        
+        if (userId == null){
+            return new Long("0");
+        }
+        
+        if (this.unreadNotificationCount != null){
+            return this.unreadNotificationCount;
+        }
+        
+        try{
+            this.unreadNotificationCount = userNotificationService.getUnreadNotificationCountByUser(userId);
+        }catch (Exception e){
+            logger.warning("Error trying to retrieve unread notification count for user." + e.getMessage());
+            this.unreadNotificationCount = new Long("0");
+        }
+        return this.unreadNotificationCount;
     }
 
     public void initBreadcrumbs(DvObject dvObject, String subPage) {
@@ -188,7 +216,7 @@ public class DataverseHeaderFragment implements java.io.Serializable {
             // that we don't want, so we filter through a list of paramters we do allow
             // @todo verify what needs to be in this list of available parameters (for example do we want to repeat searches when you login?
             List acceptableParameters = new ArrayList();
-            acceptableParameters.addAll(Arrays.asList("id", "alias", "versionId", "q", "ownerId", "globalId"));
+            acceptableParameters.addAll(Arrays.asList("id", "alias", "version", "q", "ownerId", "persistentId", "versionId"));
 
             if (req.getParameterMap() != null) {
                 StringBuilder queryString = new StringBuilder();
@@ -232,9 +260,7 @@ public class DataverseHeaderFragment implements java.io.Serializable {
     }
 
     public boolean isDebugShibboleth() {
-        // curl -X PUT -d yes http://localhost:8080/api/s/settings/:Debug
-        boolean safeDefaultIfKeyNotFound = false;
-        return settingsService.isTrueForKey(SettingsServiceBean.Key.Debug, safeDefaultIfKeyNotFound);
+        return systemConfig.isDebugEnabled();
     }
 
     public List<String> getGroups(User user) {

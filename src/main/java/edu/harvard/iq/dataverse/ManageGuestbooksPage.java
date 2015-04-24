@@ -7,6 +7,7 @@ package edu.harvard.iq.dataverse;
 
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.impl.CreateGuestbookCommand;
+import edu.harvard.iq.dataverse.engine.command.impl.DeleteGuestbookCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseGuestbookCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDataverseGuestbookRootCommand;
@@ -77,10 +78,6 @@ public class ManageGuestbooksPage implements java.io.Serializable {
             for (Guestbook pg : dataverse.getParentGuestbooks()) {
                 pg.setUsageCount(guestbookService.findCountUsages(pg.getId()));
                 pg.setResponseCount(guestbookResponseService.findCountByGuestbookId(pg.getId()));
-                pg.setDeletable(true);
-                if (!(pg.getUsageCount().intValue() == 0)) {
-                    pg.setDeletable(false);
-                }
                 guestbooks.add(pg);
             }
         }
@@ -91,6 +88,9 @@ public class ManageGuestbooksPage implements java.io.Serializable {
                 cg.setDeletable(false);
             }
             cg.setResponseCount(guestbookResponseService.findCountByGuestbookId(cg.getId()));
+            if (!(cg.getResponseCount().intValue() == 0)) {
+                cg.setDeletable(false);
+            }
             cg.setDataverse(dataverse);
             guestbooks.add(cg);
         }
@@ -103,7 +103,13 @@ public class ManageGuestbooksPage implements java.io.Serializable {
         if (selectedGuestbook != null) {
             guestbooks.remove(selectedGuestbook);
             dataverse.getGuestbooks().remove(selectedGuestbook);
-            saveDataverse("dataset.manageGuestbooks.message.deleteSuccess", "dataset.manageGuestbooks.message.deleteFailure");
+            try {
+                engineService.submit(new DeleteGuestbookCommand(session.getUser(), getDataverse(), selectedGuestbook));
+                JsfHelper.addFlashMessage("The guestbook has been deleted");
+            } catch (CommandException ex) {
+                String failMessage = "The dataset guestbook cannot be deleted.";
+                JH.addMessage(FacesMessage.SEVERITY_FATAL, failMessage);
+            }
         } else {
             System.out.print("Selected Guestbook is null");
         }
@@ -125,11 +131,6 @@ public class ManageGuestbooksPage implements java.io.Serializable {
         return "";
     }
     
-    public void viewSelectedGuestbookResponses(Guestbook selectedGuestbook){
-        this.selectedGuestbook = selectedGuestbook;
-        guestbookPage.setGuestbook(selectedGuestbook);
-        setResponses(guestbookResponseService.findAllByGuestbookId(selectedGuestbook.getId()));       
-    }
 
     private void saveDataverse(String successMessage, String failureMessage) {
         if (successMessage.isEmpty()) {
@@ -155,14 +156,7 @@ public class ManageGuestbooksPage implements java.io.Serializable {
         this.guestbooks = guestbooks;
     }
     
-    
-    public List<GuestbookResponse> getResponses() {
-        return responses;
-    }
 
-    public void setResponses(List<GuestbookResponse> responses) {
-        this.responses = responses;
-    }
 
     public Dataverse getDataverse() {
         return dataverse;

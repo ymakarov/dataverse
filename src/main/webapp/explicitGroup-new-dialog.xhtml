@@ -1,6 +1,6 @@
-<div
-    xmlns:h="http://java.sun.com/jsf/html"
+<ui:composition xmlns:h="http://java.sun.com/jsf/html"
     xmlns:f="http://java.sun.com/jsf/core"
+    xmlns:ui="http://java.sun.com/jsf/facelets"
     xmlns:p="http://primefaces.org/ui"
     xmlns:iqbs="http://xmlns.jcp.org/jsf/composite/iqbs">
     
@@ -57,14 +57,17 @@
                     </label>
                     <div class="col-sm-9">
                         <p:autoComplete id="roleAssigneeName" placeholder="#{bundle['dataverse.permissions.usersOrGroups.assignDialog.userOrGroup.enterName']}"
-                                        multiple="true" forceSelection="true" emptyMessage="#{bundle['dataverse.permissions.usersOrGroups.assignDialog.userOrGroup.invalidMsg']}"
+                                        multiple="true" scrollHeight="180" forceSelection="true" emptyMessage="#{bundle['dataverse.permissions.usersOrGroups.assignDialog.userOrGroup.invalidMsg']}"
                                         value="#{managePermissionsPage.newExplicitGroupRoleAssignees}"  
                                         completeMethod="#{managePermissionsPage.completeRoleAssignee}"
                                         var="roleAssignee" 
                                         itemLabel="#{roleAssignee.displayInfo.title}" itemValue="#{roleAssignee}" converter="roleAssigneeConverter">
                             <p:column>
-                                <h:outputText value="#{roleAssignee.identifier} #{roleAssignee.displayInfo.title}"/> 
+                                <h:outputText value="#{roleAssignee.displayInfo.title}"/> 
                                 <h:outputText value=" (#{roleAssignee.displayInfo.affiliation})" rendered="#{!empty roleAssignee.displayInfo.affiliation}"/>
+                            </p:column>
+                            <p:column>
+                                <h:outputText value="#{roleAssignee.identifier}"/>
                             </p:column>
                             <p:ajax process="@this" event="itemSelect" />
                             <p:ajax process="@this" event="itemUnselect" />
@@ -74,7 +77,8 @@
                 </div>
             </div>
             <div class="button-block">
-                <p:commandLink styleClass="btn btn-default" value="#{bundle['dataverse.permissions.explicitGroupEditDialog.createGroup']}"
+                <p:commandLink type="button" styleClass="btn btn-default" 
+                               value="#{bundle['dataverse.permissions.explicitGroupEditDialog.createGroup']}"
                                update="explicitGroupNewDialogContent @([id$=Messages])"
                                actionListener="#{managePermissionsPage.saveExplicitGroup}" 
                                oncomplete="if (args &amp;&amp; !args.validationFailed) explicitGroupForm.hide();">
@@ -84,4 +88,4 @@
             </div>
         </p:fragment>
     </p:dialog>
-</div>
+</ui:composition>

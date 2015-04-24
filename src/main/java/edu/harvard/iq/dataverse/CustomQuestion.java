@@ -9,6 +9,9 @@ import org.hibernate.validator.constraints.NotBlank;
  * @author skraffmiller
  */
 @Entity
+@Table(indexes = {
+        @Index(columnList = "guestbook_id")
+})
 public class CustomQuestion implements Serializable {
     private static final long serialVersionUID = 1L;
     @Id
@@ -31,8 +34,10 @@ public class CustomQuestion implements Serializable {
     private List<CustomQuestionResponse> customQuestionResponses;
 
     @OneToMany(mappedBy="customQuestion",cascade={CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST},orphanRemoval=true)
+    @OrderBy("displayOrder")    
     private List<CustomQuestionValue> customQuestionValues;
     
+    @Column( nullable = false )
     private String questionType;
     
     @NotBlank(message = "Please enter question text.")

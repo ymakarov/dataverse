@@ -96,9 +96,23 @@ public class DatasetServiceBean implements java.io.Serializable {
     }
 
     /**
-     * @todo write this method for real. Don't just iterate through every single
-     * dataset! See https://redmine.hmdc.harvard.edu/issues/3988
-     */
+     * For docs, see the equivalent method on the DataverseServiceBean.
+     * @see DataverseServiceBean#findAllOrSubset(long, long) 
+     */     
+    public List<Dataset> findAllOrSubset(long numPartitions, long partitionId, boolean skipIndexed) {
+        if (numPartitions < 1) {
+            long saneNumPartitions = 1;
+            numPartitions = saneNumPartitions;
+        }
+        String skipClause = skipIndexed ? "AND o.indexTime is null " : "";
+        TypedQuery<Dataset> typedQuery = em.createQuery("SELECT OBJECT(o) FROM Dataset AS o WHERE MOD( o.id, :numPartitions) = :partitionId " +
+                skipClause +
+                "ORDER BY o.id", Dataset.class);
+        typedQuery.setParameter("numPartitions", numPartitions);
+        typedQuery.setParameter("partitionId", partitionId);
+        return typedQuery.getResultList();
+    }
+
     public Dataset findByGlobalId(String globalId) {
 
         String protocol = "";
@@ -144,7 +158,7 @@ public class DatasetServiceBean implements java.io.Serializable {
             query.setParameter("authority", authority);
             foundDataset = (Dataset) query.getSingleResult();
         } catch (javax.persistence.NoResultException e) {
-            System.out.print("no ds found: " + globalId);
+            logger.info("no ds found: " + globalId);
             // DO nothing, just return null.
         }
         return foundDataset;
@@ -429,10 +443,8 @@ public class DatasetServiceBean implements java.io.Serializable {
         }
     }
     
-    public boolean isDatasetCardImageAvailable(Long versionId, DataverseSession session) {
-        
-        DatasetVersion datasetVersion = versionService.find(versionId);
-        
+    
+    public boolean isDatasetCardImageAvailable(DatasetVersion datasetVersion, User user) {        
         if (datasetVersion == null) {
             return false; 
         }
@@ -454,7 +466,7 @@ public class DatasetServiceBean implements java.io.Serializable {
         for (FileMetadata fileMetadata : fileMetadatas) {
             DataFile dataFile = fileMetadata.getDataFile();
             
-            if (fileService.isThumbnailAvailable(dataFile, session)) {
+            if (fileService.isThumbnailAvailable(dataFile, user)) {
                 return true;
             }
  

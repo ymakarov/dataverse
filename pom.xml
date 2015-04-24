@@ -203,6 +203,11 @@
              <artifactId>fits</artifactId>
 	     <version>2012-10-25-generated</version>
 	</dependency>
+	<dependency>
+            <groupId>net.handle</groupId>
+            <artifactId>handle</artifactId>
+            <version>2006-06-16-generated</version>
+        </dependency>
 	<!-- UNF v5 (buggy), (temporarily) added for testing ingest against DVN v3  - L.A. -->
      	<dependency>
 	     <groupId>edu.harvard.iq.dvn</groupId>
@@ -294,6 +299,12 @@
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>1.8.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.jayway.restassured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>2.4.0</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

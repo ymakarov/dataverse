@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse.util;
 
+import com.ocpsoft.pretty.PrettyContext;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -114,6 +115,13 @@ public class SystemConfig {
         hostUrl = "https://" + hostName;
         return hostUrl;
     }
+    
+    /**
+     * URL Tracking: 
+     */
+    public String getPageURLWithQueryString() {
+        return PrettyContext.getCurrentInstance().getRequestURL().toURL() + PrettyContext.getCurrentInstance().getRequestQueryString().toQueryString();
+    }
 
     /**
      * The "official" server's fully-qualified domain name: 
@@ -193,6 +201,16 @@ public class SystemConfig {
         String saneDefaultForPrivacyPolicyUrl = null;
         String appPrivacyPolicyUrl = settingsService.getValueForKey(SettingsServiceBean.Key.ApplicationPrivacyPolicyUrl, saneDefaultForPrivacyPolicyUrl);
         return appPrivacyPolicyUrl;
+    }
+
+    public boolean isShibEnabled() {
+        boolean safeDefaultIfKeyNotFound = false;
+        return settingsService.isTrueForKey(SettingsServiceBean.Key.ShibEnabled, safeDefaultIfKeyNotFound);
+    }
+
+    public boolean isDebugEnabled() {
+        boolean safeDefaultIfKeyNotFound = false;
+        return settingsService.isTrueForKey(SettingsServiceBean.Key.Debug, safeDefaultIfKeyNotFound);
     }
 
 }

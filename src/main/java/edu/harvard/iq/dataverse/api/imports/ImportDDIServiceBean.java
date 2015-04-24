@@ -22,6 +22,7 @@ import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.ejb.EJBException;
 import javax.ejb.Stateless;
+import javax.persistence.NoResultException;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -99,13 +100,7 @@ public class ImportDDIServiceBean {
         // Read docDescr and studyDesc into DTO objects.
         Map fileMap = mapDDI(xmlToParse, datasetDTO);
         if (!importType.equals(ImportType.MIGRATION)) {
-                  //EMK TODO:  Call methods for reading FileMetadata and related objects from xml, return list of FileMetadata objects.
-                   /*try {
-            
-             Map<String, DataTable> dataTableMap = new DataTableImportDDI().processDataDscr(xmlr);
-             } catch(Exception e) {
-            
-             }*/
+                  // For migration, this filemetadata is copied in a separate SQL step
         }
         return datasetDTO;
     }
@@ -193,6 +188,10 @@ public class ImportDDIServiceBean {
                 
             }
         }
+         if (importType.equals(ImportType.HARVEST)) {
+            datasetDTO.getDatasetVersion().setVersionState(VersionState.RELEASED);
+       
+         }
         
 
     }
@@ -345,7 +344,9 @@ public class ImportDDIServiceBean {
                              replicationForFound = true;*/
                             HashSet<FieldDTO> set = new HashSet<>();
                             addToSet(set, DatasetFieldConstant.publicationCitation, parseText(xmlr, "relMat"));
-                            publications.add(set);
+                            if (!set.isEmpty()) {
+                                publications.add(set);
+                            }
                             if (publications.size()>0)
                                 getCitation(dvDTO).addField(FieldDTO.createMultipleCompoundFieldDTO(DatasetFieldConstant.publication, publications));
                         }
@@ -451,7 +452,9 @@ public class ImportDDIServiceBean {
                     HashSet<FieldDTO> set = new HashSet<>();
                     addToSet(set,"dsDescriptionDate", xmlr.getAttributeValue(null, "date"));
                     addToSet(set,"dsDescriptionValue",  parseText(xmlr, "abstract"));
-                    descriptions.add(set);
+                    if (!set.isEmpty()) {
+                        descriptions.add(set);
+                    }
                     
                 } else if (xmlr.getLocalName().equals("sumDscr")) processSumDscr(xmlr, dvDTO);
             
@@ -477,13 +480,18 @@ public class ImportDDIServiceBean {
                     addToSet(set,"keywordVocabulary", xmlr.getAttributeValue(null, "vocab"));     
                     addToSet(set, "keywordVocabularyURI", xmlr.getAttributeValue(null, "vocabURI") );
                     addToSet(set,"keywordValue", parseText(xmlr));
-                    keywords.add(set);
+                    if (!set.isEmpty()) {
+                        keywords.add(set);
+                    }
                 } else if (xmlr.getLocalName().equals("topcClas")) {
                     HashSet<FieldDTO> set = new HashSet<>();
                     addToSet(set,"topicClassVocab", xmlr.getAttributeValue(null, "vocab"));         
                     addToSet(set,"topicClassVocabURI", xmlr.getAttributeValue(null, "vocabURI") );
-                    addToSet(set,"topicClassValue",parseText(xmlr));
-                    topicClasses.add(set);
+                    addToSet(set,"topicClassValue",parseText(xmlr)); 
+                    if (!set.isEmpty()) {
+                        topicClasses.add(set);
+                    }
+                    
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
                 if (xmlr.getLocalName().equals("subject")) {
@@ -658,18 +666,15 @@ public class ImportDDIServiceBean {
             String template = subject.substring(subject.indexOf(":") + 1, subject.indexOf(";"));
             String sourceField = subject.substring(subject.lastIndexOf(":") + 1);
             String fieldValue = parseText(xmlr);
-            System.out.println("template = " + template + ", sourceField = " + sourceField + ", fieldValue = " + fieldValue);
-
+            
             CustomFieldMap map = customFieldService.findByTemplateField(template.trim(), sourceField.trim());
             
-            if (map == null) {
-                System.out.println("did not find mapping for template: "+template+", sourceField: "+sourceField);
-                return;
-                //TODO - put exception back in when we have all the mapping data
-          //      throw new ImportException("Unsupported Custom Field: " + template + " " + sourceField);
+            if (map == null) {               
+               throw new ImportException("Did not find mapping for template: "+template+", sourceField: "+sourceField);
             }
-            if (map.getTargetDatasetField().equals("country")) {
-                System.out.println("skipping country custom code");
+            if (map.getTargetDatasetField().endsWith("#IGNORE")) {
+                // if the target field is #IGNORE, that means we don't want to
+                // copy this field from 3.6 to 4.0
                 return;
             }
            
@@ -677,8 +682,10 @@ public class ImportDDIServiceBean {
             // 2. find the metadatablock for this field type
             // 3. If this metadatablock doesn't exist in DTO, create it
             // 4. add field to mdatadatablock
-
             DatasetFieldType dsfType = datasetFieldService.findByName(map.getTargetDatasetField());
+            if (dsfType == null) {
+                throw new ImportException("Did not find datasetField for target: " + map.getTargetDatasetField());
+            }
             String metadataBlockName = dsfType.getMetadataBlock().getName();
             MetadataBlockDTO customBlock = dvDTO.getMetadataBlocks().get(metadataBlockName);
             if (customBlock == null) {
@@ -688,54 +695,81 @@ public class ImportDDIServiceBean {
             }
             if (dsfType.isChild()) {
                 handleChildField(customBlock, dsfType, fieldValue);
-            }
-            if (dsfType.isAllowMultiples()) {
-                List<String> valList = new ArrayList<>();
-                valList.add(fieldValue);
-                if (dsfType.isAllowControlledVocabulary()) {
-                    customBlock.addField(FieldDTO.createMultipleVocabFieldDTO(dsfType.getName(), valList));
-                } else if (dsfType.isPrimitive()) {
-                    customBlock.addField(FieldDTO.createMultiplePrimitiveFieldDTO(dsfType.getName(), valList));
-                } else {
-                    throw new ImportException("Unsupported custom field type: " + dsfType);
-                }
             } else {
-                if (dsfType.isAllowControlledVocabulary()) {
-                    customBlock.addField(FieldDTO.createVocabFieldDTO(dsfType.getName(), fieldValue));
-                } else if (dsfType.isPrimitive()) {
-                    customBlock.addField(FieldDTO.createPrimitiveFieldDTO(dsfType.getName(), fieldValue));
+                if (dsfType.isAllowMultiples()) {
+                    List<String> valList = new ArrayList<>();
+                    valList.add(fieldValue);
+                    if (dsfType.isAllowControlledVocabulary()) {
+                        customBlock.addField(FieldDTO.createMultipleVocabFieldDTO(dsfType.getName(), valList));
+                    } else if (dsfType.isPrimitive()) {
+                        customBlock.addField(FieldDTO.createMultiplePrimitiveFieldDTO(dsfType.getName(), valList));
+                    } else {
+                        throw new ImportException("Unsupported custom field type: " + dsfType);
+                    }
                 } else {
-                    throw new ImportException("Unsupported custom field type: " + dsfType);
+                    if (dsfType.isAllowControlledVocabulary()) {
+                        customBlock.addField(FieldDTO.createVocabFieldDTO(dsfType.getName(), fieldValue));
+                    } else if (dsfType.isPrimitive()) {
+                        customBlock.addField(FieldDTO.createPrimitiveFieldDTO(dsfType.getName(), fieldValue));
+                    } else {
+                        throw new ImportException("Unsupported custom field type: " + dsfType);
+                    }
                 }
             }
         }
     }
     
-    private void handleChildField(MetadataBlockDTO customBlock, DatasetFieldType dsfType, String fieldValue) {
+    private void handleChildField(MetadataBlockDTO customBlock, DatasetFieldType dsfType, String fieldValue) throws ImportException {
         DatasetFieldType parent = dsfType.getParentDatasetFieldType();
-        if (parent.isAllowMultiples())
-        {
-            
-        }   else {
-            
-        }     
+
+        // Create child Field
+        FieldDTO child = null;
+        if (dsfType.isAllowControlledVocabulary()) {
+            child = FieldDTO.createVocabFieldDTO(dsfType.getName(), fieldValue);
+        } else if (dsfType.isPrimitive()) {
+            child = FieldDTO.createPrimitiveFieldDTO(dsfType.getName(), fieldValue);
+        } else {
+            throw new ImportException("Unsupported custom child field type: " + dsfType);
+        }
+        // Create compound field with this child as its only element
+        FieldDTO compound = null;
+        if (parent.isAllowMultiples()) {
+            compound = FieldDTO.createMultipleCompoundFieldDTO(parent.getName(), child);
+        } else {
+            compound = FieldDTO.createCompoundFieldDTO(parent.getName(), child);
+        }
+        customBlock.addField(compound);
+        
     }
    
     private void processSources(XMLStreamReader xmlr, MetadataBlockDTO citation) throws XMLStreamException {
         for (int event = xmlr.next(); event != XMLStreamConstants.END_DOCUMENT; event = xmlr.next()) {
             if (event == XMLStreamConstants.START_ELEMENT) {
                 // citation dataSources
+                String parsedText;
                 if (xmlr.getLocalName().equals("dataSrc")) {
-                    citation.addField(FieldDTO.createMultiplePrimitiveFieldDTO("dataSources", Arrays.asList(parseText( xmlr, "dataSrc" ))));
+                    parsedText = parseText( xmlr, "dataSrc" );
+                    if (!parsedText.isEmpty()) {
+                        citation.addField(FieldDTO.createMultiplePrimitiveFieldDTO("dataSources", Arrays.asList(parsedText)));
+                    }
                     // citation originOfSources
                 } else if (xmlr.getLocalName().equals("srcOrig")) {
-                    citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("originOfSources", parseText( xmlr, "srcOrig" )));
+                     parsedText = parseText( xmlr, "srcOrig" );
+                    if (!parsedText.isEmpty()) {
+                   citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("originOfSources", parsedText));
+                    }
                      // citation characteristicOfSources
                 } else if (xmlr.getLocalName().equals("srcChar")) {
-                    citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("characteristicOfSources", parseText( xmlr, "srcChar" )));
+                    parsedText = parseText( xmlr, "srcChar" );
+                    if (!parsedText.isEmpty()) {
+                        citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("characteristicOfSources", parsedText));
+                    }
                      // citation accessToSources
                 } else if (xmlr.getLocalName().equals("srcDocu")) {
-                    citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("accessToSources", parseText( xmlr, "srcDocu" )));
+                    parsedText = parseText( xmlr, "srcDocu" );
+                    if (!parsedText.isEmpty()) {                    
+                        citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("accessToSources", parsedText));
+                    }
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
                 if (xmlr.getLocalName().equals("sources")) return;
@@ -842,58 +876,70 @@ public class ImportDDIServiceBean {
     DDI's that we are migrating should have one and only one DVN version statement
     */
     private void processVerStmt(XMLStreamReader xmlr, DatasetVersionDTO dvDTO) throws XMLStreamException {
-        if (importType.equals(ImportType.MIGRATION) || importType.equals(ImportType.HARVEST)) {
+        if (importType.equals(ImportType.MIGRATION) || importType.equals(ImportType.HARVEST)) {        
+             if (!"DVN".equals(xmlr.getAttributeValue(null, "source"))) {
             for (int event = xmlr.next(); event != XMLStreamConstants.END_DOCUMENT; event = xmlr.next()) {
                 if (event == XMLStreamConstants.START_ELEMENT) {
-                    if (xmlr.getLocalName().equals("verStmt")) {
-                        String source = xmlr.getAttributeValue(null,"source");
-                        System.out.println("found source:"+ source);
-                    } 
                     if (xmlr.getLocalName().equals("version")) {
-                        dvDTO.setReleaseDate(xmlr.getAttributeValue(null, "date"));
+                        addNote("Version Date: "+ xmlr.getAttributeValue(null, "date"),dvDTO); 
+                        addNote("Version Text: "+ parseText(xmlr),dvDTO);
+                    } else if (xmlr.getLocalName().equals("notes")) { processNotes(xmlr, dvDTO); }
+                } else if (event == XMLStreamConstants.END_ELEMENT) {
+                    if (xmlr.getLocalName().equals("verStmt")) return;
+                }
+            }
+        } else {
+            // this is the DVN version info; get version number for StudyVersion object
+            for (int event = xmlr.next(); event != XMLStreamConstants.END_DOCUMENT; event = xmlr.next()) {
+                 if (event == XMLStreamConstants.START_ELEMENT) {
+                    if (xmlr.getLocalName().equals("version")) {
+                        dvDTO.setReleaseDate(xmlr.getAttributeValue(null, "date")); 
                         String versionState =xmlr.getAttributeValue(null,"type");
                         if (versionState!=null ) {
                             if( versionState.equals("ARCHIVED")) {
                                 versionState="RELEASED";
+                            } else if (versionState.equals("IN_REVIEW")) {
+                                versionState = DatasetVersion.VersionState.DRAFT.toString();
+                                dvDTO.setInReview(true);
                             }
                             dvDTO.setVersionState(Enum.valueOf(VersionState.class, versionState));  
-                        }                     
-                        parseVersionNumber(dvDTO, parseText(xmlr));
-                      
-                         } else if (xmlr.getLocalName().equals("notes")) { processNotes(xmlr, dvDTO); 
-                    }
-                } else if (event == XMLStreamConstants.END_ELEMENT) {
-                    if (xmlr.getLocalName().equals("verStmt")) {
-                        return;
-                    }
+                        }                                  
+                        parseVersionNumber(dvDTO,parseText(xmlr));
+                     }
+                } else if(event == XMLStreamConstants.END_ELEMENT) {
+                    if (xmlr.getLocalName().equals("verStmt")) return;
                 }
-
             }
+        }  
+            
         }
         if (importType.equals(ImportType.NEW)) {
             // If this is a new, Draft version, versionNumber and minor versionNumber are null.
             dvDTO.setVersionState(VersionState.DRAFT);
-        } else if (importType.equals(ImportType.HARVEST)) {
-            dvDTO.setVersionState(VersionState.RELEASED);
         } 
     }
     
       private void processDataAccs(XMLStreamReader xmlr, DatasetVersionDTO dvDTO) throws XMLStreamException {
         for (int event = xmlr.next(); event != XMLStreamConstants.END_DOCUMENT; event = xmlr.next()) {
-            if (event == XMLStreamConstants.START_ELEMENT) {
-                if (xmlr.getLocalName().equals("setAvail")) processSetAvail(xmlr,dvDTO);
-                else if (xmlr.getLocalName().equals("useStmt")) processUseStmt(xmlr,dvDTO);
-                else if (xmlr.getLocalName().equals("notes")) {
+             if (event == XMLStreamConstants.START_ELEMENT) {
+                if (xmlr.getLocalName().equals("setAvail")) {
+                    processSetAvail(xmlr, dvDTO);
+                } else if (xmlr.getLocalName().equals("useStmt")) {
+                    processUseStmt(xmlr, dvDTO);
+                } else if (xmlr.getLocalName().equals("notes")) {
                     String noteType = xmlr.getAttributeValue(null, "type");
                     if (NOTE_TYPE_TERMS_OF_USE.equalsIgnoreCase(noteType) ) {
-                       // Ignore Harvest Terms of Use, not relevant in Dataverse 4.0
-                       // because we are not presenting harvested data for download
+                        if ( LEVEL_DV.equalsIgnoreCase(xmlr.getAttributeValue(null, "level"))) {
+                            dvDTO.setTermsOfUse(parseText(xmlr, "notes"));
+                        }
                     } else {
-                        processNotes( xmlr, dvDTO );
+                        processNotes(xmlr, dvDTO);
                     }
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
-                if (xmlr.getLocalName().equals("dataAccs")) return;
+                if (xmlr.getLocalName().equals("dataAccs")) {
+                    return;
+                }
             }
         }
     }
@@ -1015,9 +1061,8 @@ public class ImportDDIServiceBean {
                     citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("dateOfDeposit", parseDate(xmlr, "depDate")));
 
                 } else if (xmlr.getLocalName().equals("distDate")) {
-                    // TODO: for New Import, we will ignore this, waiting for decision
-                    // about what to do for Harvest & migration (12/15/2014)
-                    // metadata.setDistributionDate( parseDate(xmlr,"distDate") );
+                         citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("distributionDate", parseDate(xmlr, "distDate")));
+
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
                 if (xmlr.getLocalName().equals("distStmt")) {
@@ -1041,23 +1086,26 @@ public class ImportDDIServiceBean {
             if (event == XMLStreamConstants.START_ELEMENT) {
                 if (xmlr.getLocalName().equals("producer")) {
                     HashSet<FieldDTO> set = new HashSet<>();
-                    set.add(FieldDTO.createPrimitiveFieldDTO("producerAbbreviation", xmlr.getAttributeValue(null, "abbr")));
-                    set.add(FieldDTO.createPrimitiveFieldDTO("producerAffiliation", xmlr.getAttributeValue(null, "affiliation")));
+                    addToSet(set,"producerAbbreviation", xmlr.getAttributeValue(null, "abbr"));
+                    addToSet(set,"producerAffiliation", xmlr.getAttributeValue(null, "affiliation"));
                     
                     Map<String, String> prodDetails = parseCompoundText(xmlr, "producer");
-                    set.add(FieldDTO.createPrimitiveFieldDTO("producerName", prodDetails.get("name")));
-                    set.add(FieldDTO.createPrimitiveFieldDTO("producerURL", prodDetails.get("url") ));
-                    set.add(FieldDTO.createPrimitiveFieldDTO("producerLogoURL", prodDetails.get("logo")));
-                    producers.add(set);
+                    addToSet(set,"producerName", prodDetails.get("name"));
+                    addToSet(set,"producerURL", prodDetails.get("url" ));
+                    addToSet(set,"producerLogoURL", prodDetails.get("logo"));
+                    if (!set.isEmpty())
+                        producers.add(set);
                 } else if (xmlr.getLocalName().equals("prodDate")) {
                     citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("productionDate", parseDate(xmlr, "prodDate")));
                 } else if (xmlr.getLocalName().equals("prodPlac")) {
                     citation.getFields().add(FieldDTO.createPrimitiveFieldDTO("productionPlace", parseDate(xmlr, "prodPlac")));
                 } else if (xmlr.getLocalName().equals("software")) {
                     HashSet<FieldDTO> set = new HashSet<>();
-                    set.add(FieldDTO.createPrimitiveFieldDTO("softwareVersion", xmlr.getAttributeValue(null, "version")));
-                    set.add(FieldDTO.createPrimitiveFieldDTO("softwareName", xmlr.getAttributeValue(null, "version")));
-                    software.add(set);
+                    addToSet(set,"softwareVersion", xmlr.getAttributeValue(null, "version"));
+                    addToSet(set,"softwareName", xmlr.getAttributeValue(null, "version"));
+                    if (!set.isEmpty()) {
+                        software.add(set);
+                    }
 
                     //TODO: ask Gustavo "fundAg"?TO
                 } else if (xmlr.getLocalName().equals("fundAg")) {
@@ -1065,9 +1113,11 @@ public class ImportDDIServiceBean {
                     //    metadata.setFundingAgency( parseText(xmlr) );
                 } else if (xmlr.getLocalName().equals("grantNo")) {
                     HashSet<FieldDTO> set = new HashSet<>();
-                    set.add(FieldDTO.createPrimitiveFieldDTO("grantNumberAgency", xmlr.getAttributeValue(null, "agency")));
-                    set.add(FieldDTO.createPrimitiveFieldDTO("grantNumberValue", parseText(xmlr)));
-                    grants.add(set);
+                    addToSet(set,"grantNumberAgency", xmlr.getAttributeValue(null, "agency"));
+                    addToSet(set,"grantNumberValue", parseText(xmlr));
+                    if (!set.isEmpty()){
+                        grants.add(set);
+                    }
 
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
@@ -1109,11 +1159,11 @@ public class ImportDDIServiceBean {
                         parseStudyIdDOI( parseText(xmlr), datasetDTO );
                     } else {
                         HashSet<FieldDTO> set = new HashSet<>();
-                        FieldDTO agencyValue = FieldDTO.createPrimitiveFieldDTO("otherIdAgency", xmlr.getAttributeValue(null, "agency"));
-                        FieldDTO otherIdValue = FieldDTO.createPrimitiveFieldDTO("otherIdValue", parseText(xmlr));
-                        set.add(agencyValue);
-                        set.add(otherIdValue);
-                        otherIds.add(set);
+                        addToSet(set,"otherIdAgency", xmlr.getAttributeValue(null, "agency"));
+                        addToSet(set,"otherIdValue", parseText(xmlr));
+                        if(!set.isEmpty()){
+                            otherIds.add(set);
+                        }
                     }
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
@@ -1133,9 +1183,11 @@ public class ImportDDIServiceBean {
             if (event == XMLStreamConstants.START_ELEMENT) {
                 if (xmlr.getLocalName().equals("AuthEnty")) {
                     HashSet<FieldDTO> set = new HashSet<>();
-                    set.add(FieldDTO.createPrimitiveFieldDTO("authorAffiliation", xmlr.getAttributeValue(null, "affiliation")));
-                    set.add(FieldDTO.createPrimitiveFieldDTO("authorName", parseText(xmlr)));
-                    authors.add(set);
+                    addToSet(set,"authorAffiliation", xmlr.getAttributeValue(null, "affiliation"));
+                    addToSet(set,"authorName", parseText(xmlr));
+                    if (!set.isEmpty()) {
+                        authors.add(set);
+                    }
                 }
             } else if (event == XMLStreamConstants.END_ELEMENT) {
                 if (xmlr.getLocalName().equals("rspStmt")) {
@@ -1402,7 +1454,7 @@ public class ImportDDIServiceBean {
       
     
     private void addToSet(HashSet<FieldDTO> set, String typeName, String value ) {
-        if (value!=null) {
+        if (value!=null && !value.trim().isEmpty()) {
             set.add(FieldDTO.createPrimitiveFieldDTO(typeName, value));
         }
     }
