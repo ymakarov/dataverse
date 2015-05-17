@@ -130,9 +130,7 @@ import org.apache.commons.io.FileUtils;
  * New service for handling ingest tasks
  * 
  */
-//@Stateless
-@Startup
-@Singleton
+@Stateless
 @Named
 public class IngestServiceBean {
     private static final Logger logger = Logger.getLogger(IngestServiceBean.class.getCanonicalName());
@@ -177,7 +175,17 @@ public class IngestServiceBean {
     private static String dateTimeFormat_ymdhmsS = "yyyy-MM-dd HH:mm:ss.SSS";
     private static String dateFormat_ymd = "yyyy-MM-dd";
     
-    
+   
+    /* 
+        Commenting out the @PostConstruct/init method. 
+        This was going through the datasets on startup and looking for ingests
+        in progress, un-marking the progress status. 
+        This was before we realized that the JMS queue survived glassfish 
+        restarts. 
+        It appears that any purging of the queue will need to be done outside 
+        the application. 
+        -- L.A. May 4 2015
+        
     @PostConstruct
     public void init() {
         logger.info("Initializing the Ingest Service.");
@@ -208,6 +216,7 @@ public class IngestServiceBean {
             logger.log(Level.WARNING, "Error initing the IngestServiceBean: {0}", ex.getMessage());
         }
     }
+    */
     
     @Deprecated
     // All the parts of the app should use the createDataFiles() method instead, 
@@ -863,6 +872,10 @@ public class IngestServiceBean {
 
                     FileMetadata fileMetadata = dataFile.getFileMetadatas().get(0);
                     String fileName = fileMetadata.getLabel();
+                    
+                    // temp dbug line
+                    System.out.println("ADDING FILE: " + fileName + "; for dataset: " + dataset.getGlobalId());                    
+                    
                     // These are all brand new files, so they should all have 
                     // one filemetadata total. -- L.A. 
                     boolean metadataExtracted = false;
@@ -1038,6 +1051,8 @@ public class IngestServiceBean {
                 scheduledFiles.add(dataFile);
                 
                 logger.fine("Attempting to queue the file " + dataFile.getFileMetadata().getLabel() + " for ingest.");
+                // temp dbug line
+                System.out.println("QUEUEING INGEST FOR FILE: " + dataFile.getFileMetadata().getLabel() + "; for dataset: " + dataset.getGlobalId());  
                 //asyncIngestAsTabular(dataFile);
                 count++;
             }
