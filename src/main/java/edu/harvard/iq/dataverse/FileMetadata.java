@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -41,8 +42,6 @@ public class FileMetadata implements Serializable {
     private String label = "";
     @Column(columnDefinition = "TEXT")
     private String description = "";
-    //@Column(columnDefinition="TEXT")
-    //private String category = ""; // TODO: remove! -- L.A. 4.0 beta 10
     private boolean restricted;
 
     @ManyToOne
@@ -52,6 +51,24 @@ public class FileMetadata implements Serializable {
     @JoinColumn(nullable=false)
     private DataFile dataFile;
 
+    /**
+     * Creates a copy of {@code this}, with identical business logic fields.
+     * E.g., {@link #label} would be duplicated; {@link #version} will not.
+     * 
+     * @return A copy of {@code this}, except for the DB-related data.
+     */
+    public FileMetadata createCopy() {
+        FileMetadata fmd = new FileMetadata();
+        fmd.setCategories(new LinkedList<>(getCategories()) );
+        fmd.setDataFile( getDataFile() );
+        fmd.setDatasetVersion( getDatasetVersion() );
+        fmd.setDescription( getDescription() );
+        fmd.setLabel( getLabel() );
+        fmd.setRestricted( isRestricted() );
+        
+        return fmd;
+    }
+    
     public String getLabel() {
         return label;
     }
@@ -60,7 +77,6 @@ public class FileMetadata implements Serializable {
         this.label = label;
     }
 
-
     public String getDescription() {
         return description;
     }
@@ -68,15 +84,6 @@ public class FileMetadata implements Serializable {
     public void setDescription(String description) {
         this.description = description;
     }
-
-    // TODO: remove the following 2 methods: -- L.A. beta 10
-    //public String getCategory() {
-    //    return category;
-    //}
-
-    //public void setCategory(String category) {
-    //    this.category = category;
-    //}
 
     public boolean isRestricted() {
         return restricted;
@@ -87,7 +94,7 @@ public class FileMetadata implements Serializable {
     }
     
 
-    /* 
+    /** 
      * File Categories to which this version of the DataFile belongs: 
      */
     @ManyToMany (cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST})
@@ -112,8 +119,8 @@ public class FileMetadata implements Serializable {
     public List<String> getCategoriesByName() {
         ArrayList<String> ret = new ArrayList<>();
         if (fileCategories != null) {
-            for (int i = 0; i < fileCategories.size(); i++) {
-                ret.add(fileCategories.get(i).getName());
+            for (DataFileCategory fileCategory : fileCategories) {
+                ret.add(fileCategory.getName());
             }
         }
         return ret;
@@ -212,8 +219,6 @@ public class FileMetadata implements Serializable {
         }
     }
     
-  
-    
     public DatasetVersion getDatasetVersion() {
         return datasetVersion;
     }
@@ -221,8 +226,6 @@ public class FileMetadata implements Serializable {
     public void setDatasetVersion(DatasetVersion datasetVersion) {
         this.datasetVersion = datasetVersion;
     }
-
-
 
     public DataFile getDataFile() {
         return dataFile;
@@ -291,11 +294,13 @@ public class FileMetadata implements Serializable {
         return !((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id)));
     }
 
-    /* 
+    /** 
      * An experimental method for comparing 2 file metadatas *by content*; i.e., 
      * this would be for checking 2 metadatas from 2 different versions, to 
      * determine if any of the actual metadata fields have changed between 
      * versions. 
+     * @param other the file we compare to
+     * @return {@code true} if and only if {@code other} has smae state as {@code this}.
     */
     public boolean contentEquals(FileMetadata other) {
         if (other == null) {

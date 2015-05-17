@@ -208,8 +208,12 @@ public class JsonParser {
             dsv.setContactForAccess(obj.getString("contactForAccess", null));
             dsv.setSizeOfCollection(obj.getString("sizeOfCollection", null));
             dsv.setStudyCompletion(obj.getString("studyCompletion", null));
-
-            dsv.setDatasetFields(parseMetadataBlocks(obj.getJsonObject("metadataBlocks")));
+            
+            JsonObject metadataBlocksJson = obj.getJsonObject("metadataBlocks");
+            if ( metadataBlocksJson == null ) {
+                throw new JsonParseException("Metadata block missing");
+            }
+            dsv.setDatasetFields(parseMetadataBlocks(metadataBlocksJson));
 
             return dsv;
 
