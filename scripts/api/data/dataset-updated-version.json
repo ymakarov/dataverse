@@ -1,5 +1,5 @@
 {
-  "createTime": "2014-05-20 11:52:55 -04",
+  "createTime": "2014-05-20T11:52:55Z",
   "UNF": "UNF",
   "versionNumber": 1,
   "versionMinorNumber": 0,
@@ -65,21 +65,27 @@
           "typeName": "author"
         },
         {
-          "value": "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quos, eos, natus soluta porro harum beatae voluptatem unde rerum eius quaerat officiis maxime autem asperiores facere.",
-          "typeClass": "primitive",
-          "multiple": false,
+          "value": [
+            {
+              "dsDescriptionValue": {
+                "typeName": "dsDescriptionValue",
+                "multiple": false,
+                "typeClass": "primitive",
+                "value": "The dataset description has been updated."
+              },
+              "dsDescriptionDate": {
+                "typeName": "dsDescriptionDate",
+                "multiple": false,
+                "typeClass": "primitive",
+                "value": "2015-06-07"
+              }
+            }
+            ],
+          "typeClass": "compound",
+          "multiple": true,
           "typeName": "dsDescription"
         },
-        {
-          "value": [
-            "kw10",
-            "kw20",
-            "kw30"
-          ],
-          "typeClass": "primitive",
-          "multiple": true,
-          "typeName": "keyword"
-        },
+
         {
           "value": [
             "Arts and Humanities",
@@ -233,6 +239,33 @@
           "typeClass": "primitive",
           "multiple": true,
           "typeName": "otherReferences"
+        },
+        {
+          "typeName": "datasetContact",
+          "multiple": true,
+          "typeClass": "compound",
+          "value": [
+            {
+              "datasetContactName": {
+                "typeName": "datasetContactName",
+                "multiple": false,
+                "typeClass": "primitive",
+                "value": "Dataverse, Admin"
+              },
+              "datasetContactAffiliation": {
+                "typeName": "datasetContactAffiliation",
+                "multiple": false,
+                "typeClass": "primitive",
+                "value": "Sample Datasets, inc."
+              },
+              "datasetContactEmail": {
+                "typeName": "datasetContactEmail",
+                "multiple": false,
+                "typeClass": "primitive",
+                "value": "sammi@sample.com"
+              }
+            }
+          ]
         }
       ],
       "displayName": "Citation Metadata"
