@@ -3,6 +3,7 @@ package edu.harvard.iq.dataverse.api.datadeposit;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.Dataverse;
 import java.util.logging.Logger;
+import javax.xml.namespace.QName;
 import org.apache.abdera.i18n.iri.IRI;
 import org.swordapp.server.DepositReceipt;
 
@@ -26,6 +27,11 @@ public class ReceiptGenerator {
         depositReceipt.setStatementURI("application/atom+xml;type=feed", baseUrl + "/statement/study/" + globalId);
         depositReceipt.addDublinCore("bibliographicCitation", dataset.getLatestVersion().getCitation());
         depositReceipt.setSplashUri(dataset.getPersistentURL());
+        /**
+         * This is an experimental (and purposefully undocumented, for now) way
+         * to expose database/entity id of a dataset via SWORD for https://github.com/IQSS/dataverse/issues/1837
+         */
+        depositReceipt.addSimpleExtension(new QName("http://dataverse.org", "datasetEntityId"), dataset.getId().toString());
         return depositReceipt;
     }
 
