@@ -141,17 +141,6 @@ public class SolrSearchResult {
         this.highlightsAsMap = highlightsAsMap;
     }
 
-    public String getNameHighlightSnippet() {
-        Highlight highlight = highlightsAsMap.get(SearchFields.NAME);
-        if (highlight != null) {
-            String firstSnippet = highlight.getSnippets().get(0);
-            if (firstSnippet != null) {
-                return firstSnippet;
-            }
-        }
-        return null;
-    }
-
     public String getDataverseAffiliationHighlightSnippet() {
         Highlight highlight = highlightsAsMap.get(SearchFields.AFFILIATION);
         if (highlight != null) {
@@ -165,22 +154,6 @@ public class SolrSearchResult {
 
     public String getFileTypeHighlightSnippet() {
         Highlight highlight = highlightsAsMap.get(SearchFields.FILE_TYPE_FRIENDLY);
-        if (highlight != null) {
-            String firstSnippet = highlight.getSnippets().get(0);
-            if (firstSnippet != null) {
-                return firstSnippet;
-            }
-        }
-        return null;
-    }
-
-    public String getTitleHighlightSnippet() {
-        /**
-         * @todo: don't hard-code title, look it up properly... or start
-         * indexing titles as names:
-         * https://redmine.hmdc.harvard.edu/issues/3798#note-2
-         */
-        Highlight highlight = highlightsAsMap.get("title");
         if (highlight != null) {
             String firstSnippet = highlight.getSnippets().get(0);
             if (firstSnippet != null) {
@@ -541,15 +514,9 @@ public class SolrSearchResult {
         List<Highlight> filtered = new ArrayList<>();
         for (Highlight highlight : highlightsAsList) {
             String field = highlight.getSolrField().getNameSearchable();
-            /**
-             * @todo don't hard code "title" here. And should we collapse name
-             * and title together anyway?
-             */
-            if (!field.equals(SearchFields.NAME)
-                    && !field.equals(SearchFields.DESCRIPTION)
+            if (!field.equals(SearchFields.DESCRIPTION)
                     && !field.equals(SearchFields.DATASET_DESCRIPTION)
-                    && !field.equals(SearchFields.AFFILIATION)
-                    && !field.equals("title")) {
+                    && !field.equals(SearchFields.AFFILIATION)) {
                 filtered.add(highlight);
             }
         }

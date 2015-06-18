@@ -511,8 +511,7 @@
                                         <span class="icon-dataverse text-brand pull-right" title="#{bundle.dataverse}"/>
                                         
                                         <h:outputLink value="#{dataversePage}?alias=#{result.dataverseAlias}" target="#{showFacets == true ? '_self' : '_blank'}">
-                                            <h:outputText value="#{result.name} #{bundle.dataverse}" style="padding:4px 0;" rendered="#{result.nameHighlightSnippet == null}"/>
-                                            <h:outputText value="#{result.nameHighlightSnippet} #{bundle.dataverse}" style="padding:4px 0;" rendered="#{result.nameHighlightSnippet != null}" escape="false"/>
+                                            <h:outputText value="#{result.name} #{bundle.dataverse}" style="padding:4px 0;"/>
                                             <h:outputText value=" (#{result.entityId})" style="padding:4px 0;" rendered="#{SearchIncludeFragment.debug == true}"/>
                                         </h:outputLink>                                      
                                         <h:outputText value="(#{result.dataverseAffiliation})" styleClass="text-muted" style="margin-left: .5em;" rendered="#{!empty result.dataverseAffiliation and result.dataverseAffiliationHighlightSnippet == null}"/>
@@ -571,8 +570,7 @@
                                         <span class="icon-dataset text-info pull-right" title="#{bundle.dataset}"/>
                                         
                                         <a href="#{result.datasetUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
-                                            <h:outputText value="#{result.title}" style="padding:4px 0;" rendered="#{result.titleHighlightSnippet == null}"/>
-                                            <h:outputText value="#{result.titleHighlightSnippet}" style="padding:4px 0;" rendered="#{result.titleHighlightSnippet != null}" escape="false"/>
+                                            <h:outputText value="#{result.title}" style="padding:4px 0;"/>
                                             <h:outputText value=" (#{result.entityId})" style="padding:4px 0;" rendered="#{SearchIncludeFragment.debug == true}"/></a>
                                         <h:outputText value="#{SearchIncludeFragment.DRAFT}" styleClass="label label-primary" rendered="#{result.draftState}"/>
                                         <h:outputText value="#{SearchIncludeFragment.UNPUBLISHED}" styleClass="label label-warning" rendered="#{result.unpublishedState}"/>
@@ -635,8 +633,7 @@
                                         <span class="icon-file text-muted pull-right" title="#{bundle.file}"/>
                                         
                                         <a href="#{result.fileUrl}" target="#{showFacets == true ? '_self' : '_blank'}">
-                                            <h:outputText value="#{result.name}" style="padding:4px 0;" rendered="#{result.nameHighlightSnippet == null}"/>
-                                            <h:outputText value="#{result.nameHighlightSnippet}" style="padding:4px 0;" rendered="#{result.nameHighlightSnippet != null}" escape="false"/>
+                                            <h:outputText value="#{result.name}" style="padding:4px 0;"/>
                                             <h:outputText value=" (#{result.entityId})" style="padding:4px 0;" rendered="#{SearchIncludeFragment.debug == true}"/></a>
                                         <h:outputText value="#{SearchIncludeFragment.DRAFT}" styleClass="label label-primary" rendered="#{result.draftState}"/>
                                         <h:outputText value="#{SearchIncludeFragment.UNPUBLISHED}" styleClass="label label-warning" rendered="#{result.unpublishedState}"/>

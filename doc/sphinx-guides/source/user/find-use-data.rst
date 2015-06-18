@@ -23,7 +23,7 @@ From the Dataverse homepage, you can begin searching with an exact phrase search
     - Viewing more or less: the top five results show in each facet, to view more, click on "More..." in the bottom right of a facet. Once you've chosen to see more, an option to view less will appear in the bottom left of the facet.
    
 - Result cards: after entering a search term or query, results cards that match your term or query appear underneath the search bar and to the right of the facets.
-    - Relevancy of results: each results card shows which metadata fields match the search query or term you entered into the search bar with the matching term or query bolded. If the search term or query was found in the title or name of the dataverse, dataset, or file, the search term or query will be bolded within it.
+    - Relevancy of results: each results card shows which metadata fields match the search query or term you entered into the search bar with the matching term or query bolded.
 
 - Other basic search features: 
     - Sorting results: search results can be sorted by name (A-Z or Z-A), newest or oldest, or relevancy of results. The sort button can be found above the search results, in the top right.
