@@ -14,35 +14,40 @@ Oracle JDK 1.7.x. Use the latest available. OpenJDK should also work but we are 
 Glassfish
 ----------------------------
 
-Required Glassfish Versiion 4.1 is with weld v.2.2.4 module.
+Glassfish Version 4.1 is required. 
+
+**Important**: once Glassfish is installed, a new version of the WELD library (v2.2.10.SP1) must be downloaded and installed. This fixes a serious issue in the library supplied with Glassfish 4.1. 
 
 
-- Download Glassfish::
+- Download and install Glassfish (installed in ``/usr/local/glassfish4`` in the example commands below)::
 
 	$ wget http://dlc-cdn.sun.com/glassfish/4.1/release/glassfish-4.1.zip
-	$ rsync -auv glassfish4 /usr/local
+	$ unzip glassfish-4.1.zip
+	$ mv glassfish4 /usr/local
+
+- Download WELD v2.2.10.SP1 and install it in the modules folder::
+
 	$ cd /usr/local/glassfish4/glassfish/modules
 	$ mv weld-osgi-bundle.jar weld-osgi-bundle.jar.2.2
-
-- Download weld v.2.2.4 and copy in the modules folder::
-
-	$ wget http://central.maven.org/maven2/org/jboss/weld/weld-osgi-bundle/2.2.4.Final/weld-osgi-bundle-2.2.4.Final.jar
-	$ cp weld-osgi-bundle-2.2.4.Final.jar /usr/local/glassfish4/glassfish/modules/
-	$ service glassfish start
+	$ wget http://central.maven.org/maven2/org/jboss/weld/weld-osgi-bundle/2.2.10.SP1/weld-osgi-bundle-2.2.10.SP1-glassfish4.jar
+	$ /usr/local/glassfish4/bin/asadmin start-domain domain1
 
 - Verify Weld version::
 
-	$./asadmin osgi lb | grep 'Weld OSGi Bundle'
+	$ /usr/local/glassfish4/bin/asadmin osgi lb | grep 'Weld OSGi Bundle'
 
 PostgreSQL
 ----------------------------
 
-- Install Postgres the EPEL repository. ::
+1. Installation
+================
+
+Version 9.3 is recommended. 
+
+We recommend installing Postgres from the EPEL repository::
 
 	$ wget http://yum.postgresql.org/9.3/redhat/rhel-6-x86_64/pgdg-centos93-9.3-1.noarch.rpm
 	rpm -ivh pgdg-centos93-9.3-1.noarch.rpm
-
-- Install PostgreSQL::
 
 	$ yum install postgresql93-server.x86_64
 	$ chkconfig postgresql-9.3 on
@@ -50,12 +55,31 @@ PostgreSQL
 	$ service postgresql-9.3 start
 	$ cd /etc/init.d; mv postgresql-9.3 postgres; chmod +x postgres
 
+2. Configure access to PostgresQL for the installer script
+==========================================================
 
-- The installer script needs to have direct access to the local PostgresQL server via Unix domain sockets. So this needs to be set to either “trust” or “ident”. 
-I.e., your pg_hba.conf must contain either of the 2 lines below::
+- The installer script needs to have direct access to the local PostgresQL server via Unix domain sockets. So this needs to be set to either “trust” or “ident”. I.e., your pg_hba.conf must contain *either* of the 2 "local" entries below::
+
 	local all all ident sameuser
 	or
 	local all all trust
+
+3. Configure database access for the Dataverse application
+==========================================================
+
+- The app will be talking to PostgresQL over TCP/IP, using password authentication. If you are running PostgresQL on the same server, modify the localhost entry that's already in the pg_hba.conf to look like this:: 
+
+  	host all all 127.0.0.1/32 password
+
+- If the Dataverse application is running on a different server, you will need to add a new entry to the pg_hba.conf granting it access by the network address ([ADDRESS] should be the numeric IP address of the Glassfish server)::
+
+        host all all [ADDRESS]      255.255.255.255 password
+
+- In some distributions, PostgresQL is pre-configured so that it doesn't accept network connections at all. Check that the "listen_address" line in postgresql.conf is not commented-out and looks like this:: 
+
+        listen_addresses='*' 
+        
+
 
 Solr 
 ---------------------------
@@ -88,20 +112,13 @@ Start Up Scripts
         	# the amount of memory glassfish is already using)
         	echo 1 > /proc/sys/vm/overcommit_memory
 
-        	#echo
-        	#echo "GLASSFISH IS UNDER MAINTENANCE;"
-        	#echo "PLEASE DO NOT USE service init script."
-        	#echo
-			LANG=en_US.UTF-8; export LANG
+		# Set UTF8 as the default encoding:
+		LANG=en_US.UTF-8; export LANG
         	$ASADMIN start-domain domain1
         	echo "."
         	;;
   		  stop)
         	echo -n "Stopping GlassFish server: glassfish"
-        	#echo
-        	#echo "GLASSFISH IS UNDER MAINTENANCE;"
-        	#echo "PLEASE DO NOT USE service init script."
-        	#echo
 
         	$ASADMIN stop-domain domain1
         	echo "."
