@@ -298,30 +298,30 @@
 	gsdCourseName	01211: LA III: Third Semester Core Studio		8											
 	gsdCourseName	01212: Landscape Architecture IV		9											
 	gsdCourseName	01221: Elements of Urban Design		10											
-	gsdCourseName	01301: Kyoto Studio II: Seasons and Architecture		11											
-	gsdCourseName	01301: The Function of Time		12											
-	gsdCourseName	01302: Architecture Club London		13											
-	gsdCourseName	01302: Unfinished Work III		14											
-	gsdCourseName	01303: Alimentary Design		15											
-	gsdCourseName	01303: Workplan		16											
-	gsdCourseName	01304: Alimentary Design		17											
-	gsdCourseName	01304: Socio-Environmental Responsive Design		18											
-	gsdCourseName	01305: Built Climates		19											
-	gsdCourseName	01305: Parametric Semiology - High Performance Architecture for Apple, Google and Facebook		20											
-	gsdCourseName	01306: 21st Cent. Arch.of Africa and the Diaspora		21											
-	gsdCourseName	01306: Material Performance - Fibrous Tectonics		22											
-	gsdCourseName	01307: La Strada Novissima		23											
-	gsdCourseName	01307: Material Performance		24											
-	gsdCourseName	01308: City of Artificial Extrusions		25											
-	gsdCourseName	01308: Green Card Conversations		26											
-	gsdCourseName	01309: Studio Alaska		27											
-	gsdCourseName	01309: Theatre and the City		28											
-	gsdCourseName	01310: Architecture of Cultural Prosthetics		29											
-	gsdCourseName	01310: Rotterdam Study Abroad Studio Option: Elements of Architecture		30											
-	gsdCourseName	01311: Apres Ski: Eco Village Les Diablerets		31											
-	gsdCourseName	01311: The Forms of Transition		32											
-	gsdCourseName	01312: "You Can't Die in Disney World" A ZOO		33											
-	gsdCourseName	01312: Basel Study Abroad Studio Option		34											
+	gsdCourseName	01301		11											
+	gsdCourseName	01301		12											
+	gsdCourseName	01302		13											
+	gsdCourseName	01302		14											
+	gsdCourseName	01303		15											
+	gsdCourseName	01303		16											
+	gsdCourseName	01304		17											
+	gsdCourseName	01304		18											
+	gsdCourseName	01305		19											
+	gsdCourseName	01306		20											
+	gsdCourseName	01306		21											
+	gsdCourseName	01306		22											
+	gsdCourseName	01307		23											
+	gsdCourseName	01307		24											
+	gsdCourseName	01308		25											
+	gsdCourseName	01308		26											
+	gsdCourseName	01309		27											
+	gsdCourseName	01309		28											
+	gsdCourseName	01310		29											
+	gsdCourseName	01310		30											
+	gsdCourseName	01311		31											
+	gsdCourseName	01311		32											
+	gsdCourseName	01312		33											
+	gsdCourseName	01312		34											
 	gsdCourseName	01313: Indebted Architecture		35											
 	gsdCourseName	01314: IN THE LAND OF NANDUTi: following the lines, threads, and figures of the river		36											
 	gsdCourseName	01315: Real and Imaginary Variables (Final): Global Arenas		37											
@@ -329,29 +329,29 @@
 	gsdCourseName	01317: Another nature		39											
 	gsdCourseName	01318: Borrominations, or the Auratic Dome		40											
 	gsdCourseName	01319: Thermodynamic Materialism Applied to Dense Urban Conglomerates, Two Chinese Case Studies		41											
-	gsdCourseName	01401: A New [Landscape] Infrastructure for Los Angeles		42											
-	gsdCourseName	01401: Liminal Space		43											
-	gsdCourseName	01402: Parallel Motion: Walden Pond, Concord / Central Park, New York		44											
-	gsdCourseName	01402: Parallel Motion: Walden Pond, Concord/ Central Park , NY		45											
-	gsdCourseName	01402: The Endless Landscape - River Hudson		46											
-	gsdCourseName	01403: After La Villette		47											
-	gsdCourseName	01403: After La Vilette (Paris)		48											
-	gsdCourseName	01403: LIFE-STYLED - CHINA-TOWN		49											
-	gsdCourseName	01404: California Limnolarium		50											
-	gsdCourseName	01404: California Limnolarium (experiments in projective processes)		51											
-	gsdCourseName	01404: Post-suburb - Nashua NH		52											
-	gsdCourseName	01405: Airport Park Zurich		53											
-	gsdCourseName	01405: Envisioning Miami: Simulated Natures		54											
-	gsdCourseName	01406: The Ocean State		55											
-	gsdCourseName	01407: From the City to the Object: Terre des Hommes 2017		56											
-	gsdCourseName	01408: Caen Island: Public Space		57											
-	gsdCourseName	01409: Negative Planning in Nanshahe, Haidian District, Beijing		58											
-	gsdCourseName	01501: Haters Make Me Famous: The Newark Riverfront and the Post-Great Migration City		59											
-	gsdCourseName	01501: RURBAN		60											
-	gsdCourseName	01502: Networked Urbanism: Urban Waste - Urban Design		61											
-	gsdCourseName	01502: The Storm, the Strife, and Everyday Life		62											
-	gsdCourseName	01503: Planning and Development on the East Boston Waterfront		63											
-	gsdCourseName	01503: The Countryside as a City		64											
+	gsdCourseName	01401		42											
+	gsdCourseName	01401		43											
+	gsdCourseName	01402		44											
+	gsdCourseName	01402		45											
+	gsdCourseName	01402		46											
+	gsdCourseName	01403		47											
+	gsdCourseName	01403		48											
+	gsdCourseName	01403		49											
+	gsdCourseName	01404		50											
+	gsdCourseName	01404		51											
+	gsdCourseName	01404		52											
+	gsdCourseName	01405		53											
+	gsdCourseName	01405		54											
+	gsdCourseName	01406		55											
+	gsdCourseName	01407		56											
+	gsdCourseName	01408		57											
+	gsdCourseName	01409		58											
+	gsdCourseName	01501		59											
+	gsdCourseName	01501		60											
+	gsdCourseName	01502		61											
+	gsdCourseName	01502		62											
+	gsdCourseName	01503		63											
+	gsdCourseName	01503		64											
 	gsdCourseName	01504: Retrofitting the (post?) Industrial Metropolis		65											
 	gsdCourseName	01505: Medellin: Urban Porosity as Social Infrastructure		66											
 	gsdCourseName	01506: Obsolescence and Pathways to Redevelopment:		67											
@@ -367,21 +367,21 @@
 	gsdCourseName	02142: Landscape Representation I		77											
 	gsdCourseName	02223: Digital Media I		78											
 	gsdCourseName	02224: Digital Media II		79											
-	gsdCourseName	02241: Landscape Representation II		80											
-	gsdCourseName	02241: Landscape Representation III		81											
+	gsdCourseName	02241		80											
+	gsdCourseName	02241		81											
 	gsdCourseName	02322: Digital Media for Design		82											
 	gsdCourseName	02341: Communication for Designer		83											
 	gsdCourseName	02415: Paper or Plastic		84											
 	gsdCourseName	02444: Landscape Material Design Practice and Digital Media		85											
 	gsdCourseName	02446: Drawing for Designers		86											
 	gsdCourseName	02448: Landscape as Painting		87											
-	gsdCourseName	02449: Immersive Landscape		88											
-	gsdCourseName	02449: Landscape as Video Game		89											
+	gsdCourseName	02449		88											
+	gsdCourseName	02449		89											
 	gsdCourseName	02450: Landscape as Weather/Atmosphere		90											
 	gsdCourseName	02482: Art, Design and the Public Domain		91											
 	gsdCourseName	02602: Basel Study Abroad Seminar		92											
-	gsdCourseName	03241: Theories of Landscape as Urbanism		93											
-	gsdCourseName	03241: Theories of Landscape as Urbanism, Landscape as Infrastructure		94											
+	gsdCourseName	03241		93											
+	gsdCourseName	03241		94											
 	gsdCourseName	03242: Theories of Landscape Architecture		95											
 	gsdCourseName	03330: Conservation of Older Buildings		96											
 	gsdCourseName	03333: Culture, Conservation and Design		97											
@@ -393,16 +393,16 @@
 	gsdCourseName	03499: The Aperture Analyzed		103											
 	gsdCourseName	03602: Study Abroad Seminar: Islands		104											
 	gsdCourseName	03603: The Hitchhikers Guide to Hyperreality		105											
-	gsdCourseName	04105: Studies of the Built North American Environment		106											
-	gsdCourseName	04105: Studies of the Built North American Environment 1580 - Present		107											
+	gsdCourseName	04105		106											
+	gsdCourseName	04105		107											
 	gsdCourseName	04115: History and Theory of Urban Interventions		108											
 	gsdCourseName	04121: Buildings, Texts, and Contexts I		109											
 	gsdCourseName	04141: Histories of Landscape Architecture		110											
 	gsdCourseName	04142: Histories of Landscape Architecture II		111											
 	gsdCourseName	04223: Buildings, Texts, and Contexts III		112											
 	gsdCourseName	04303: Modernization in the Visual U.S. Environment		113											
-	gsdCourseName	04304: North American Seacoasts + Landscapes Discovery Period to the Present		114											
-	gsdCourseName	04304: North American Seacoasts and Landscape		115											
+	gsdCourseName	04304		114											
+	gsdCourseName	04304		115											
 	gsdCourseName	04305: Adventure + Fantasy Simulation 1871-2036		116											
 	gsdCourseName	04329: Urbanization in the East Asian Region		117											
 	gsdCourseName	04358: Authority and Invention: Medieval Art and Architecture		118											
@@ -414,8 +414,8 @@
 	gsdCourseName	04444: Historical Ground		124											
 	gsdCourseName	04445: Envisioning Landscape: Cultures of Vision in the Air and on the Ground		125											
 	gsdCourseName	04446: A History of Nature Conservation and Cultural Landscape Preservation		126											
-	gsdCourseName	04447: Forest, Grove, Tree		127											
-	gsdCourseName	04477: Slums in Architectural History		128											
+	gsdCourseName	04447		127											
+	gsdCourseName	04477		128											
 	gsdCourseName	05204: Real Estate Finance and Development		129											
 	gsdCourseName	05206: Land Use and Environmental Law		130											
 	gsdCourseName	05210: Cities by Design I		131											
@@ -435,13 +435,13 @@
 	gsdCourseName	05502: Urban Governance and the Politics of Planning in the Developing World		145											
 	gsdCourseName	06121 Construction Lab		146											
 	gsdCourseName	06122 Energy in Architecture		147											
-	gsdCourseName	06141: Ecologies, Techniques, Technologies I		148											
-	gsdCourseName	06141: Ecologies, Techniques, Techs. I		149											
+	gsdCourseName	06141		148											
+	gsdCourseName	06141		149											
 	gsdCourseName	06142: Ecologies, Techniques, Techs. II		150											
 	gsdCourseName	06227: Structural Design 1		151											
 	gsdCourseName	06230: Cases in Contemporary Construction		152											
-	gsdCourseName	06241: Ecologies, Techniques, Technologies III		153											
-	gsdCourseName	06241: Ecologies, Techniques, Techs. III		154											
+	gsdCourseName	06241		153											
+	gsdCourseName	06241		154											
 	gsdCourseName	06242: Ecologies, Techniques, Techs. IV		155											
 	gsdCourseName	06243: Ecologies, Techniques, Techs. V		156											
 	gsdCourseName	06251: Research Seminar on Urban Ecology		157											
@@ -456,8 +456,8 @@
 	gsdCourseName	06323: Brownfields Practicum		166											
 	gsdCourseName	06333: Aquatic Ecology		167											
 	gsdCourseName	06335: Phytotechnologies		168											
-	gsdCourseName	06337: Changing Natural and Built Coastal Environments		169											
-	gsdCourseName	06337: Changing Natural and Built Coastal Environments		170											
+	gsdCourseName	06337		169											
+	gsdCourseName	06337		170											
 	gsdCourseName	06338: Introduction to Computational Design		171											
 	gsdCourseName	06436: Expanded Mechanisms / Empirical Materialisms		172											
 	gsdCourseName	06450: High Performance Buildings and Systems Integration		173											
@@ -468,36 +468,36 @@
 	gsdCourseName	06474: Natural Ventilation		178											
 	gsdCourseName	06478: Informal Robotics		179											
 	gsdCourseName	06479: Daylighting		180											
-	gsdCourseName	07241: Practices of LA		181											
-	gsdCourseName	07241: Practices of Landscape Architecture		182											
+	gsdCourseName	07241		181											
+	gsdCourseName	07241		182											
 	gsdCourseName	07408: Frameworks of Contemporary Practice		183											
 	gsdCourseName	07410: The Architect in History		184											
-	gsdCourseName	09123: The Fourth Typology		185											
-	gsdCourseName	09123: The Fourth Typology: Dominant Type + the Idea of the City		186											
+	gsdCourseName	09123		185											
+	gsdCourseName	09123		186											
 	gsdCourseName	09127: Real Estate and City Making in China		187											
 	gsdCourseName	09131: Cultivating Scale: Territorial Planting Strategies		188											
 	gsdCourseName	09136: Teaching Creativity		189											
 	gsdCourseName	09137: Mapping Cultural Space		190											
 	gsdCourseName	09201: Independent Study  Masters Degrees		191											
-	gsdCourseName	09204: Preparation for Independent Thesis Proposal for MUP, MAUD, or MLAUD		192											
-	gsdCourseName	09204: Thesis Prep for MUP, MAUD, or MLAUD		193											
+	gsdCourseName	09204		192											
+	gsdCourseName	09204		193											
 	gsdCourseName	09301: Independent Thesis in Satisfaction of Degree MArch		194											
 	gsdCourseName	09302: Independent Thesis in Satisfaction of the Degree MAUD, MLAUD, or MUP		195											
-	gsdCourseName	09304: Independent Thesis for Mdes		196											
-	gsdCourseName	09304: Independent Thesis for the Degree Master in Design Studies		197											
+	gsdCourseName	09304		196											
+	gsdCourseName	09304		197											
 	gsdCourseName	09305: Master of Design Studies Final Project		198											
-	gsdCourseName	09341: Preparation of Design Thesis Proposal for MLA		199											
-	gsdCourseName	09341: Thesis Prep for MLA		200											
-	gsdCourseName	09342: Independent Thesis		201											
-	gsdCourseName	09342: Independent Thesis in Satisfaction of the Degree MLA		202											
+	gsdCourseName	09341		199											
+	gsdCourseName	09341		200											
+	gsdCourseName	09342		201											
+	gsdCourseName	09342		202											
 	gsdCourseName	09503: Preparation of Doctoral Thesis Proposal		203											
 	gsdCourseName	09504: Thesis in Satisfaction of the Degree Doctor of Design		204											
 	gsdCourseName	09506: Thesis Extension in Satisfaction of Degree Doctor of Design		205											
 	gsdCourseName	09601: MArch II Proseminar		206											
 	gsdCourseName	09630: Urban Design Proseminar		207											
-	gsdCourseName	09641: MLA Proseminar		208											
-	gsdCourseName	09641: Proseminar in Landscape Architecture		209											
-	gsdCourseName	09661: Proseminar in Urbanism, Landscape, Ecology		210											
+	gsdCourseName	09641		208											
+	gsdCourseName	09641		209											
+	gsdCourseName	09661		210											
 	gsdCourseName	09663: Risk and Resilience Proseminar		211											
 	gsdCourseName	09691: Doctoral Program Proseminar		212											
 	gsdCourseName	Other		213											
