@@ -19,6 +19,8 @@
    <dcterms:date>2013-07-11</dcterms:date>
    <!-- kind of data -->
    <dcterms:type>aggregate data</dcterms:type>
+   <dcterms:language>English</dcterms:language>
+   <dcterms:identifier agency="handle">hdl:1XXZY.1/XYXZ</dcterms:identifier>
    <!-- List of sources of the data collection-->
    <dcterms:source>Stumptown, Jane. 2011. Home Roasting. Coffeemill Press.</dcterms:source>
    <!-- related materials -->
@@ -26,6 +28,7 @@
    <!-- geographic coverage -->
    <dcterms:coverage>United States</dcterms:coverage>
    <dcterms:coverage>Canada</dcterms:coverage>
+   <dcterms:spatial>Mexico</dcterms:spatial>
    <!-- license and restrictions -->
    <dcterms:license>NONE</dcterms:license>
    <dcterms:rights>Downloader will not use the Materials in any way prohibited by applicable laws.</dcterms:rights>

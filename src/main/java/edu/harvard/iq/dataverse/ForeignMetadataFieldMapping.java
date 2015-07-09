@@ -15,6 +15,29 @@ import java.util.TreeMap;
  *
  * @author Leonid Andreev
  */
+/**
+ * @todo The constraint
+ * "@UniqueConstraint(columnNames={"foreignMetadataFormatMapping_id","foreignFieldXpath"})"
+ * needs to be reexamined because https://github.com/IQSS/dataverse/issues/2187
+ * introduces a requirement to support "agency" as an XML attribute for both
+ * dcterms:isReferencedBy (existing and documented) and dcterms:identifier
+ * (new). If you try to add the new "agency" for dcterms:identifier with...
+ *
+ * "INSERT INTO foreignmetadatafieldmapping (id, foreignfieldxpath,
+ * datasetfieldname, isattribute, parentfieldmapping_id,
+ * foreignmetadataformatmapping_id) VALUES (20, 'agency', 'otherIdAgency', TRUE,
+ * 2, 1 );"
+ *
+ * ... you get this constraint violation:
+ *
+ * "ERROR: duplicate key value violates unique constraint
+ * "unq_foreignmetadatafieldmapping_0" DETAIL: Key
+ * (foreignmetadataformatmapping_id, foreignfieldxpath)=(1, agency) already
+ * exists."
+ *
+ * What this means is that id 1 (dcterms, the only one we use so far) can only
+ * have one "agency".
+ */
 @Table( uniqueConstraints = @UniqueConstraint(columnNames={"foreignMetadataFormatMapping_id","foreignFieldXpath"}) 
       , indexes = {@Index(columnList="foreignmetadataformatmapping_id")
 		, @Index(columnList="foreignfieldxpath")
