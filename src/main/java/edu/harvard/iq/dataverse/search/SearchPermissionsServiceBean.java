@@ -85,7 +85,7 @@ public class SearchPermissionsServiceBean {
 
     public List<String> findDvObjectPerms(DvObject dvObject) {
         List<String> permStrings = new ArrayList<>();
-        resetRoleAssigneeCache();
+//        resetRoleAssigneeCache();
         Set<RoleAssignment> roleAssignments = rolesSvc.rolesAssignments(dvObject);
         for (RoleAssignment roleAssignment : roleAssignments) {
             logger.fine("role assignment on dvObject " + dvObject.getId() + ": " + roleAssignment.getAssigneeIdentifier());
@@ -97,7 +97,7 @@ public class SearchPermissionsServiceBean {
                 }
             }
         }
-        resetRoleAssigneeCache();
+//        resetRoleAssigneeCache();
         return permStrings;
     }
     
