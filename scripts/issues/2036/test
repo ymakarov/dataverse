@@ -1,0 +1,2 @@
+#!/bin/sh
+curl -s 'http://localhost:8983/solr/collection1/select?rows=1000000&wt=json&indent=true&q=*%3A*&sort=id%20asc' | jq '.response.docs[] | {id, discoverableBy}'
