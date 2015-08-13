@@ -106,7 +106,7 @@ public class IndexAllServiceBean {
         for (Dataverse dataverse : dataverses) {
             dataverseIndexCount++;
             logger.info("indexing dataverse " + dataverseIndexCount + " of " + dataverses.size() + " (id=" + dataverse.getId() + ", persistentId=" + dataverse.getAlias() + ")");
-            Future<String> result = indexService.indexDataverseInNewTransaction(dataverse);
+            indexService.indexDataverseInNewTransaction(dataverse);
         }
 
         int datasetIndexCount = 0;
@@ -114,7 +114,7 @@ public class IndexAllServiceBean {
         for (Dataset dataset : datasets) {
             datasetIndexCount++;
             logger.info("indexing dataset " + datasetIndexCount + " of " + datasets.size() + " (id=" + dataset.getId() + ", persistentId=" + dataset.getGlobalId() + ")");
-            Future<String> result = indexService.indexDatasetInNewTransaction(dataset);
+            indexService.indexDatasetInNewTransaction(dataset);
         }
 //        logger.info("advanced search fields: " + advancedSearchFields);
 //        logger.info("not advanced search fields: " + notAdvancedSearchFields);

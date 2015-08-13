@@ -100,24 +100,21 @@ public class IndexServiceBean {
     private Dataverse rootDataverseCached;
 
     @TransactionAttribute(REQUIRES_NEW)
-    public Future<String> indexDataverseInNewTransaction(Dataverse dataverse) {
-        return indexDataverse(dataverse);
+    public void indexDataverseInNewTransaction(Dataverse dataverse) {
+        indexDataverse(dataverse);
     }
 
-    public Future<String> indexDataverse(Dataverse dataverse) {
+    public void indexDataverse(Dataverse dataverse) {
         logger.fine("indexDataverse called on dataverse id " + dataverse.getId() + "(" + dataverse.getAlias() + ")");
         if (dataverse.getId() == null) {
             String msg = "unable to index dataverse. id was null (alias: " + dataverse.getAlias() + ")";
             logger.info(msg);
-            return new AsyncResult<>(msg);
         }
         Dataverse rootDataverse = findRootDataverseCached();
         if (rootDataverse == null) {
             String msg = "Could not find root dataverse and the root dataverse should not be indexed. Returning.";
-            return new AsyncResult<>(msg);
         } else if (dataverse.getId() == rootDataverse.getId()) {
             String msg = "The root dataverse should not be indexed. Returning.";
-            return new AsyncResult<>(msg);
         }
         Collection<SolrInputDocument> docs = new ArrayList<>();
         SolrInputDocument solrInputDocument = new SolrInputDocument();
@@ -202,30 +199,27 @@ public class IndexServiceBean {
         } catch (SolrServerException | IOException ex) {
             status = ex.toString();
             logger.info(status);
-            return new AsyncResult<>(status);
         }
         try {
             server.commit();
         } catch (SolrServerException | IOException ex) {
             status = ex.toString();
             logger.info(status);
-            return new AsyncResult<>(status);
         }
 
         dvObjectService.updateContentIndexTime(dataverse);
         IndexResponse indexResponse = solrIndexService.indexPermissionsForOneDvObject(dataverse);
         String msg = "indexed dataverse " + dataverse.getId() + ":" + dataverse.getAlias() + ". Response from permission indexing: " + indexResponse.getMessage();
-        return new AsyncResult<>(msg);
 
     }
 
     @TransactionAttribute(REQUIRES_NEW)
-    public Future<String> indexDatasetInNewTransaction(Dataset dataset) {
+    public void indexDatasetInNewTransaction(Dataset dataset) {
         boolean doNormalSolrDocCleanUp = false;
-        return indexDataset(dataset, doNormalSolrDocCleanUp);
+        indexDataset(dataset, doNormalSolrDocCleanUp);
     }
 
-    public Future<String> indexDataset(Dataset dataset, boolean doNormalSolrDocCleanUp) {
+    public void indexDataset(Dataset dataset, boolean doNormalSolrDocCleanUp) {
         logger.fine("indexing dataset " + dataset.getId());
         /**
          * @todo should we use solrDocIdentifierDataset or
@@ -382,7 +376,6 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.fine(result);
                 indexDatasetPermissions(dataset);
-                return new AsyncResult<>(result);
             } else if (latestVersionState.equals(DatasetVersion.VersionState.DEACCESSIONED)) {
 
                 desiredCards.put(DatasetVersion.VersionState.DEACCESSIONED, true);
@@ -430,11 +423,9 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.fine(result);
                 indexDatasetPermissions(dataset);
-                return new AsyncResult<>(result);
             } else {
                 String result = "No-op. Unexpected condition reached: No released version and latest version is neither draft nor deaccessioned";
                 logger.fine(result);
-                return new AsyncResult<>(result);
             }
         } else if (atLeastOnePublishedVersion == true) {
             results.append("Published versions found. ")
@@ -487,7 +478,6 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.fine(result);
                 indexDatasetPermissions(dataset);
-                return new AsyncResult<>(result);
             } else if (latestVersionState.equals(DatasetVersion.VersionState.DRAFT)) {
 
                 IndexableDataset indexableDraftVersion = new IndexableDataset(latestVersion);
@@ -535,16 +525,13 @@ public class IndexServiceBean {
                 String result = getDesiredCardState(desiredCards) + results.toString() + debug.toString();
                 logger.fine(result);
                 indexDatasetPermissions(dataset);
-                return new AsyncResult<>(result);
             } else {
                 String result = "No-op. Unexpected condition reached: There is at least one published version but the latest version is neither published nor draft";
                 logger.fine(result);
-                return new AsyncResult<>(result);
             }
         } else {
             String result = "No-op. Unexpected condition reached: Has a version been published or not?";
             logger.fine(result);
-            return new AsyncResult<>(result);
         }
     }
 

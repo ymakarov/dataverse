@@ -203,7 +203,7 @@ public class Index extends AbstractApiBean {
                     /**
                      * @todo Can we display the result of indexing to the user?
                      */
-                    Future<String> indexDataverseFuture = indexService.indexDataverse(dataverse);
+                    indexService.indexDataverse(dataverse);
                     return okResponse("starting reindex of dataverse " + id);
                 } else {
                     String response = indexService.removeSolrDocFromIndex(IndexServiceBean.solrDocIdentifierDataverse + id);
@@ -213,7 +213,7 @@ public class Index extends AbstractApiBean {
                 Dataset dataset = datasetService.find(id);
                 if (dataset != null) {
                     boolean doNormalSolrDocCleanUp = true;
-                    Future<String> indexDatasetFuture = indexService.indexDataset(dataset, doNormalSolrDocCleanUp);
+                    indexService.indexDataset(dataset, doNormalSolrDocCleanUp);
                     return okResponse("starting reindex of dataset " + id);
                 } else {
                     /**
@@ -230,7 +230,7 @@ public class Index extends AbstractApiBean {
                  * @todo How can we display the result to the user?
                  */
                 boolean doNormalSolrDocCleanUp = true;
-                Future<String> indexDatasetFuture = indexService.indexDataset(datasetThatOwnsTheFile, doNormalSolrDocCleanUp);
+                indexService.indexDataset(datasetThatOwnsTheFile, doNormalSolrDocCleanUp);
                 return okResponse("started reindexing " + type + "/" + id);
             } else {
                 return errorResponse(Status.BAD_REQUEST, "illegal type: " + type);
@@ -280,7 +280,7 @@ public class Index extends AbstractApiBean {
         }
         if (dataset != null) {
             boolean doNormalSolrDocCleanUp = true;
-            Future<String> indexDatasetFuture = indexService.indexDataset(dataset, doNormalSolrDocCleanUp);
+            indexService.indexDataset(dataset, doNormalSolrDocCleanUp);
             return okResponse("Reindexed dataset " + persistentId + " (id " + dataset.getId() + ").");
         } else {
             return errorResponse(Status.BAD_REQUEST, "Could not find dataset with persistent id " + persistentId);

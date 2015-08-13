@@ -74,7 +74,7 @@ public class DataverseServiceBean implements java.io.Serializable {
         /**
          * @todo check the result to see if indexing was successful or not
          */
-        Future<String> indexingResult = indexService.indexDataverse(savedDataverse);
+        indexService.indexDataverse(savedDataverse);
 //        logger.log(Level.INFO, "during dataverse save, indexing result was: {0}", indexingResult);
         return savedDataverse;
     }

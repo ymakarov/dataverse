@@ -175,7 +175,7 @@ public class UpdateDatasetCommand extends AbstractCommand<Dataset> {
          * log?
          */
         boolean doNormalSolrDocCleanUp = true;
-        Future<String> indexingResult = ctxt.index().indexDataset(savedDataset, doNormalSolrDocCleanUp);
+        ctxt.index().indexDataset(savedDataset, doNormalSolrDocCleanUp);
         //String indexingResult = "(Indexing Skipped)";
 //        logger.log(Level.INFO, "during dataset save, indexing result was: {0}", indexingResult);
         DatasetVersionUser ddu = ctxt.datasets().getDatasetVersionUser(theDataset.getLatestVersion(), this.getUser());
