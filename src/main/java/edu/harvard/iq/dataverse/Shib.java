@@ -278,8 +278,9 @@ public class Shib implements java.io.Serializable {
                 lastName = betterLastName;
             }
         }
+        String emailAddressInAssertion = null;
         try {
-            emailAddress = getRequiredValueFromAssertion(emailAttribute);
+            emailAddressInAssertion = getRequiredValueFromAssertion(emailAttribute);
         } catch (Exception ex) {
             String testShibIdpEntityId = "https://idp.testshib.org/idp/shibboleth";
             if (shibIdp.equals(testShibIdpEntityId)) {
@@ -287,6 +288,20 @@ public class Shib implements java.io.Serializable {
                 emailAddress = shibUserIdentifier;
             } else {
                 // forcing all other IdPs to send us an an email
+                return;
+            }
+        }
+        if (!EMailValidator.isValidEmailAddress(emailAddressInAssertion)) {
+            String msg = "The SAML assertion contained an invalid email address: \"" + emailAddressInAssertion + "\".";
+            logger.info(msg);
+            String singleEmailAddress = ShibUtil.findSingleValue(emailAddressInAssertion);
+            if (EMailValidator.isValidEmailAddress(singleEmailAddress)) {
+                msg = "Multiple email addresses were asserted by the Identity Provider. These were sorted and the first was chosen.";
+                FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "", msg));
+                emailAddress = singleEmailAddress;
+            } else {
+                msg += " A single valid address could not be found.";
+                FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, identityProviderProblem, msg));
                 return;
             }
         }

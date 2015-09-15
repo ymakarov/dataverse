@@ -33,11 +33,20 @@ public class EMailValidator implements ConstraintValidator<ValidateEmail, String
             //we'll let someone else decide if it's required
             return true;
         }
-        boolean isValid = EmailValidator.getInstance().isValid(value.trim());
+        /**
+         * @todo Why are we validating the *trimmed* value but (presumably)
+         * persisting the value that is *not* trimmed? Shouldn't any trimming
+         * happen *before* the value is passed to this method?
+         */
+        boolean isValid = isValidEmailAddress(value.trim());
         if (!isValid) {
             context.buildConstraintViolationWithTemplate(value + " is not a valid email address.").addConstraintViolation();
             return false;
         }
         return true;
+    }
+
+    public static boolean isValidEmailAddress(String value) {
+        return EmailValidator.getInstance().isValid(value);
     }
 }

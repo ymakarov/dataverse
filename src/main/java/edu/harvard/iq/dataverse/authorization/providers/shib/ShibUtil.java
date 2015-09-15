@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import edu.harvard.iq.dataverse.EMailValidator;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -66,6 +67,17 @@ public class ShibUtil {
         return new ShibUserNameFields(firstName, lastName);
     }
 
+    public static String findSingleValue(String mayHaveMultipleValues) {
+        if (mayHaveMultipleValues == null) {
+            return null;
+        } 
+        return getSingleName(mayHaveMultipleValues);
+    }
+
+    /**
+     * @todo Rename this method to "findSingleValue" since that's really what
+     * it's doing.
+     */
     private static String getSingleName(String name) {
         String[] parts = name.split(";");
         if (parts.length != 1) {
@@ -98,6 +110,8 @@ public class ShibUtil {
                 }
             } else {
                 logger.info("Odd email address. No @ sign: " + email);
+                boolean passedValidation = EMailValidator.isValidEmailAddress(email);
+                logger.info("passed email validation: " + passedValidation);
             }
         } else {
             logger.info("email attribute not sent by IdP");

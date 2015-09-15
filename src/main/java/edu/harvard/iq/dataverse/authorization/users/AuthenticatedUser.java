@@ -49,11 +49,11 @@ public class AuthenticatedUser implements User, Serializable {
     private String userIdentifier;
 
     /**
-     * @todo Uncomment the ValidateEmail annotation below for consistency with
-     * the annotation on BuiltinUser.
+     * @todo Why does AuthenticatedUser allow email to be blank but BuiltinUser
+     * does not? Shouldn't these be consistent?
      */
-//    @ValidateEmail(message = "Please enter a valid email address.")
     @NotNull
+    @ValidateEmail(message = "Please enter a valid email address.")
     @Column(nullable = false, unique=true)
     private String email;
     private String affiliation;
