@@ -38,6 +38,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.persistence.NoResultException;
 import javax.persistence.TypedQuery;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response.Status;
 
 @Path("admin/datasetfield")
@@ -217,7 +218,7 @@ public class DatasetFieldServiceApi extends AbstractApiBean {
     @POST
     @Consumes("text/tab-separated-values")
     @Path("load")
-    public Response loadDatasetFields(File file) {
+    public Response loadDatasetFields(File file, @QueryParam("preview") boolean preview) {
         ActionLogRecord alr = new ActionLogRecord(ActionLogRecord.ActionType.Admin, "loadDatasetFields");
         alr.setInfo( file.getName() );
         BufferedReader br = null;
@@ -249,19 +250,19 @@ public class DatasetFieldServiceApi extends AbstractApiBean {
                     switch (header) {
                         case METADATABLOCK:
                             responseArr.add( Json.createObjectBuilder()
-                                                    .add("name", parseMetadataBlock(values))
+                                                    .add("name", parseMetadataBlock(values, preview))
                                                     .add("type", "MetadataBlock"));
                             break;
                             
                         case DATASETFIELD:
                             responseArr.add( Json.createObjectBuilder()
-                                                    .add("name", parseDatasetField(values))
+                                                    .add("name", parseDatasetField(values, preview))
                                                     .add("type", "DatasetField") );
                             break;
                             
                         case CONTROLLEDVOCABULARY:
                             responseArr.add( Json.createObjectBuilder()
-                                                    .add("name", parseControlledVocabulary(values))
+                                                    .add("name", parseControlledVocabulary(values, preview))
                                                     .add("type", "Controlled Vocabulary") );
                             break;
                             
@@ -291,13 +292,15 @@ public class DatasetFieldServiceApi extends AbstractApiBean {
                             .log(Level.WARNING, "Error closing the reader while importing Dataset Fields.");
                 }
             }
-            actionLogSvc.log(alr);
+            if (!preview) {
+                actionLogSvc.log(alr);
+            }
         }
 
-        return okResponse( Json.createObjectBuilder().add("added", responseArr) );
+        return okResponse(Json.createObjectBuilder().add("added", responseArr).add("preview", preview));
     }
 
-    private String parseMetadataBlock(String[] values) {
+    private String parseMetadataBlock(String[] values, boolean preview) {
         //Test to see if it exists by name
         MetadataBlock mdb = metadataBlockService.findByName(values[1]);
         if (mdb == null){
@@ -309,11 +312,13 @@ public class DatasetFieldServiceApi extends AbstractApiBean {
         }
         mdb.setDisplayName(values[3]);
 
-        metadataBlockService.save(mdb);
+        if (!preview) {
+            metadataBlockService.save(mdb);
+        }
         return mdb.getName();
     }
 
-    private String parseDatasetField(String[] values) {
+    private String parseDatasetField(String[] values, boolean preview) {
         
         //First see if it exists
         DatasetFieldType dsf = datasetFieldService.findByName(values[1]);
@@ -338,12 +343,14 @@ public class DatasetFieldServiceApi extends AbstractApiBean {
         if (!StringUtils.isEmpty(values[14])) {
             dsf.setParentDatasetFieldType(datasetFieldService.findByName(values[14]));
         }
-        dsf.setMetadataBlock(dataverseService.findMDBByName(values[15]));
-        datasetFieldService.save(dsf);
+        if (!preview) {
+            dsf.setMetadataBlock(dataverseService.findMDBByName(values[15]));
+            datasetFieldService.save(dsf);
+        }
         return dsf.getName();
     }
 
-    private String parseControlledVocabulary(String[] values) {
+    private String parseControlledVocabulary(String[] values, boolean preview) {
         
         DatasetFieldType dsv = datasetFieldService.findByName(values[1]);
         //See if it already exists
@@ -369,7 +376,9 @@ public class DatasetFieldServiceApi extends AbstractApiBean {
         cvv.setStrValue(values[2]);
         cvv.setIdentifier(values[3]);
         cvv.setDisplayOrder(Integer.parseInt(values[4]));
-        datasetFieldService.save(cvv);
+        if (!preview) {
+            datasetFieldService.save(cvv);
+        }
         return cvv.getStrValue();
     }
 }
