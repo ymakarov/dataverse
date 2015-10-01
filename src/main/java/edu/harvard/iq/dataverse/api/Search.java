@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.json.Json;
@@ -189,22 +190,46 @@ public class Search extends AbstractApiBean {
     }
 
     private User getUser() throws WrappedResponse {
-        /**
-         * @todo support searching as non-guest:
-         * https://github.com/IQSS/dataverse/issues/1299
-         *
-         * Note that superusers can't currently use the Search API because they
-         * see permission documents (all Solr documents, really) and we get a
-         * NPE when trying to determine the DvObject type if their query matches
-         * a permission document.
-         *
-         * @todo Check back on https://github.com/IQSS/dataverse/issues/1838 for
-         * when/if the Search API is opened up to not require a key.
-         */
-        AuthenticatedUser authenticatedUser = findAuthenticatedUserOrDie();
         if (nonPublicSearchAllowed()) {
-            return authenticatedUser;
+            return getUserUsingExperimentalNonPublicSearch();
         } else {
+            return getGuestIfAllowed();
+        }
+    }
+
+    /**
+     * @todo support searching as non-guest:
+     * https://github.com/IQSS/dataverse/issues/1299
+     *
+     * Note that superusers can't currently use the Search API because they see
+     * permission documents (all Solr documents, really) and we get a NPE when
+     * trying to determine the DvObject type if their query matches a permission
+     * document.
+     *
+     * @todo Support tokenless guests while this feature is enabled?
+     */
+    private User getUserUsingExperimentalNonPublicSearch() throws WrappedResponse {
+        AuthenticatedUser authenticatedUser;
+        try {
+            authenticatedUser = findAuthenticatedUserOrDie();
+            return authenticatedUser;
+        } catch (WrappedResponse ex) {
+            return getGuestIfAllowed();
+        }
+    }
+
+    private User getGuestIfAllowed() throws WrappedResponse {
+        if (tokenlessGuestAllowed()) {
+            return GuestUser.get();
+        } else {
+            /**
+             * @todo What if you've configured the system to allow tokenless
+             * guests *and* the experimental non-public search feature? For now
+             * we're rejecting bad API tokens (even if you allow tokenless
+             * guests) to provide feedback to the user and always returning the
+             * guest user.
+             */
+            AuthenticatedUser authenticatedUser = findAuthenticatedUserOrDie();
             return GuestUser.get();
         }
     }
@@ -212,6 +237,15 @@ public class Search extends AbstractApiBean {
     public boolean nonPublicSearchAllowed() {
         boolean safeDefaultIfKeyNotFound = false;
         return settingsSvc.isTrueForKey(SettingsServiceBean.Key.SearchApiNonPublicAllowed, safeDefaultIfKeyNotFound);
+    }
+
+    /**
+     * In https://github.com/IQSS/dataverse/issues/1838 desire is expressed for
+     * using the Search API without an API token.
+     */
+    private boolean tokenlessGuestAllowed() {
+        boolean safeDefaultIfKeyNotFound = false;
+        return settingsSvc.isTrueForKey(SettingsServiceBean.Key.SearchApiTokenlessGuestAllowed, safeDefaultIfKeyNotFound);
     }
 
     private boolean getDataRelatedToMe() {

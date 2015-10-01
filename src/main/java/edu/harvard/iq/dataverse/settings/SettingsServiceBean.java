@@ -36,6 +36,9 @@ public class SettingsServiceBean {
         /**
          * Override Solr highlighting "fragsize"
          * https://wiki.apache.org/solr/HighlightingParameters#hl.fragsize
+         *//**
+         * Override Solr highlighting "fragsize"
+         * https://wiki.apache.org/solr/HighlightingParameters#hl.fragsize
          */
         SearchHighlightFragmentSize,
        /**
@@ -45,6 +48,13 @@ public class SettingsServiceBean {
         */
         GoogleAnalyticsCode,
         
+        /**
+         * Allow Search API to be used without API tokens. Searches will be
+         * executed as the Guest user. See also
+         * https://github.com/IQSS/dataverse/issues/1838
+         */
+        SearchApiTokenlessGuestAllowed,
+
         /**
          * Experimental: Allow non-public search with a key/token using the
          * Search API. See also https://github.com/IQSS/dataverse/issues/1299
