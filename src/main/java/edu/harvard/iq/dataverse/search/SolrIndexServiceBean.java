@@ -52,6 +52,8 @@ public class SolrIndexServiceBean {
     DataverseRoleServiceBean rolesSvc;
     @EJB
     IndexServiceBean indexService;
+    @EJB
+    IndexInNewTransactionServiceBean indexInNewTransactionService;
 
     public static String numRowsClearedByClearAllIndexTimes = "numRowsClearedByClearAllIndexTimes";
     public static String messageString = "message";
@@ -417,13 +419,15 @@ public class SolrIndexServiceBean {
             /**
              * @todo do something with this response
              */
-            IndexResponse indexResponse = indexPermissionsForOneDvObject(dvObject);
-            DvObject managedDefinitionPoint = dvObjectService.updatePermissionIndexTime(definitionPoint);
-            boolean updatePermissionTimeSuccessful = false;
-            if (managedDefinitionPoint != null) {
-                updatePermissionTimeSuccessful = true;
+            if (dvObject.equals(definitionPoint)) {
+                /**
+                 * We index the definitionPoint *not* in a new transaction to
+                 * avoid the thread being blocked (RUNNABLE).
+                 */
+                indexPermissionsForOneDvObject(dvObject);
+            } else {
+                IndexResponse indexResponse = indexInNewTransactionService.indexPermissionsForOneDvObject(dvObject);
             }
-            updatePermissionTimeSuccessStatus.add(dvObject + ":" + updatePermissionTimeSuccessful);
         }
         return new IndexResponse("Number of dvObject permissions indexed for " + definitionPoint
                 + " (updatePermissionTimeSuccessful:" + updatePermissionTimeSuccessStatus
