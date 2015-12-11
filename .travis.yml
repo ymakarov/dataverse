@@ -4,7 +4,7 @@ jdk:
 script: mvn -DcompilerArgument=-Xlint:unchecked test
 after_success: mvn jacoco:report coveralls:report 
 install:
-  - sudo apt-get install -q virtualbox vagrant
+  - sudo apt-get install -q virtualbox vagrant --fix-missing
   - vboxmanage --version
   - vagrant --version
   - vagrant up
