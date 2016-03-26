@@ -139,7 +139,7 @@
                             <label class="control-label" for="fileName" style="margin-right:1em;margin-bottom:.5em;">
                                 #{bundle['file.fileName']}
                             </label>
-                            <p:inputText id="fileName" value="#{fileMetadata.label}" style="width:60%; margin-bottom:.5em;"/>
+                            <p:inputText id="fileName" value="#{fileMetadata.dataFile.getDisplayName()}" style="width:60%; margin-bottom:.5em;"/>
                             <p:message for="fileName"/>
                         </ui:fragment>
                         <!-- TYPE + SIZE + DATE + MD5 -->

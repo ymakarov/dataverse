@@ -4,6 +4,7 @@ import java.util.Date;
 import javax.ejb.Stateless;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
+import javax.inject.Named;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
@@ -12,6 +13,7 @@ import javax.persistence.PersistenceContext;
  * @author michael
  */
 @Stateless
+@Named
 public class ActionLogServiceBean {
     
     @PersistenceContext(unitName = "VDCNet-ejbPU")

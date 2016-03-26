@@ -560,6 +560,8 @@ public class BuiltinUserPage implements java.io.Serializable {
                 case SUBMITTEDDS:
                 case PUBLISHEDDS:
                 case RETURNEDDS:
+                case FILESYSTEMIMPORT:
+                case CHECKSUMIMPORT:
                     userNotification.setTheObject(datasetVersionService.find(userNotification.getObjectId()));
                     break;
 

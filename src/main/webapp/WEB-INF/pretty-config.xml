@@ -22,4 +22,9 @@
         <view-id value="/apitoken.xhtml" />
     </url-mapping>
 
+    <url-mapping id="swagger">
+        <pattern value="/swagger" />
+        <view-id value="/swagger/index.html" />
+    </url-mapping>
+
 </pretty-config>

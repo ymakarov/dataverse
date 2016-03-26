@@ -64,6 +64,57 @@
         <servlet-class>org.primefaces.push.PushServlet</servlet-class>
         <async-supported>true</async-supported>
     </servlet>
+
+    <!-- swagger config -->
+    <servlet>
+        <servlet-name>jersey</servlet-name>
+        <servlet-class>org.glassfish.jersey.servlet.ServletContainer</servlet-class>
+        <init-param>
+            <param-name>jersey.config.server.provider.packages</param-name>
+            <param-value>
+                com.wordnik.swagger.jaxrs.json,
+                edu.harvard.iq.dataverse.api
+            </param-value>
+        </init-param>
+        <init-param>
+            <param-name>jersey.config.server.provider.classnames</param-name>
+            <param-value>
+                com.wordnik.swagger.jersey.listing.ApiListingResourceJSON,
+                com.wordnik.swagger.jersey.listing.JerseyApiDeclarationProvider,
+                com.wordnik.swagger.jersey.listing.JerseyResourceListingProvider
+            </param-value>
+        </init-param>
+        <init-param>
+            <param-name>jersey.config.server.wadl.disableWadl</param-name>
+            <param-value>true</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>jersey</servlet-name>
+        <url-pattern>/api/*</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>Jersey2Config</servlet-name>
+        <servlet-class>com.wordnik.swagger.jaxrs.config.DefaultJaxrsConfig</servlet-class>
+        <init-param>
+            <param-name>api.version</param-name>
+            <param-value>1.0.0</param-value>
+        </init-param>
+        <init-param>
+            <param-name>swagger.api.basepath</param-name>
+            <param-value>http://localhost:8080/api</param-value>
+        </init-param>
+        <init-param>
+            <param-name>swagger.filter</param-name>
+            <param-value>com.wordnik.swagger.sample.util.ApiAuthorizationFilterImpl</param-value>
+        </init-param>
+        <load-on-startup>2</load-on-startup>
+    </servlet>
+
+
     <!-- Map these files with JSF -->
     <servlet-mapping>
         <servlet-name>Faces Servlet</servlet-name>
@@ -85,6 +136,7 @@
         <servlet-name>Push Servlet</servlet-name>
         <url-pattern>/primepush/*</url-pattern>
     </servlet-mapping>
+
     <session-config>
         <session-timeout>
             1440
