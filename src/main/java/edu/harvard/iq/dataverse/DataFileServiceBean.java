@@ -153,7 +153,25 @@ public class DataFileServiceBean implements java.io.Serializable {
         Query query = em.createQuery("select o from DataFile o where o.owner.id = :studyId order by o.id");
         query.setParameter("studyId", studyId);
         return query.getResultList();
-    }  
+    }
+
+    public DataFile findByStorageIdandDatasetVersion(String storageId, DatasetVersion dv) {
+        try {
+            Query query = em.createQuery("select o from DataFile o, FileMetadata m, DatasetVersion v " +
+                    "where o.fileSystemName = :storageId and o.id = m.dataFile.id and v.id = :dvId");
+            query.setParameter("storageId", storageId);
+            query.setParameter("dvId", dv.getId());
+            query.setMaxResults(1);
+            if (query.getResultList().size() < 1) {
+                return null;
+            } else {
+                return (DataFile) query.getSingleResult();
+            }
+        } catch (Exception e) {
+            System.out.println("Error finding datafile by storageID and DataSetVersion: " + e.getMessage());
+            return null;
+        }
+    }
     
     public List<FileMetadata> findFileMetadataByDatasetVersionId(Long datasetVersionId, int maxResults, String userSuppliedSortField, String userSuppliedSortOrder) {
         FileSortFieldAndOrder sortFieldAndOrder = new FileSortFieldAndOrder(userSuppliedSortField, userSuppliedSortOrder);

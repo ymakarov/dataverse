@@ -45,11 +45,18 @@ public class FilesystemProcessor implements RecordProcessor<FileRecord, FileReco
 
         List<DataFile> datafiles = this.dataset.getFiles();
 
-        if (!Utils.alreadyImported(this.dataset, record.getPayload().getAbsolutePath())) {
+        // determine relative path to dataset folder
+        String path = record.getPayload().getAbsolutePath();
+        String dsid = this.dataset.getIdentifier();
+        String relativePath = path.substring(path.indexOf(dsid) + dsid.length() + 1);
+
+        // if we can't find it, create it
+        if (!Utils.alreadyImported(this.dataset,relativePath )) {
             datafiles.add(Utils.createDataFile(this.dataset, record.getPayload()));
             dataset.getLatestVersion().getDataset().setFiles(datafiles);
+            return record;
+        } else {
+            return null; // filtering it since we already have it
         }
-        return record;
     }
-
 }
