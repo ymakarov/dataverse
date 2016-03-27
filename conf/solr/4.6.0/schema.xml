@@ -555,6 +555,14 @@
    <field name="variablesCHIA" type="text_en" multiValued="false" stored="true" indexed="true"/>
    <field name="weighting" type="text_en" multiValued="false" stored="true" indexed="true"/>
    <field name="westLongitude" type="text_en" multiValued="true" stored="true" indexed="true"/>
+   <!-- sbgrid -->
+   <field name="biologicalSample" type="text_en" multiValued="false" stored="true" indexed="true"/>
+   <field name="dataType" type="text_en" multiValued="false" stored="true" indexed="true"/>
+   <field name="collectionDate" type="text_en" multiValued="false" stored="true" indexed="true"/>
+   <field name="subjectComposition" type="text_en" multiValued="true" stored="true" indexed="true"/>
+   <field name="reprocessingInstructions" type="text_en" multiValued="false" stored="true" indexed="true"/>
+   <field name="beamlineCollectionFacility" type="text_en" multiValued="false" stored="true" indexed="true"/>
+   <field name="refinedStructurePDBCode" type="text_en" multiValued="false" stored="true" indexed="true"/>
  </fields>
 
 
@@ -849,8 +857,16 @@
    <copyField source="variablesCHIA" dest="text" maxChars="3000"/>
    <copyField source="weighting" dest="text" maxChars="3000"/>
    <copyField source="westLongitude" dest="text" maxChars="3000"/>
+   <!-- sbgrid -->
+   <copyField source="biologicalSample" dest="text" maxChars="3000"/>
+   <copyField source="dataType" dest="text" maxChars="3000"/>
+   <copyField source="collectionDate" dest="text" maxChars="3000"/>
+   <copyField source="subjectComposition" dest="text" maxChars="3000"/>
+   <copyField source="reprocessingInstructions" dest="text" maxChars="3000"/>
+   <copyField source="beamlineCollectionFacility" dest="text" maxChars="3000"/>
+   <copyField source="refinedStructurePDBCode" dest="text" maxChars="3000"/>
 
-   <!-- copy name to alphaNameSort, a field designed for sorting by name -->
+  <!-- copy name to alphaNameSort, a field designed for sorting by name -->
    <!-- <copyField source="name" dest="alphaNameSort"/> -->
  
   <types>
