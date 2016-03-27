@@ -41,7 +41,8 @@ import javax.ws.rs.core.Response;
 
 @Stateless
 @Path("import")
-@Api(value = "/import", description = "import jobs")
+@Api(value = "/import", description = "batch import operations")
+@Produces({"application/json"})
 public class ImportLauncher extends AbstractApiBean {
 
     @EJB
@@ -53,15 +54,27 @@ public class ImportLauncher extends AbstractApiBean {
     @GET
     @Path("/dataset/filesystem")
     @Produces(MediaType.APPLICATION_JSON)
-    @ApiOperation(value = "Execute filesystem import job",
-            notes = "This can be a long-running process.")
+    @ApiOperation(
+            value = "start a filesystem import job",
+            notes = "<p>A data file import is attempted for all files and directories located in the dataset's root directory.</p>" +
+                    "<p>Data files previously ingested are filtered or skipped.</p>" +
+                    "<p>Directory structure is preserved.</p>" +
+                    "<p>A job report is produced when the operation is complete and can be located using the job's execution ID (example: https://dv.sbgrid.org/reports/b7911fc0-acb6-44a2-b456-342abebabd8d.html).</p>" +
+                    "<p>A user notification is generated.</p>" +
+                    "<p>An action log entry is produced using the job execution ID as the action log entry ID.</p>" +
+                    "<p>Checksums are not calculated dynamically since very large files would potentially eat up available heap. Instead, a placeholder of 'Unknown' is set. To add checksums, produce a checksum manifest file and refer to the /import/dataset/checksums operation.</p>"
+    )
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success - import job was started"),
             @ApiResponse(code = 400, message = "Bad Request - can't find dataset, other exceptions"),
             @ApiResponse(code = 401, message = "Invalid Request - bad API key"),
             @ApiResponse(code = 500, message = "Server Error - Something went wrong")})
-    public Response getFilesystemImport(@ApiParam(value = "Dataset ID", required = true) @QueryParam("datasetId") String dsId,
-                              @ApiParam(value = "API key", required = true) @QueryParam("key") String key) {
+    public Response getFilesystemImport(
+            @ApiParam(value = "Dataset identifier (doi:10.5072/FK2/NSMTIE)", required = true)
+            @QueryParam("datasetId") String dsId,
+            @ApiParam(value = "API key (dataset edit privileges required)", required = true)
+            @QueryParam("key") String key)
+    {
         try {
             try {
                 Dataset ds = datasetService.findByGlobalId(dsId);
@@ -102,15 +115,26 @@ public class ImportLauncher extends AbstractApiBean {
     @GET
     @Path("/dataset/checksums")
     @Produces(MediaType.APPLICATION_JSON)
-    @ApiOperation(value = "Execute checksum import job",
-            notes = "This can be a long-running process.")
+    @ApiOperation(
+        value = "start a checksum import job",
+        notes = "<p>If a checksum manifest (default=files.sha) is found in the dataset's root, it is used to set dataset " +
+                "file checksums.</p>" +
+                "<p>A job report is produced when the operation is complete and can be located using the job's execution " +
+                "ID (example: https://dv.sbgrid.org/reports/b7911fc0-acb6-44a2-b456-342abebabd8d.html).</p>" +
+                "<p>A user notification is generated. Also, an action log entry is produced using the job execution ID as " +
+                " the action log entry ID.</p>"
+    )
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Success - import job was started"),
             @ApiResponse(code = 400, message = "Bad Request - can't find dataset, other exceptions"),
             @ApiResponse(code = 401, message = "Invalid Request - bad API key"),
             @ApiResponse(code = 500, message = "Server Error - Something went wrong")})
-    public Response getChecksumImport(@ApiParam(value = "Dataset ID", required = true) @QueryParam("datasetId") String dsId,
-                              @ApiParam(value = "API key", required = true) @QueryParam("key") String key) {
+    public Response getChecksumImport(
+            @ApiParam(value = "Dataset identifier (doi:10.5072/FK2/NSMTIE)", required = true)
+            @QueryParam("datasetId") String dsId,
+            @ApiParam(value = "API key (dataset edit privileges required)", required = true)
+            @QueryParam("key") String key)
+    {
         try {
             try {
                 Dataset ds = datasetService.findByGlobalId(dsId);
