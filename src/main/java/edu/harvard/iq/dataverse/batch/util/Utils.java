@@ -29,7 +29,6 @@ import org.apache.commons.io.FileUtils;
 import org.easybatch.core.job.Job;
 import org.easybatch.core.job.JobReport;
 
-import javax.ejb.EJB;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import java.io.File;
@@ -41,32 +40,27 @@ import java.util.Date;
 import java.util.Properties;
 
 /**
- * Created by bmckinney on 3/24/16.
+ *
  */
-
 public abstract class Utils {
-
-    public static final String LINE_SEPARATOR = System.getProperty("line.separator");
 
     public static final String FILE_SEPARATOR = System.getProperty("file.separator");
 
-    public static final String JAVA_IO_TMPDIR = System.getProperty("java.io.tmpdir");
-
-    @EJB
-    private static DataFileServiceBean fileService;
-
-    @EJB
-    private static UserNotificationServiceBean userNotificationService;
-
-    @EJB
-    private static ActionLogServiceBean actionLogServiceBean;
-
+    /**
+     *
+     */
     private Utils() { }
 
+    /**
+     *
+     * @param dataset
+     * @param path
+     * @return
+     */
     public static DataFile getDataFile(Dataset dataset, String path) {
         try {
             Context ctx = new InitialContext();
-            fileService = (DataFileServiceBean)
+            DataFileServiceBean fileService = (DataFileServiceBean)
                     ctx.lookup("java:module/DataFileServiceBean");
             return fileService.findByStorageIdandDatasetVersion(path, dataset.getLatestVersion());
         } catch (Exception e) {
@@ -75,11 +69,19 @@ public abstract class Utils {
         }
     }
 
+    /**
+     *
+     * @param dataset
+     * @param path
+     * @return
+     */
     public static boolean alreadyImported(Dataset dataset, String path) {
         try {
+
             Context ctx = new InitialContext();
-            fileService = (DataFileServiceBean)
+            DataFileServiceBean fileService = (DataFileServiceBean)
                     ctx.lookup("java:module/DataFileServiceBean");
+
             if (fileService.findByStorageIdandDatasetVersion(path, dataset.getLatestVersion()) != null) {
                 return true;
             } else {
@@ -98,41 +100,55 @@ public abstract class Utils {
      */
     public static DataFile createDataFile(Dataset dataset, File file) {
 
-        DatasetVersion version = dataset.getLatestVersion();
+        try {
 
-        // create datafile
-        String path = file.getAbsolutePath();
-        String dsid = dataset.getIdentifier();
-        String relativePath = path.substring(path.indexOf(dsid) + dsid.length() + 1);
-        DataFile datafile = new DataFile("application/octet-stream");
-        datafile.setStorageIdentifier(relativePath);
-        datafile.setFilesize(file.length());
-        datafile.setModificationTime(new Timestamp(new Date().getTime()));
-        datafile.setCreateDate(new Timestamp(new Date().getTime()));
-        datafile.setPermissionModificationTime(new Timestamp(new Date().getTime()));
-        datafile.setOwner(dataset);
-        datafile.setIngestDone();
-        datafile.setmd5("Unknown");
-        datafile = fileService.save(datafile);
+            Context ctx = new InitialContext();
+            DataFileServiceBean fileService = (DataFileServiceBean)
+                    ctx.lookup("java:module/DataFileServiceBean");
 
-        // set metadata and add to latest version
-        FileMetadata fmd = new FileMetadata();
-        fmd.setLabel(file.getName());
-        fmd.setDataFile(datafile);
-        datafile.getFileMetadatas().add(fmd);
-        if (version.getFileMetadatas() == null) {
-            version.setFileMetadatas(new ArrayList());
+            DatasetVersion version = dataset.getLatestVersion();
+
+            // create datafile
+            String path = file.getAbsolutePath();
+            String dsid = dataset.getIdentifier();
+            String relativePath = path.substring(path.indexOf(dsid) + dsid.length() + 1);
+            DataFile datafile = new DataFile("application/octet-stream");
+            datafile.setStorageIdentifier(relativePath);
+            datafile.setFilesize(file.length());
+            datafile.setModificationTime(new Timestamp(new Date().getTime()));
+            datafile.setCreateDate(new Timestamp(new Date().getTime()));
+            datafile.setPermissionModificationTime(new Timestamp(new Date().getTime()));
+            datafile.setOwner(dataset);
+            datafile.setIngestDone();
+            datafile.setmd5("Unknown");
+            datafile = fileService.save(datafile);
+
+            // set metadata and add to latest version
+            FileMetadata fmd = new FileMetadata();
+            fmd.setLabel(file.getName());
+            fmd.setDataFile(datafile);
+            datafile.getFileMetadatas().add(fmd);
+            if (version.getFileMetadatas() == null) {
+                version.setFileMetadatas(new ArrayList());
+            }
+            version.getFileMetadatas().add(fmd);
+            fmd.setDatasetVersion(version);
+
+            return datafile;
+        } catch (Exception e) {
+            System.out.println("Exception creating datafile: " + e.getMessage());
+            return null;
         }
-        version.getFileMetadatas().add(fmd);
-        fmd.setDatasetVersion(version);
-
-        return datafile;
     }
 
+    /**
+     *
+     * @param dataFile
+     */
     public static void saveDataFile(DataFile dataFile) {
         try {
             Context ctx = new InitialContext();
-            fileService = (DataFileServiceBean)
+            DataFileServiceBean fileService = (DataFileServiceBean)
                     ctx.lookup("java:module/DataFileServiceBean");
             fileService.save(dataFile);
         } catch (Exception e) {
@@ -140,10 +156,19 @@ public abstract class Utils {
         }
     }
 
+    /**
+     *
+     * @param user
+     * @param dvObjId
+     * @param type
+     */
     public static void sendNotification(User user, Long dvObjId, UserNotification.Type type) {
         try {
+
             Context ctx = new InitialContext();
-            userNotificationService = (UserNotificationServiceBean) ctx.lookup("java:module/UserNotificationServiceBean");
+            UserNotificationServiceBean userNotificationService =
+                    (UserNotificationServiceBean) ctx.lookup("java:module/UserNotificationServiceBean");
+
             userNotificationService.sendNotification(
                     (AuthenticatedUser) user,
                     new Timestamp(new Date().getTime()),
@@ -153,12 +178,21 @@ public abstract class Utils {
         }
     }
 
+    /**
+     *
+     * @param report
+     * @param user
+     */
     public static void createActionLogRecord(JobReport report, User user) {
         DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         try {
+
             Context ctx = new InitialContext();
-            actionLogServiceBean = (ActionLogServiceBean) ctx.lookup("java:module/ActionLogServiceBean");
-            ActionLogRecord alr = new ActionLogRecord(ActionLogRecord.ActionType.Command, report.getParameters().getName());
+            ActionLogServiceBean actionLogServiceBean =
+                    (ActionLogServiceBean) ctx.lookup("java:module/ActionLogServiceBean");
+
+            ActionLogRecord alr = new ActionLogRecord(ActionLogRecord.ActionType.Command,
+                    report.getParameters().getName());
             alr.setId(report.getParameters().getExecutionId());
             alr.setInfo(report.toString());
             alr.setUserIdentifier(user.getIdentifier());
