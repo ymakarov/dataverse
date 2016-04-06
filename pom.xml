@@ -12,6 +12,13 @@
     <properties>
         <endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jacoco.version>0.7.5.201505241946</jacoco.version>
+        <org.jboss.arquillian.version>1.1.1.Final</org.jboss.arquillian.version>
+        <org.jboss.arquillian.drone.version>1.3.0.Final</org.jboss.arquillian.drone.version>
+        <org.jboss.arquillian.selenium.bom.version>2.40.0</org.jboss.arquillian.selenium.bom.version>
+        <org.jboss.arquillian.graphene.version>2.0.2.Final</org.jboss.arquillian.graphene.version>
+        <arquillian.shrinkwrap.resolver>2.2.2</arquillian.shrinkwrap.resolver>
+        <glassfish.version>4.1</glassfish.version>
     </properties>
 
     <repositories>
@@ -49,9 +56,38 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
-
+        <repository>
+            <id>jboss-public-repository-group</id>
+            <url>https://repository.jboss.org/nexus/content/groups/public-jboss/</url>
+        </repository>
     </repositories>
-             
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.jboss.arquillian</groupId>
+                <artifactId>arquillian-bom</artifactId>
+                <version>1.1.5.Final</version>
+                <scope>import</scope>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>org.jboss.shrinkwrap.resolver</groupId>
+                <artifactId>shrinkwrap-resolver-bom</artifactId>
+                <version>2.1.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.jboss.arquillian.extension</groupId>
+                <artifactId>arquillian-drone-bom</artifactId>
+                <version>1.3.1.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
        <dependency>
             <groupId>junit</groupId>
@@ -409,6 +445,30 @@
             <version>4.0.0</version>
         </dependency>
 
+        <!-- arquillian -->
+        <dependency>
+            <groupId>org.jboss.arquillian.junit</groupId>
+            <artifactId>arquillian-junit-container</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.shrinkwrap.resolver</groupId>
+            <artifactId>shrinkwrap-resolver-depchain</artifactId>
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.arquillian.extension</groupId>
+            <artifactId>arquillian-drone-webdriver-depchain</artifactId>
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.arquillian.container</groupId>
+            <artifactId>arquillian-glassfish-managed-3.1</artifactId>
+            <version>1.0.0.CR4</version>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 
@@ -441,8 +501,9 @@
                     <compilerArguments>
                         <endorseddirs>${endorsed.dir}</endorseddirs>
                     </compilerArguments>
-                    <!-- for use with `mvn -DcompilerArgument=-Xlint:unchecked compile` -->
+                    <!-- for use with `mvn -DcompilerArgument=-Xlint:unchecked compile`
                     <compilerArgument>${compilerArgument}</compilerArgument>
+                    -->
                 </configuration>
             </plugin>
             <plugin>
@@ -500,7 +561,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.7.5.201505241946</version>
+                <version>${jacoco.version}</version>
                 <configuration>
                     <destfile>${basedir}/target/coverage-reports/jacoco-unit.exec</destfile>
                     <datafile>${basedir}/target/coverage-reports/jacoco-unit.exec</datafile>
@@ -525,6 +586,13 @@
                 <groupId>org.eluder.coveralls</groupId>
                 <artifactId>coveralls-maven-plugin</artifactId>
                 <version>4.0.0</version>
+            </plugin>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.15</version>
+                <configuration>
+                    <skipTests>false</skipTests>
+                </configuration>
             </plugin>
         </plugins>
     </build>
