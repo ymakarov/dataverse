@@ -5,17 +5,15 @@
  */
 package edu.harvard.iq.dataverse.interactivedataset;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.annotations.Expose;
 import edu.harvard.iq.dataverse.Dataset;
 import java.io.Serializable;
-import java.lang.reflect.Field;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.json.Json;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonValue;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -42,41 +40,59 @@ public class InteractiveDataset implements Serializable {
     public final static List<String> AllFieldNames = Arrays.asList("id","serviceName","serviceDescription","apiEndpointURL","apiUsername","apiEncryptedPassword","apiParameters","visualizationURL","exploreButtonURL","exploreButtonOpensNewWindow","contactName","contactEmail","serviceActive","serviceInactiveMessage","serviceDownMessage","updated","created");
     private static final long serialVersionUID = 1L;
     
-
+    @Expose
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @OneToOne
     @JoinColumn(name="dataset_id")
+    @Expose
     private Dataset dataset;
 
+    @Expose
     @Column(nullable=false, unique=true)
     private String serviceName;
+    @Expose
     private String serviceDescription;
 
+    @Expose
     @Column(nullable=false)
     private String apiEndpointURL;
 
+    
+    @Expose
     private String apiUsername;
+    @Expose
     private String apiEncryptedPassword;
+    @Expose
     private String apiParameters;
 
+    @Expose
     private String visualizationURL;
 
+    @Expose
     private String exploreButtonURL;
+    @Expose
     private boolean exploreButtonOpensNewWindow;
 
     @Column(nullable=false)
+    @Expose
     private String contactName;
     @Column(nullable=false)
+    @Expose
     private String contactEmail;
 
+    @Expose
     private boolean serviceActive;
+    @Expose
     private String serviceInactiveMessage;
+    @Expose
     private String serviceDownMessage;
 
+    @Expose
     private Timestamp updated;
+    @Expose
     private Timestamp created;
 
     /**
@@ -368,105 +384,26 @@ public class InteractiveDataset implements Serializable {
     }
     
     
-    
+
+    /**
+     * Return as JSON String
+     * @return 
+     */
     public String asJSON(){
 
-        // Initialize JSON response
-        JsonObjectBuilder jsonData = Json.createObjectBuilder();
+        GsonBuilder builder = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().setPrettyPrinting();
+        builder.serializeNulls();
+        Gson gson = builder.create();
+        
+        // Add a custom field
+        /*
+        JsonElement jsonObj = gson.toJsonTree(this);
+        jsonObj.getAsJsonObject().addProperty("anotherField", "yes it is");
+        return jsonObj.toString();
+        */
+        
+        return (gson.toJson(this)); // Return as String
 
-        if (this.id==null){
-	   jsonData.add("id", JsonValue.NULL);
-	}else{
-	   jsonData.add("id", this.id);
-	}
-
-	if (this.serviceName==null){
-	   jsonData.add("serviceName", JsonValue.NULL);
-	}else{
-	   jsonData.add("serviceName", this.serviceName);
-	}
-
-	if (this.serviceDescription==null){
-	   jsonData.add("serviceDescription", JsonValue.NULL);
-	}else{
-	   jsonData.add("serviceDescription", this.serviceDescription);
-	}
-
-	if (this.apiEndpointURL==null){
-	   jsonData.add("apiEndpointURL", JsonValue.NULL);
-	}else{
-	   jsonData.add("apiEndpointURL", this.apiEndpointURL);
-	}
-
-	if (this.apiUsername==null){
-	   jsonData.add("apiUsername", JsonValue.NULL);
-	}else{
-	   jsonData.add("apiUsername", this.apiUsername);
-	}
-
-	if (this.apiEncryptedPassword==null){
-	   jsonData.add("apiEncryptedPassword", JsonValue.NULL);
-	}else{
-	   jsonData.add("apiEncryptedPassword", this.apiEncryptedPassword);
-	}
-
-	if (this.apiParameters==null){
-	   jsonData.add("apiParameters", JsonValue.NULL);
-	}else{
-	   jsonData.add("apiParameters", this.apiParameters);
-	}
-
-	if (this.visualizationURL==null){
-	   jsonData.add("visualizationURL", JsonValue.NULL);
-	}else{
-	   jsonData.add("visualizationURL", this.visualizationURL);
-	}
-
-	if (this.exploreButtonURL==null){
-	   jsonData.add("exploreButtonURL", JsonValue.NULL);
-	}else{
-	   jsonData.add("exploreButtonURL", this.exploreButtonURL);
-	}
-	jsonData.add("exploreButtonOpensNewWindow", this.exploreButtonOpensNewWindow);
-
-	if (this.contactName==null){
-	   jsonData.add("contactName", JsonValue.NULL);
-	}else{
-	   jsonData.add("contactName", this.contactName);
-	}
-
-	if (this.contactEmail==null){
-	   jsonData.add("contactEmail", JsonValue.NULL);
-	}else{
-	   jsonData.add("contactEmail", this.contactEmail);
-	}
-	jsonData.add("serviceActive", this.serviceActive);
-
-	if (this.serviceInactiveMessage==null){
-	   jsonData.add("serviceInactiveMessage", JsonValue.NULL);
-	}else{
-	   jsonData.add("serviceInactiveMessage", this.serviceInactiveMessage);
-	}
-
-	if (this.serviceDownMessage==null){
-	   jsonData.add("serviceDownMessage", JsonValue.NULL);
-	}else{
-	   jsonData.add("serviceDownMessage", this.serviceDownMessage);
-	}
-
-	if (this.updated==null){
-	   jsonData.add("updated", JsonValue.NULL);
-	}else{
-	   jsonData.add("updated", this.updated.toString());
-	}
-
-	if (this.created==null){
-	   jsonData.add("created", JsonValue.NULL);
-	}else{
-	   jsonData.add("created", this.created.toString());
-	}
-             
-        return jsonData.build().toString();
-
+        
     }
 } // end InteractiveDataset
