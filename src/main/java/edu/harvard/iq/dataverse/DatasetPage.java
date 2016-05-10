@@ -20,6 +20,8 @@ import edu.harvard.iq.dataverse.engine.command.impl.PublishDataverseCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDatasetCommand;
 import edu.harvard.iq.dataverse.ingest.IngestRequest;
 import edu.harvard.iq.dataverse.ingest.IngestServiceBean;
+import edu.harvard.iq.dataverse.interactivedataset.InteractiveDataset;
+import edu.harvard.iq.dataverse.interactivedataset.InteractiveDatasetServiceBean;
 import edu.harvard.iq.dataverse.metadataimport.ForeignMetadataImportServiceBean;
 import edu.harvard.iq.dataverse.search.SearchFilesServiceBean;
 import edu.harvard.iq.dataverse.search.SortBy;
@@ -147,7 +149,10 @@ public class DatasetPage implements java.io.Serializable {
     @Inject
     DatasetVersionUI datasetVersionUI;
     @Inject PermissionsWrapper permissionsWrapper;
-
+    @EJB
+    InteractiveDatasetServiceBean interactiveDatasetServiceBean;
+    InteractiveDataset interactiveDataset;
+    
     private final DateFormat displayDateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM);
 
     private Dataset dataset = new Dataset();
@@ -1555,7 +1560,32 @@ public class DatasetPage implements java.io.Serializable {
             return "/404.xhtml";
         }
 
+        
+        //interactiveDataset = this.interactiveDatasetServiceBean.find(dataset.getId());
+        interactiveDataset = this.interactiveDatasetServiceBean.findByDataset(dataset);
+        
         return null;
+    }
+    
+    /**
+     * Is this an interactive dataset page?
+     * If so, create an extra tab, etc.
+     * 
+     * @return 
+     */
+    public boolean isInteractiveDatasetPage(){
+        
+        if (this.interactiveDataset != null){
+             System.out.println(this.interactiveDataset.asJSON());
+        }else{
+             System.out.println("interactiveDataset not found for id: " + dataset.getId());            
+        }
+
+        return this.interactiveDataset != null;
+    }
+    
+    public InteractiveDataset getInteractiveDataset(){
+        return this.interactiveDataset;
     }
     
     public boolean isReadOnly() {
