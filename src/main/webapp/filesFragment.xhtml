@@ -36,7 +36,7 @@
                 <div id="filesHeaderCount" class="col-xs-6 text-left">
                     <!-- Files Count -->
                     <h:outputFormat value="#{bundle['file.count']}" styleClass="highlightBold">
-                        <f:param value="#{DatasetPage.fileMetadatasSearch.size()}"/>
+                        <f:param value="#{DatasetPage.getFileCount()}"/>
                     </h:outputFormat>
                 </div>
                 <div class="col-xs-6">

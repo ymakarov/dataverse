@@ -539,12 +539,12 @@
                                    rendered="#{empty DatasetPage.editMode or (DatasetPage.editMode == 'METADATA' or DatasetPage.editMode == 'LICENSE')}">
                             <p:ajax event="tabChange" listener="#{DatasetPage.tabChanged}" oncomplete="bind_bsui_components();" update="@this" />
 
-                            <p:tab id="interactiveDatasetTab" title="Interactive Dataset" rendered="#{DatasetPage.isInteractiveDatasetPage()}">
+                            <p:tab id="interactiveDatasetTab" title="Data Source" rendered="#{DatasetPage.isInteractiveDatasetPage()}">
                                 <ui:include src="interactiveDatasetFragment.xhtml"/>
                             </p:tab>
 
                             <p:tab id="dataFilesTab" title="#{bundle.files}" rendered="#{!DatasetPage.workingVersion.deaccessioned and
-                                                              (empty DatasetPage.editMode)}">
+                                                              (empty DatasetPage.editMode) and (!DatasetPage.hideFileTabForInteractiveDataset())}">
                                 <ui:include src="filesFragment.xhtml"/>
                             </p:tab>
 

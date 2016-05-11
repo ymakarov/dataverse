@@ -1,0 +1,17 @@
+{# Note: This Template utilizes JSON from the InteractiveData "asJSON()" method.  See InteractiveDataset.java #}
+
+{{ dsetInfo.serviceName }} {{ dsetInfo.serviceDescription }}
+
+<div class="row">
+    <div class="col-sm-4">
+        <pre>
+            {{ jsonDump }}
+        </pre>
+    </div>
+
+    <div class="col-sm-8">
+        {% if dsetInfo.visualizationURL %}
+            <iframe src="{{ dsetInfo.visualizationURL }}" style="width:100%;height:600px"></iframe>
+        {% endif %}
+    </div>
+</div>

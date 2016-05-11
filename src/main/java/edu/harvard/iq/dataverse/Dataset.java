@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse;
 
+import com.google.gson.annotations.Expose;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -45,8 +46,11 @@ public class Dataset extends DvObjectContainer {
     @OneToMany(mappedBy = "owner", cascade = CascadeType.MERGE)
     private List<DataFile> files = new ArrayList();
 
+    @Expose
     private String protocol;
+    @Expose
     private String authority;
+    @Expose
     private String doiSeparator;
 
     @Temporal(value = TemporalType.TIMESTAMP)

@@ -8,6 +8,7 @@ package edu.harvard.iq.dataverse.interactivedataset;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.annotations.Expose;
 import edu.harvard.iq.dataverse.Dataset;
 import java.io.Serializable;
@@ -390,19 +391,83 @@ public class InteractiveDataset implements Serializable {
      * @return 
      */
     public String asJSON(){
-
-        GsonBuilder builder = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().setPrettyPrinting();
-        builder.serializeNulls();
+        return this.serializeAsJSON(false);
+    }
+    
+    /**
+     * Return as JSON String
+     * @return 
+     */
+    public String asPrettyJSON(){
+        return this.serializeAsJSON(true);
+    }
+    
+    
+    /**
+     * Return as JSON String
+     * 
+     *  Example:  
+     *  {
+            "dsetInfo": {
+                "contactEmail": "IQSS@harvard.edu", 
+                "updated": "Mar 16, 2016 1:42:32 PM", 
+                "serviceInactiveMessage": "scheduled downtime", 
+                "created": "Mar 16, 2016 1:42:32 PM", 
+                "serviceDownMessage": "Uh oh", 
+                "exploreButtonURL": null, 
+                "exploreButtonOpensNewWindow": false, 
+                "dataset": {
+                    "doiSeparator": "/", 
+                    "protocol": "doi", 
+                    "authority": "10.5072/FK2"
+                }, 
+                "apiUsername": "dv_usr", 
+                "apiParameters": null, 
+                "serviceActive": true, 
+                "serviceName": "GeoTweet", 
+                "contactName": "IQSS SUPPORT", 
+                "apiEncryptedPassword": "secret", 
+                "apiEndpointURL": "http://geotweets.cga.harvard.edu/api/dv", 
+                "visualizationURL": "https://worldmap.harvard.edu/maps/embed/?layer=geonode:net_migration_per_province_2010_dph", 
+                "id": 1, 
+                "serviceDescription": "GeoTweets"
+            }
+        }
+     * 
+     * @return 
+     */
+    private String serializeAsJSON(boolean prettyPrint){
+        
+        String overarchingKey = "dsetInfo";
+        
+        GsonBuilder builder;
+        if (prettyPrint){  // Add pretty printing
+            builder = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().setPrettyPrinting();
+        }else{
+            builder = new GsonBuilder().excludeFieldsWithoutExposeAnnotation();                        
+        }
+        
+        builder.serializeNulls();   // correctly capture nulls
         Gson gson = builder.create();
+
+        // serialize this object
+        JsonElement jsonObj = gson.toJsonTree(this);
+        //return (gson.toJson(this)); // Return as String w/o nesting attributes
+
+        // Nest the serialized object under::
+        // {"interactiveDataset" : { .. other attrs ...}}
+        //
+        JsonObject interactiveDatasetJSON = new JsonObject();
+        interactiveDatasetJSON.add(overarchingKey, jsonObj);
+        return interactiveDatasetJSON.toString();
+
         
         // Add a custom field
-        /*
-        JsonElement jsonObj = gson.toJsonTree(this);
-        jsonObj.getAsJsonObject().addProperty("anotherField", "yes it is");
-        return jsonObj.toString();
-        */
-        
-        return (gson.toJson(this)); // Return as String
+        // ------------------------
+        //JsonElement jsonObj = gson.toJsonTree(this);
+        //jsonObj.getAsJsonObject().addProperty("anotherField", "yes it is");
+        //return jsonObj.toString();
+        // ------------------------
 
         
     }

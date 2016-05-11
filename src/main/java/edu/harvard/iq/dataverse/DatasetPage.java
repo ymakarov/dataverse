@@ -151,7 +151,7 @@ public class DatasetPage implements java.io.Serializable {
     @Inject PermissionsWrapper permissionsWrapper;
     @EJB
     InteractiveDatasetServiceBean interactiveDatasetServiceBean;
-    InteractiveDataset interactiveDataset;
+    InteractiveDataset interactiveDataset = null;
     
     private final DateFormat displayDateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM);
 
@@ -256,6 +256,28 @@ public class DatasetPage implements java.io.Serializable {
         this.fileMetadatasSearch = fileMetadatasSearch;
     }
     
+    /**
+     * Convenience method to return the file count
+     * @return 
+     */
+    public int getFileCount(){
+        
+        return (this.fileMetadatasSearch == null) ? 0 : this.fileMetadatasSearch.size();
+    }
+    
+    /**
+     * If these requirements are met, then hide the files tab:
+     * (1) This is an interactive Dataset page
+     * (2) There are no files
+     * 
+     * @return 
+     */
+    public boolean hideFileTabForInteractiveDataset(){
+        
+        return (this.isInteractiveDatasetPage()) && (this.getFileCount() == 0);
+    }
+    
+    
     public void updateFileSearch(){  
         logger.info("updading file search list");
         if (readOnly) {
@@ -276,7 +298,7 @@ public class DatasetPage implements java.io.Serializable {
     }
     
     public void showAll(){
-        setNumberOfFilesToShow(new Long(fileMetadatasSearch.size()));
+        setNumberOfFilesToShow(new Long(this.getFileCount()));
     }
     
     private List<FileMetadata> selectFileMetadatasForDisplay(String searchTerm) {
@@ -1560,10 +1582,10 @@ public class DatasetPage implements java.io.Serializable {
             return "/404.xhtml";
         }
 
-        
-        //interactiveDataset = this.interactiveDatasetServiceBean.find(dataset.getId());
-        interactiveDataset = this.interactiveDatasetServiceBean.findByDataset(dataset);
-        
+        if ((this.dataset != null)&&(this.dataset.getId() != null)){
+            //interactiveDataset = this.interactiveDatasetServiceBean.find(dataset.getId());
+            interactiveDataset = this.interactiveDatasetServiceBean.findByDataset(dataset);
+        }
         return null;
     }
     
@@ -1585,6 +1607,9 @@ public class DatasetPage implements java.io.Serializable {
     }
     
     public InteractiveDataset getInteractiveDataset(){
+        if (this.interactiveDataset == null){
+            return null;
+        }
         return this.interactiveDataset;
     }
     
@@ -1854,7 +1879,7 @@ public class DatasetPage implements java.io.Serializable {
     }
     
     public void viewAllButtonPress(){
-        setChunkSize(fileMetadatasSearch.size());
+        setChunkSize(this.getFileCount());
     }
     
      private int activeTabIndex;

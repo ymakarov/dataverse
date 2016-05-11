@@ -62,12 +62,11 @@ public class InteractiveDatasetServiceBean implements java.io.Serializable{
         TypedQuery<InteractiveDataset> typedQuery = em.createQuery("select object(o) from InteractiveDataset as o where o.dataset =:dataset", InteractiveDataset.class);
         typedQuery.setParameter("dataset", dataset);
 
-        InteractiveDataset interactiveDataset = typedQuery.getSingleResult();
-        
-        if (interactiveDataset == null){
+        try{
+            return typedQuery.getSingleResult();
+        }catch (javax.persistence.NoResultException ex){
             return null;
-        } 
-        return interactiveDataset;
+        }
     }
     
        

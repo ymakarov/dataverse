@@ -11,21 +11,30 @@
 <!-- start: panel --><div class="panel panel-default">
 <!-- start: panel body --><div class="panel-body clearfix">
     
+    <!-- load nunjucks script -->
+    <script src="#{resource['js/nunjucks.js']}?version=#{systemConfig.getVersion()}"></script>
+    <script> 
+        <ui:remove>This variable is needed by mydata.js to make the ajax call</ui:remove>
+        var interactiveDatasetJSON = #{DatasetPage.interactiveDataset.asJSON()};
+    </script>
+    <script>  
+
+        $(document).ready(function() {
+            // Set autoescape to true
+            nunjucks.configure({ autoescape: true });
+            // If the "interactiveDatasetJSON" is available, render the Interactive Dataset panel
+            if (typeof interactiveDatasetJSON !== 'undefined') {
+                interactiveDatasetJSON.jsonDump = JSON.stringify(interactiveDatasetJSON, null, 4);
+                // Use the interactive Dataset to render the panel HTML
+                var datasetPanelHTML =  nunjucks.render('interactive_dataset_templates/dataset_panel.html', interactiveDatasetJSON);
+                $('#id_interactive_ds_panel').html(datasetPanelHTML).show();
+
+        }
+        });
+    </script>
     <!-- start: row -->
     <div class="row">
-        <!-- start filter column -->
-        <div class="col-xs-3" id="my_data_filter_column">
-            <h3>#{DatasetPage.interactiveDataset.serviceName}</h3>
-            <ui:fragment rendered="#{DatasetPage.interactiveDataset.serviceDescription != null}">
-                <p>#{DatasetPage.interactiveDataset.serviceDescription}</p>
-            </ui:fragment>
-            <code>
-            #{DatasetPage.interactiveDataset.asJSON()}
-            </code>
-            
-           
-        </div>
-        <!-- end: workspace column -->
+       <div id="id_interactive_ds_panel" class="col-xs-12" style="display: none;padding:0 25px;"></div>
     </div><!-- end row -->
  
 </div><!-- end panel body -->
