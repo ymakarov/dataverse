@@ -96,7 +96,7 @@ public class WorldMapTokenServiceBean {
         if (wmToken==null){
             return;
         }
-        em.remove(em.merge(wmToken));
+        em.remove(wmToken);
     }
     
     /*
