@@ -1,17 +1,68 @@
 {# Note: This Template utilizes JSON from the InteractiveData "asJSON()" method.  See InteractiveDataset.java #}
 
-{{ dsetInfo.serviceName }} {{ dsetInfo.serviceDescription }}
+{{ interactiveDataset.serviceName }} {{ interactiveDataset.serviceDescription }}
 
 <div class="row">
+    <!-- start: column --><div class="col-sm-8">
+        <div class="panel panel-default">
+                <div data-toggle="collapse" data-target="#panelCollapse0" class="panel-heading text-info">
+                    Interactive  Metadata
+                </div>
+        <div class="panel-body metadata-panel-body">
+            {% for attr, val in interactiveDataset %}
+            <div class="form-group">
+                <label for="metadata_publicationDate" class="col-sm-5 control-label">
+                    <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="">
+                       {{ attr }}
+                    </span>
+                </label>
+                <div class="col-sm-7">
+                    {% if val %}
+                        {% if attr in  ['visualizationURL', 'apiEndpointURL'] %}
+                            <a href="{{ val }}" target="_blank">{{ val }}</a>
+                        {% elif attr == 'contactEmail' %}
+                            <a href="mailto:{{ val }}" target="_blank">{{ val }}</a>
+                        
+                        {% else %}
+                            {{ val }}
+                        {% endif %}
+                    {% else %}
+                        (n/a)
+                    {% endif %}    
+                </div>
+            </div>
+            {% endfor %}
+        </div></div>
+    </div><!-- end: column -->
     <div class="col-sm-4">
-        <pre>
-            {{ jsonDump }}
-        </pre>
+        <code>{{ interactiveDataset|dump }}</code>
     </div>
-
-    <div class="col-sm-8">
-        {% if dsetInfo.visualizationURL %}
-            <iframe src="{{ dsetInfo.visualizationURL }}" style="width:100%;height:600px"></iframe>
+    
+</div>
+<div class="row">
+    interactive dataset API
+    <script>
+        var url = "https://api.nytimes.com/svc/search/v2/articlesearch.json";
+        url += '?' + $.param({
+          'api-key': "7fd09acc6d00457a90cd7f961e0c836f"
+        });
+        $.ajax({
+          url: url,
+          method: 'GET',
+        }).done(function(result) {
+          console.log(result);
+        }).fail(function(err) {
+          throw err;
+        });
+    </script>
+</div>
+<div class="row">
+    <div class="col-sm-12">
+        {% if interactiveDataset.visualizationURL %}
+        <hr />
+        <h3>Visualization Url</h3>
+        <p>{{ interactiveDataset.visualizationURL }}</p>
+             <iframe src="{{ interactiveDataset.visualizationURL }}" style="width:100%;height:600px"></iframe>
         {% endif %}
     </div>
 </div>

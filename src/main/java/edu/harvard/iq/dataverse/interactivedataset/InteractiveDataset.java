@@ -15,6 +15,7 @@ import java.io.Serializable;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -29,6 +30,9 @@ import javax.persistence.Transient;
 /**
  *
  * @author raprasad
+ * 
+ * 
+ * 
  */ 
 @Entity
 @Table(indexes = {@Index(columnList="dataset_id")})
@@ -40,6 +44,10 @@ public class InteractiveDataset implements Serializable {
     @Transient
     public final static List<String> AllFieldNames = Arrays.asList("id","serviceName","serviceDescription","apiEndpointURL","apiUsername","apiEncryptedPassword","apiParameters","visualizationURL","exploreButtonURL","exploreButtonOpensNewWindow","contactName","contactEmail","serviceActive","serviceInactiveMessage","serviceDownMessage","updated","created");
     private static final long serialVersionUID = 1L;
+    
+    @OneToOne(mappedBy = "interactiveDataset", cascade={ CascadeType.REMOVE, CascadeType.MERGE,CascadeType.PERSIST}, orphanRemoval=true)
+   //@Expose
+    private RemoteAPIEndpoint remoteAPIEndpoint;
     
     @Expose
     @Id
@@ -57,17 +65,6 @@ public class InteractiveDataset implements Serializable {
     @Expose
     private String serviceDescription;
 
-    @Expose
-    @Column(nullable=false)
-    private String apiEndpointURL;
-
-    
-    @Expose
-    private String apiUsername;
-    @Expose
-    private String apiEncryptedPassword;
-    @Expose
-    private String apiParameters;
 
     @Expose
     private String visualizationURL;
@@ -112,6 +109,23 @@ public class InteractiveDataset implements Serializable {
         return this.id;
     }
     
+    
+    /**
+     *  Set dataset
+     *  @param dataset
+     */
+    public void setDataset(Dataset dataset){
+        this.dataset = dataset;
+    }
+
+    /**
+     *  Get dataset
+     *  @return Long
+     */
+    public Dataset getDataset(){
+        return this.dataset;
+    }
+    
 
     /**
      *  Set serviceName
@@ -144,74 +158,6 @@ public class InteractiveDataset implements Serializable {
      */
     public String getServiceDescription(){
         return this.serviceDescription;
-    }
-    
-
-    /**
-     *  Set apiEndpointURL
-     *  @param apiEndpointURL
-     */
-    public void setApiEndpointURL(String apiEndpointURL){
-        this.apiEndpointURL = apiEndpointURL;
-    }
-
-    /**
-     *  Get for apiEndpointURL
-     *  @return String
-     */
-    public String getApiEndpointURL(){
-        return this.apiEndpointURL;
-    }
-    
-
-    /**
-     *  Set apiUsername
-     *  @param apiUsername
-     */
-    public void setApiUsername(String apiUsername){
-        this.apiUsername = apiUsername;
-    }
-
-    /**
-     *  Get for apiUsername
-     *  @return String
-     */
-    public String getApiUsername(){
-        return this.apiUsername;
-    }
-    
-
-    /**
-     *  Set apiEncryptedPassword
-     *  @param apiEncryptedPassword
-     */
-    public void setApiEncryptedPassword(String apiEncryptedPassword){
-        this.apiEncryptedPassword = apiEncryptedPassword;
-    }
-
-    /**
-     *  Get for apiEncryptedPassword
-     *  @return String
-     */
-    public String getApiEncryptedPassword(){
-        return this.apiEncryptedPassword;
-    }
-    
-
-    /**
-     *  Set apiParameters
-     *  @param apiParameters
-     */
-    public void setApiParameters(String apiParameters){
-        this.apiParameters = apiParameters;
-    }
-
-    /**
-     *  Get for apiParameters
-     *  @return String
-     */
-    public String getApiParameters(){
-        return this.apiParameters;
     }
     
 
@@ -438,7 +384,7 @@ public class InteractiveDataset implements Serializable {
      */
     private String serializeAsJSON(boolean prettyPrint){
         
-        String overarchingKey = "dsetInfo";
+        String overarchingKey = "interactiveDataset";
         
         GsonBuilder builder;
         if (prettyPrint){  // Add pretty printing
@@ -452,6 +398,16 @@ public class InteractiveDataset implements Serializable {
 
         // serialize this object
         JsonElement jsonObj = gson.toJsonTree(this);
+        
+        // add the API endpoint
+        if (this.remoteAPIEndpoint != null){
+            JsonElement jsonObjRemoveAPIEndpoint = gson.toJsonTree(this.remoteAPIEndpoint);
+           jsonObj.getAsJsonObject().add("remoteAPIEndpoint", jsonObjRemoveAPIEndpoint);
+            //jsonObj.getAsJsonObject().addProperty("remoteAPIEndpoint", jsonObjRemoveAPIEndpoint());
+            //jsonObj.getAsJsonObject().addProperty("remoteAPIEndpoint", this.remoteAPIEndpoint.asJSON());
+            //jsonObj.
+            //jsonObj.addProperty("remoteAPIEndpoint", jsonObjRemoveAPIEndpoint);
+        }
         //return (gson.toJson(this)); // Return as String w/o nesting attributes
 
         // Nest the serialized object under::

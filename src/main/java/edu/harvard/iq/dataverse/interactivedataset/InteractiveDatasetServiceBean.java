@@ -27,6 +27,12 @@ public class InteractiveDatasetServiceBean implements java.io.Serializable{
     private EntityManager em;
     
     
+    /**
+     * Find the object by its ID (postgres PK)
+     * 
+     * @param pk
+     * @return 
+     */
     public InteractiveDataset find(Object pk) {
         if (pk==null){
             return null;
@@ -34,7 +40,16 @@ public class InteractiveDatasetServiceBean implements java.io.Serializable{
         return (InteractiveDataset) em.find(InteractiveDataset.class, pk);
     }
     
-    
+    /**
+     * Persist the object
+     * 
+     * @param interactiveDataset
+     * @return 
+     */
+    public InteractiveDataset save(InteractiveDataset interactiveDataset) {
+        return em.merge(interactiveDataset);
+    }
+
     /**
      * Delete an instance of an InteractiveDataset
      * 
