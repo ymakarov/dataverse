@@ -351,7 +351,7 @@
                                                  or !empty DatasetPage.datasetVersionUI.subject.value
                                                  or !empty DatasetPage.datasetVersionUI.relPublicationCitation
                                                  or !empty DatasetPage.datasetVersionUI.notes.value)}">
-                                <div class="panel-body metadata-panel-body">
+                                <div class="panel-body metadata-panel-body" id="header-metadata-panel">
                                     <div id="description" class="form-group" jsf:rendered="#{!empty DatasetPage.datasetVersionUI.descriptionDisplay}">
                                         <label class="col-sm-3 control-label">
                                             <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="#{DatasetPage.datasetVersionUI.description.datasetFieldType.description}">#{bundle['dataset.descriptionDisplay.title']}</span>
