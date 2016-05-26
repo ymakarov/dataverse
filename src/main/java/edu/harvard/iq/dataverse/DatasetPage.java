@@ -1590,11 +1590,41 @@ public class DatasetPage implements java.io.Serializable {
             return "/404.xhtml";
         }
 
+        // Check if there is an interactive dataset. 
+        // If needed, update tab indices
+        this.initIteractiveDataset();
+      
+        return null;
+    }
+    
+    private void initIteractiveDataset(){
         if ((this.dataset != null)&&(this.dataset.getId() != null)){
             //interactiveDataset = this.interactiveDatasetServiceBean.find(dataset.getId());
             interactiveDataset = this.interactiveDatasetServiceBean.findByDataset(dataset);
+        }        
+        this.updateTabIndices();
+    }
+    
+    /**
+     *  Is this an interactive dataset page?
+     *  If so, an extra tab will be created so adjust tab indexes
+     * 
+     * 
+     */
+    private void updateTabIndices(){
+        
+        if (this.interactiveDataset == null){
+            return;
         }
-        return null;
+
+        // If needed, change indexing for the files tab and versions tab
+        //
+        if (this.getFileCount() == 0){
+            this.tabIndexFileListing = -99;  // If empty, the files tab will not be shown
+        }else{
+            this.tabIndexFileListing = 1;  // Moves from index 0 to index 1
+            this.tabIndexVersionListing = 4;  // The version listing tab moves from 3 to 4
+        }
     }
     
     /**
@@ -1607,15 +1637,6 @@ public class DatasetPage implements java.io.Serializable {
         
         if (this.interactiveDataset != null){
             // Yes: this is an interactive dataset
-
-            // If needed, change indexing for the files tab and versions tab
-            //
-            if (this.getFileCount() == 0){
-                this.tabIndexFileListing = -99;  // If empty, the files tab will not be shown
-            }else{
-                this.tabIndexFileListing = 1;  // Moves from index 0 to index 1
-                this.tabIndexVersionListing = 4;  // The version listing tab moves from 3 to 4
-            }
             logger.log(Level.FINE, "interactiveDataset found for id: {0}", dataset.getId());            
             return true;
         }else{
