@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse.api;
 
+import edu.harvard.iq.dataverse.BibtexCitation;
 import edu.harvard.iq.dataverse.DOIEZIdServiceBean;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetField;
@@ -8,10 +9,13 @@ import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
+import edu.harvard.iq.dataverse.DataverseSession;
 import edu.harvard.iq.dataverse.MetadataBlock;
 import static edu.harvard.iq.dataverse.api.AbstractApiBean.errorResponse;
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
 import edu.harvard.iq.dataverse.authorization.RoleAssignee;
+import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
+import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
@@ -43,6 +47,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.EJB;
+import javax.inject.Inject;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
@@ -79,6 +84,9 @@ public class Datasets extends AbstractApiBean {
 
     @EJB
     SystemConfig systemConfig;
+
+    @Inject
+    DataverseSession session;
 
     /**
      * Used to consolidate the way we parse and handle dataset versions.
@@ -232,7 +240,55 @@ public class Datasets extends AbstractApiBean {
             return ex.getResponse();
         }
     }
-    
+
+    @GET
+    @Path("{id}/versions/{versionId}/citation")
+    public Response getVersionCitation(@PathParam("id") String datasetId, @PathParam("versionId") String versionId) {
+        try {
+            User user = findUserOrDie();
+            /**
+             * @todo Refactor all this session handling that was lifted
+             * wholesale from Access.java into AbstractApiBean.java so that it
+             * can be used from any API endpoint.
+             */
+            if (session != null) {
+                if (session.getUser() != null) {
+                    if (session.getUser().isAuthenticated()) {
+                        user = (AuthenticatedUser) session.getUser();
+                    } else {
+                        LOGGER.fine("User associated with the session is not an authenticated user. (Guest access will be assumed).");
+                        if (session.getUser() instanceof GuestUser) {
+                            LOGGER.fine("User associated with the session is indeed a guest user.");
+                        }
+                    }
+                } else {
+                    LOGGER.fine("No user associated with the session.");
+                }
+            } else {
+                LOGGER.fine("Session is null.");
+            }
+            DatasetVersion datasetVersion = getDatasetVersionOrDie(createDataverseRequest(user), versionId,
+                    findDatasetOrDie(datasetId));
+            /**
+             * @todo Support all four formats rather than just BibTex:
+             *
+             * - Dataverse citation
+             *
+             * - EndNote XML
+             *
+             * - RIS
+             *
+             * - BibTex
+             */
+            BibtexCitation bibtex = new BibtexCitation(datasetVersion);
+            return Response.ok().entity(bibtex.toString())
+                    .type(MediaType.TEXT_PLAIN)
+                    .build();
+        } catch (WrappedResponse ex) {
+            return ex.getResponse();
+        }
+    }
+
     @GET
 	@Path("{id}/versions/{versionNumber}/metadata/{block}")
     public Response getVersionMetadataBlock( @PathParam("id") String datasetId, 

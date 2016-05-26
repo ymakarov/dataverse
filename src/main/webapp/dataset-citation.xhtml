@@ -39,6 +39,20 @@
                                     #{bundle['dataset.cite.downloadBtn.bib']}
                                 </a>
                             </li>
+                            <li>
+                                <!--
+                                TODO: Don't hard code ":latest" here.
+                                Support :draft, :latest-published, x.y, as well from
+                                http://guides.dataverse.org/en/latest/api/native-api.html#datasets
+                                We can only assume this will be worked on as part of
+                                https://github.com/IQSS/dataverse/issues/2608 .
+                                Hopefully it's clear enough that this is just a stub for BibTex
+                                and that the other formats above need to be supported as well.
+                                -->
+                                <a href="/api/datasets/#{DatasetPage.dataset.id}/versions/:latest/citation">
+                                    #{bundle['dataset.cite.downloadBtn.bib']} API
+                                </a>
+                            </li>
                         </ul>
                     </div>
                     <div id="citation-standards" class="col-xs-12 text-muted small text-right"><span class="glyphicon glyphicon-info-sign"></span> <h:outputText value=" #{bundle['dataset.cite.standards.tip']}" escape="false"/></div>

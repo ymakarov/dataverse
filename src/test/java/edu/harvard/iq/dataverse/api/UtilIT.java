@@ -495,4 +495,12 @@ public class UtilIT {
         assertEquals("A Dataset with a File", title);
     }
 
+    static Response getCitation(Integer datasetId, String apiToken) {
+        Response response = given()
+                .header(API_TOKEN_HTTP_HEADER, apiToken)
+                .urlEncodingEnabled(false)
+                .get("/api/datasets/" + datasetId + "/versions/:draft/citation");
+        return response;
+    }
+
 }
