@@ -73,8 +73,6 @@ import javax.faces.component.UIComponent;
 import javax.faces.component.UIInput;
 
 import javax.faces.event.AjaxBehaviorEvent;
-
-import javax.faces.context.ExternalContext;
 import org.apache.commons.lang.StringEscapeUtils;
 
 import org.primefaces.component.tabview.TabView;
@@ -215,6 +213,13 @@ public class DatasetPage implements java.io.Serializable {
     
     private boolean removeUnusedTags;
 
+    
+    // These index number are subject to change 
+    // as the layout adjusts for new tabs related 
+    // to other dataset types
+    private int tabIndexVersionListing = 3;
+    private int tabIndexFileListing = 0;
+    
     public boolean isRemoveUnusedTags() {
         return removeUnusedTags;
     }
@@ -288,7 +293,7 @@ public class DatasetPage implements java.io.Serializable {
         }
     }
     
-        private Long numberOfFilesToShow = new Long(25);
+    private Long numberOfFilesToShow = new Long(25);
 
     public Long getNumberOfFilesToShow() {
         return numberOfFilesToShow;
@@ -1064,6 +1069,8 @@ public class DatasetPage implements java.io.Serializable {
      *
      * The MapLayerMetadata objects have been fetched at page inception by
      * "loadMapLayerMetadataLookup()"
+     * @param df
+     * @return 
      */
     public MapLayerMetadata getMapLayerMetadata(DataFile df) {
         if (df == null) {
@@ -1592,19 +1599,30 @@ public class DatasetPage implements java.io.Serializable {
     
     /**
      * Is this an interactive dataset page?
-     * If so, create an extra tab, etc.
+     * If so, create an extra tab and adjust tab indexes
      * 
      * @return 
      */
     public boolean isInteractiveDatasetPage(){
         
         if (this.interactiveDataset != null){
-             System.out.println(this.interactiveDataset.asJSON());
-        }else{
-             System.out.println("interactiveDataset not found for id: " + dataset.getId());            
-        }
+            // Yes: this is an interactive dataset
 
-        return this.interactiveDataset != null;
+            // If needed, change indexing for the files tab and versions tab
+            //
+            if (this.getFileCount() == 0){
+                this.tabIndexFileListing = -99;  // If empty, the files tab will not be shown
+            }else{
+                this.tabIndexFileListing = 1;  // Moves from index 0 to index 1
+                this.tabIndexVersionListing = 4;  // The version listing tab moves from 3 to 4
+            }
+            logger.log(Level.FINE, "interactiveDataset found for id: {0}", dataset.getId());            
+            return true;
+        }else{
+            // NO: Not an interactive dataset
+            logger.log(Level.FINE, "interactiveDataset NOT found for id: {0}", dataset.getId());            
+            return false;
+        }
     }
     
     public InteractiveDataset getInteractiveDataset(){
@@ -1893,16 +1911,32 @@ public class DatasetPage implements java.io.Serializable {
         this.activeTabIndex = activeTabIndex;
     }
     
+    
+    /**
+     * Track the tab change events.
+     * 
+     * If this is the file listing tab or version differences tab, reload them
+     * 
+     * @param event 
+     */
     public void tabChanged(TabChangeEvent event) {
         TabView tv = (TabView) event.getComponent();
         this.activeTabIndex = tv.getActiveIndex();
-        if (this.activeTabIndex == 3) {
+        
+        // Is this the version listing tab?
+        if (this.activeTabIndex == this.tabIndexVersionListing) {
+            // Yes, this is the version listing tab -- reset it in case changes were made
+            // (Can we track if changes were made instead of doing this each time?)
             setVersionTabList(resetVersionTabList());
             setReleasedVersionTabList(resetReleasedVersionTabList());
         } else {
+            // If this is not the version listing tab, 
+            // reset the version listing arrays 
             releasedVersionTabList = new ArrayList();
             versionTabList = new ArrayList();
-            if(this.activeTabIndex == 0) {
+            
+            // If this is the file listing tab, the call init() on the page
+            if(this.activeTabIndex == this.tabIndexFileListing) {
                  init();
             }          
         }
