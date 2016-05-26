@@ -1935,7 +1935,7 @@ public class DatasetPage implements java.io.Serializable {
             releasedVersionTabList = new ArrayList();
             versionTabList = new ArrayList();
             
-            // If this is the file listing tab, the call init() on the page
+            // If this is the file listing tab, then call init() on the page
             if(this.activeTabIndex == this.tabIndexFileListing) {
                  init();
             }          
