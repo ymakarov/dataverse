@@ -175,6 +175,27 @@ public class UtilIT {
         }
     }
 
+    static Response createDatasetWithDcmDependency(String dataverseAlias, String apiToken) {
+        String jsonIn = getDatasetJsonWithDcmDependency();
+        Response createDatasetResponse = given()
+                .header(API_TOKEN_HTTP_HEADER, apiToken)
+                .body(jsonIn)
+                .contentType("application/json")
+                .post("/api/dataverses/" + dataverseAlias + "/datasets");
+        return createDatasetResponse;
+    }
+
+    private static String getDatasetJsonWithDcmDependency() {
+        File datasetVersionJson = new File("src/test/java/edu/harvard/iq/dataverse/api/x-ray-diffraction.json");
+        try {
+            String datasetVersionAsJson = new String(Files.readAllBytes(Paths.get(datasetVersionJson.getAbsolutePath())));
+            return datasetVersionAsJson;
+        } catch (IOException ex) {
+            Logger.getLogger(UtilIT.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        }
+    }
+
     static Response createRandomDatasetViaSwordApi(String dataverseToCreateDatasetIn, String apiToken) {
         String xmlIn = getDatasetXml(getRandomIdentifier(), getRandomIdentifier(), getRandomIdentifier());
         return createDatasetViaSwordApiFromXML(dataverseToCreateDatasetIn, xmlIn, apiToken);

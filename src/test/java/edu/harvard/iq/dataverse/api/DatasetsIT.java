@@ -8,6 +8,12 @@ import org.junit.Test;
 import org.junit.AfterClass;
 import static com.jayway.restassured.RestAssured.given;
 import static junit.framework.Assert.assertEquals;
+import com.jayway.restassured.path.json.JsonPath;
+import java.util.List;
+import java.util.Map;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 public class DatasetsIT {
 
@@ -37,6 +43,52 @@ public class DatasetsIT {
         Response createDataset1Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias1, apiToken1);
         createDataset1Response.prettyPrint();
         datasetId1 = UtilIT.getDatasetIdFromResponse(createDataset1Response);
+
+    }
+
+    @Test
+    public void testCreateDatasetWithDcmDependency() {
+
+        Response createUser = UtilIT.createRandomUser();
+        createUser.prettyPrint();
+        String username = UtilIT.getUsernameFromResponse(createUser);
+        String apiToken = UtilIT.getApiTokenFromResponse(createUser);
+
+        Response createDataverseResponse = UtilIT.createRandomDataverse(apiToken);
+        createDataverseResponse.prettyPrint();
+        String dataverseAlias = UtilIT.getAliasFromResponse(createDataverseResponse);
+
+        Response createDatasetResponse = UtilIT.createDatasetWithDcmDependency(dataverseAlias, apiToken);
+        createDatasetResponse.prettyPrint();
+        Integer datasetId = UtilIT.getDatasetIdFromResponse(createDatasetResponse);
+
+        Response getDatasetResponse = given()
+                .header(UtilIT.API_TOKEN_HTTP_HEADER, apiToken)
+                .get("/api/datasets/" + datasetId);
+        getDatasetResponse.prettyPrint();
+        getDatasetResponse.then().assertThat()
+                .statusCode(200);
+
+        final List<Map<String, ?>> dataTypeField = JsonPath.with(getDatasetResponse.body().asString())
+                .get("data.latestVersion.metadataBlocks.citation.fields.findAll { it.typeName == 'dataType' }");
+        logger.fine("dataTypeField: " + dataTypeField);
+        assertThat(dataTypeField.size(), equalTo(1));
+        assertEquals("dataType", dataTypeField.get(0).get("typeName"));
+        assertEquals("controlledVocabulary", dataTypeField.get(0).get("typeClass"));
+        assertEquals("X-Ray Diffraction", dataTypeField.get(0).get("value"));
+        assertTrue(dataTypeField.get(0).get("multiple").equals(false));
+
+        Response deleteDatasetResponse = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
+        deleteDatasetResponse.prettyPrint();
+        assertEquals(200, deleteDatasetResponse.getStatusCode());
+
+        Response deleteDataverseResponse = UtilIT.deleteDataverse(dataverseAlias, apiToken);
+        deleteDataverseResponse.prettyPrint();
+        assertEquals(200, deleteDataverseResponse.getStatusCode());
+
+        Response deleteUserResponse = UtilIT.deleteUser(username);
+        deleteUserResponse.prettyPrint();
+        assertEquals(200, deleteUserResponse.getStatusCode());
 
     }
 
