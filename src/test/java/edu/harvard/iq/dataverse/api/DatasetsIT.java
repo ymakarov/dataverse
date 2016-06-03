@@ -9,6 +9,7 @@ import org.junit.AfterClass;
 import static com.jayway.restassured.RestAssured.given;
 import static junit.framework.Assert.assertEquals;
 import com.jayway.restassured.path.json.JsonPath;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.util.List;
 import java.util.Map;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -46,6 +47,10 @@ public class DatasetsIT {
 
     }
 
+    /**
+     * In order for this test to pass you must have the Data Capture Module
+     * running: https://github.com/sbgrid/data-capture-module
+     */
     @Test
     public void testCreateDatasetWithDcmDependency() {
 
@@ -57,6 +62,13 @@ public class DatasetsIT {
         Response createDataverseResponse = UtilIT.createRandomDataverse(apiToken);
         createDataverseResponse.prettyPrint();
         String dataverseAlias = UtilIT.getAliasFromResponse(createDataverseResponse);
+
+        /**
+         * @todo Make this configurable at runtime similar to
+         * UtilIT.getRestAssuredBaseUri
+         */
+        UtilIT.configureSetting(SettingsServiceBean.Key.DataCaptureModuleUrl, "http://localhost:5000").then().assertThat()
+                .statusCode(200);
 
         Response createDatasetResponse = UtilIT.createDatasetWithDcmDependency(dataverseAlias, apiToken);
         createDatasetResponse.prettyPrint();

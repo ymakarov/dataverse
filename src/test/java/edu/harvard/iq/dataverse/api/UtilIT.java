@@ -19,6 +19,7 @@ import com.jayway.restassured.path.xml.XmlPath;
 import org.junit.Test;
 import static com.jayway.restassured.RestAssured.given;
 import static com.jayway.restassured.path.xml.XmlPath.from;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -467,6 +468,11 @@ public class UtilIT {
                 .header(API_TOKEN_HTTP_HEADER, apiToken)
                 .body(data)
                 .put("/api/admin/authenticatedUsers/convert/builtin2shib");
+        return response;
+    }
+
+    static Response configureSetting(SettingsServiceBean.Key settingKey, String value) {
+        Response response = given().body(value).when().put("/api/admin/settings/" + settingKey);
         return response;
     }
 

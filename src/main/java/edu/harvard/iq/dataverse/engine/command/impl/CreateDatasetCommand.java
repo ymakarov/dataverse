@@ -4,6 +4,8 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetVersionUser;
 import edu.harvard.iq.dataverse.DatasetField;
+import edu.harvard.iq.dataverse.DatasetFieldConstant;
+import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.DatasetVersion.VersionState;
 import edu.harvard.iq.dataverse.RoleAssignment;
@@ -214,7 +216,18 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
             ctxt.em().merge(datasetVersionDataverseUser); 
         }
            logger.log(Level.FINE,"after create version user "  + formatter.format(new Date().getTime()));       
-        return savedDataset;
+
+        for (DatasetField datasetField : savedDataset.getLatestVersion().getDatasetFields()) {
+            if ("dataType".equals(datasetField.getDatasetFieldType().getName())) {
+                try {
+                    ctxt.engine().submit(new RequestRsyncScriptCommand(getRequest(), savedDataset, datasetField));
+                } catch (CommandException ex) {
+                    logger.info("Attempt to request rsync script failed: " + ex.getLocalizedMessage());
+                }
+            }
+        }
+
+           return savedDataset;
     }
 
     @Override
