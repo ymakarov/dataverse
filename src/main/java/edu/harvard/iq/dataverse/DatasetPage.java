@@ -1406,9 +1406,16 @@ public class DatasetPage implements java.io.Serializable {
     private boolean metadataExportEnabled;
 
     public String init() {
+        return init(true);
+    }
+    
+    public String initCitation() {
+        return init(false);
+    }     
+    
+    private String init(boolean initFull) {
         //System.out.println("_YE_OLDE_QUERY_COUNTER_");  // for debug purposes
-        
-        String nonNullDefaultIfKeyNotFound = "";
+               
         this.maxFileUploadSizeInBytes = systemConfig.getMaxFileUploadSize();
         setDataverseSiteUrl(systemConfig.getDataverseSiteUrl());
         /**
@@ -1418,9 +1425,12 @@ public class DatasetPage implements java.io.Serializable {
         metadataExportEnabled = systemConfig.isDdiExportEnabled();
 
         guestbookResponse = new GuestbookResponse();
+        
+        String nonNullDefaultIfKeyNotFound = "";
         protocol = settingsService.getValueForKey(SettingsServiceBean.Key.Protocol, nonNullDefaultIfKeyNotFound);
         authority = settingsService.getValueForKey(SettingsServiceBean.Key.Authority, nonNullDefaultIfKeyNotFound);
         separator = settingsService.getValueForKey(SettingsServiceBean.Key.DoiSeparator, nonNullDefaultIfKeyNotFound);
+        
         if (dataset.getId() != null || versionId != null || persistentId != null) { // view mode for a dataset     
 
             DatasetVersionServiceBean.RetrieveDatasetVersionResponse retrieveDatasetVersionResponse = null;
@@ -1434,7 +1444,7 @@ public class DatasetPage implements java.io.Serializable {
                 dataset = datasetService.findByGlobalId(persistentId);
                 if (dataset == null) {
                     logger.warning("No such dataset: "+persistentId);
-                    return "/404.xhtml";
+                    return permissionsWrapper.notFound();
                 }
                 logger.fine("retrived dataset, id="+dataset.getId());
                 
@@ -1448,7 +1458,7 @@ public class DatasetPage implements java.io.Serializable {
                 dataset = datasetService.find(dataset.getId());
                 if (dataset == null) {
                     logger.warning("No such dataset: "+dataset);
-                    return "/404.xhtml";
+                    return permissionsWrapper.notFound();
                 }
                 //retrieveDatasetVersionResponse = datasetVersionService.retrieveDatasetVersionById(dataset.getId(), version);
                 retrieveDatasetVersionResponse = datasetVersionService.selectRequestedVersion(dataset.getVersions(), version);
@@ -1463,7 +1473,7 @@ public class DatasetPage implements java.io.Serializable {
             } 
 
             if (retrieveDatasetVersionResponse == null) {
-                return "/404.xhtml";
+                return permissionsWrapper.notFound();
             }
 
             
@@ -1474,7 +1484,7 @@ public class DatasetPage implements java.io.Serializable {
             // Is the DatasetVersion or Dataset null?
             //
             if (workingVersion == null || this.dataset == null) {
-                return "/404.xhtml";
+                return permissionsWrapper.notFound();
             }
 
             // Is the Dataset harvested?
@@ -1495,55 +1505,52 @@ public class DatasetPage implements java.io.Serializable {
                     return originalSourceURL;
                 }
 
-                return "/404.xhtml";
+                return permissionsWrapper.notFound();
             }
 
-            // If this DatasetVersion is unpublished and permission is doesn't have permissions:
-            //  > Go to the Login page
-            //
-            
-            //if (!(workingVersion.isReleased() || workingVersion.isDeaccessioned()) && !permissionService.on(dataset).has(Permission.ViewUnpublishedDataset)) {
+            // Check permisisons           
             if (!(workingVersion.isReleased() || workingVersion.isDeaccessioned()) && !this.canViewUnpublishedDataset()) {
-                if (!isSessionUserAuthenticated()) {
-                    return "/loginpage.xhtml" + DataverseHeaderFragment.getRedirectPage();
-                } else {
-                    return "/403.xhtml"; //SEK need a new landing page if user is already logged in but lacks permission
-                }
+                return permissionsWrapper.notAuthorized();
             }
 
             if (!retrieveDatasetVersionResponse.wasRequestedVersionRetrieved()) {
                 //msg("checkit " + retrieveDatasetVersionResponse.getDifferentVersionMessage());
                 JsfHelper.addWarningMessage(retrieveDatasetVersionResponse.getDifferentVersionMessage());//JH.localize("dataset.message.metadataSuccess"));
             }
-
-            //fileMetadatas = populateFileMetadatas();
-
-            if (workingVersion.isDraft() && canUpdateDataset()) {
-                readOnly = false;
-                fileMetadatasSearch = workingVersion.getFileMetadatasSorted();
-            } else {
-                // an attempt to retreive both the filemetadatas and datafiles early on, so that 
-                // we don't have to do so later (possibly, many more times than necessary):
-           
-                datafileService.findFileMetadataOptimizedExperimental(dataset);
-                fileMetadatasSearch = workingVersion.getFileMetadatas();
-            }
             
-            ownerId = dataset.getOwner().getId();
-            datasetNextMajorVersion = this.dataset.getNextMajorVersionString();
-            datasetNextMinorVersion = this.dataset.getNextMinorVersionString();
-            datasetVersionUI = datasetVersionUI.initDatasetVersionUI(workingVersion, false);
-            updateDatasetFieldInputLevels();
+            // init the citation
             displayCitation = dataset.getCitation(true, workingVersion);
-            setExistReleasedVersion(resetExistRealeaseVersion());
-                        //moving setVersionTabList to tab change event
-            //setVersionTabList(resetVersionTabList());
-            //setReleasedVersionTabList(resetReleasedVersionTabList());
-            //SEK - lazymodel may be needed for datascroller in future release
-            // lazyModel = new LazyFileMetadataDataModel(workingVersion.getId(), datafileService );
-            // populate MapLayerMetadata
-            this.loadMapLayerMetadataLookup();  // A DataFile may have a related MapLayerMetadata object
 
+
+            if (initFull) {
+                // init the files
+                //fileMetadatas = populateFileMetadatas();
+                if (workingVersion.isDraft() && canUpdateDataset()) {
+                    readOnly = false;
+                    fileMetadatasSearch = workingVersion.getFileMetadatasSorted();
+                } else {
+                    // an attempt to retreive both the filemetadatas and datafiles early on, so that 
+                    // we don't have to do so later (possibly, many more times than necessary):
+
+                    datafileService.findFileMetadataOptimizedExperimental(dataset);
+                    fileMetadatasSearch = workingVersion.getFileMetadatas();
+                }
+            
+                ownerId = dataset.getOwner().getId();
+                datasetNextMajorVersion = this.dataset.getNextMajorVersionString();
+                datasetNextMinorVersion = this.dataset.getNextMinorVersionString();
+                datasetVersionUI = datasetVersionUI.initDatasetVersionUI(workingVersion, false);
+                updateDatasetFieldInputLevels();
+                
+                setExistReleasedVersion(resetExistRealeaseVersion());
+                        //moving setVersionTabList to tab change event
+                //setVersionTabList(resetVersionTabList());
+                //setReleasedVersionTabList(resetReleasedVersionTabList());
+                //SEK - lazymodel may be needed for datascroller in future release
+                // lazyModel = new LazyFileMetadataDataModel(workingVersion.getId(), datafileService );
+                // populate MapLayerMetadata
+                this.loadMapLayerMetadataLookup();  // A DataFile may have a related MapLayerMetadata object
+            }
         } else if (ownerId != null) {
             // create mode for a new child dataset
             readOnly = false; 
@@ -1555,13 +1562,9 @@ public class DatasetPage implements java.io.Serializable {
             dataset.setIdentifier(datasetService.generateIdentifierSequence(protocol, authority, separator));
 
             if (dataset.getOwner() == null) {
-                return "/404.xhtml";
+                return permissionsWrapper.notFound();
             } else if (!permissionService.on(dataset.getOwner()).has(Permission.AddDataset)) {
-                if (!isSessionUserAuthenticated()) {
-                    return "/loginpage.xhtml" + DataverseHeaderFragment.getRedirectPage();
-                } else {
-                    return "/403.xhtml"; //SEK need a new landing page if user is already logged in but lacks permission
-                }
+                return permissionsWrapper.notAuthorized(); 
             }
 
             dataverseTemplates = dataverseService.find(ownerId).getTemplates();
@@ -1587,7 +1590,7 @@ public class DatasetPage implements java.io.Serializable {
 
             // FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_INFO, "Add New Dataset", " - Enter metadata to create the dataset's citation. You can add more metadata about this dataset after it's created."));
         } else {
-            return "/404.xhtml";
+            return permissionsWrapper.notFound();
         }
 
         // Check if there is an interactive dataset. 
@@ -2198,9 +2201,7 @@ public class DatasetPage implements java.io.Serializable {
         logger.fine("refreshing");
 
         //dataset = datasetService.find(dataset.getId());
-
         dataset = null;
-
 
         logger.fine("refreshing working version");
 
@@ -3432,7 +3433,7 @@ public class DatasetPage implements java.io.Serializable {
 
     public void downloadCitationBibtex(FileMetadata fileMetadata) {
 
-        String bibFormatDowload = datasetService.createCitationBibtex(workingVersion, fileMetadata);
+        String bibFormatDowload = new BibtexCitation(workingVersion).toString();
         FacesContext ctx = FacesContext.getCurrentInstance();
         HttpServletResponse response = (HttpServletResponse) ctx.getExternalContext().getResponse();
         response.setContentType("application/download");
