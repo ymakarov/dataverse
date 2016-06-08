@@ -1649,6 +1649,22 @@ public class DatasetPage implements java.io.Serializable {
         }
     }
     
+    /**
+     * Should the Interactive Dataset Tab be displayed?
+     * 
+     * Only if we're not in edit mode
+     * 
+     * @return 
+     */
+    public boolean isInteractiveDatasetTabDisplayable(){
+        
+        if (this.editMode != null){
+            return false;
+        }
+        
+        return this.isInteractiveDatasetPage();
+    }
+    
     public InteractiveDataset getInteractiveDataset(){
         if (this.interactiveDataset == null){
             return null;
@@ -1965,6 +1981,8 @@ public class DatasetPage implements java.io.Serializable {
             }          
         }
     }
+    
+    
 
     public void edit(EditMode editMode) {
         this.editMode = editMode;

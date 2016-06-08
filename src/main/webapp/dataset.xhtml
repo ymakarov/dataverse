@@ -507,7 +507,7 @@
                                    rendered="#{empty DatasetPage.editMode or (DatasetPage.editMode == 'METADATA' or DatasetPage.editMode == 'LICENSE')}">
                             <p:ajax event="tabChange" listener="#{DatasetPage.tabChanged}" oncomplete="bind_bsui_components();" update="@this" />
 
-                             <p:tab id="interactiveDatasetTab" title="Data Source" rendered="#{DatasetPage.isInteractiveDatasetPage()}">
+                             <p:tab id="interactiveDatasetTab" title="Data Source" rendered="#{DatasetPage.isInteractiveDatasetTabDisplayable()}">
                                 <ui:include src="interactive_dataset_templates/interactiveDatasetFragment.xhtml"/>
                                 <!--ui:include src="interactive_dataset_templates/testFragment.xhtml"/>-->
                             </p:tab>
