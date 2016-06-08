@@ -23,7 +23,7 @@ function renderInteractiveDatasetPanel(){
 
         // (2) Show visualization within panel
         if (!($('#id_interactive_ds_panel').is(":visible"))){
-            var datasetPanelHTML =  nunjucks.render('interactive_dataset_templates/dataset_panel.html', interactiveDatasetJSON);
+            var datasetPanelHTML =  nunjucks.render('interactive_dataset_templates/dataset_panel2.html', interactiveDatasetJSON);
             $('#id_interactive_ds_panel').html(datasetPanelHTML).show();
         }
     }
