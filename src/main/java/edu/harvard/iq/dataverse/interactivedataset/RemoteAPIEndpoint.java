@@ -22,6 +22,7 @@ import javax.persistence.Index;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
+import javax.persistence.UniqueConstraint;
 
 /**
  *
@@ -37,7 +38,11 @@ import javax.persistence.Table;
  * @author rmp553
  */
 @Entity
-@Table(indexes = {@Index(columnList="dataset_id")})
+@Table(name="remoteapiendpoint"
+        ,  uniqueConstraints={
+            @UniqueConstraint(columnNames={"interactivedataset_id"})}
+        , indexes = {@Index(columnList="interactivedataset_id")}
+)
 public class RemoteAPIEndpoint implements Serializable {
     
     @Expose

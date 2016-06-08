@@ -26,6 +26,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import javax.persistence.Transient;
+import javax.persistence.UniqueConstraint;
 
 /**
  *
@@ -35,7 +36,11 @@ import javax.persistence.Transient;
  * 
  */ 
 @Entity
-@Table(indexes = {@Index(columnList="dataset_id")})
+//@Table(indexes = {@Index(columnList="dataset_id")})
+@Table(name="interactivedataset",  uniqueConstraints={
+    @UniqueConstraint(columnNames={"dataset_id"})}
+    , indexes = {@Index(columnList="dataset_id"), @Index(columnList="servicename")}
+)
 public class InteractiveDataset implements Serializable {
     
     @Transient

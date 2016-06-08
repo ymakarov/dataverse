@@ -1,0 +1,101 @@
+{# Note: This Template utilizes JSON from the InteractiveData.java "asJSON()" method. #}
+
+{#
+{{ interactiveDataset.serviceName }} {{ interactiveDataset.serviceDescription }}
+<div class="row">
+    <div class="col-xs-12 hidden-sm hidden-md hidden-lg"><span class="btn btn-sm btn-danger">xtra-small</span></div>
+    <div class="hidden-xs col-sm-12  hidden-md hidden-lg"><span class="btn btn-sm btn-info">small</span></div>
+    <div class="hidden-xs hidden-sm  col-md-12 hidden-lg"><span class="btn btn-sm btn-success">medium</span></div>
+    <div class="hidden-xs hidden-sm  hidden-md col-lg-12"><span class="btn btn-sm btn-warning">large</span></div>
+</div>
+  #}  
+<div class="row">
+    {#    <div class="col-xs-12 col-sm-4">
+            <pre>{{ interactiveDataset|jsonPretty }}</pre>
+        </div>        
+    #}
+   {# <!-- start: column --><div class="col-xs-12 col-sm-8">
+        <div class="panel panel-default">
+                <div data-toggle="collapse" data-target="#panelCollapse0" class="panel-heading text-info">
+                    Interactive  Metadata
+                </div>
+
+        <div class="panel-body metadata-panel-body">
+            {% for attr, val in interactiveDataset %}
+            <div class="form-group">
+                <label for="metadata_publicationDate" class="col-sm-5 control-label">
+                    <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="">
+                       {{ attr }}
+                    </span>
+                </label>
+                 <div class="col-xs-12 col-sm-7">
+                    {% if val %}
+                        {% if attr in  ['visualizationURL', 'apiEndpointURL'] %}
+                            <a href="{{ val }}" target="_blank">{{ val }}</a>
+                        {% elif attr == 'contactEmail' %}
+                            <a href="mailto:{{ val }}" target="_blank">{{ val }}</a>
+                        {% elif attr in  ['dataset', 'remoteAPIEndpoint'] %}
+                            <pre>{{ val|jsonPretty }}</pre>                        
+                        {% else %}
+                            {{ val }}
+                        {% endif %}
+                    {% else %}
+                        (n/a)
+                    {% endif %}    
+                </div>
+            </div>
+            {% endfor %}
+        </div></div>
+    </div><!-- end: column -->
+#}
+    
+</div>
+<div class="row" style="display:none;">
+    interactive dataset API
+    <script>
+        var url = "https://api.nytimes.com/svc/search/v2/articlesearch.json";
+        url += '?' + $.param({
+          'api-key': "7fd09acc6d00457a90cd7f961e0c836f"
+        });
+        $.ajax({
+          url: url,
+          method: 'GET',
+        }).done(function(result) {
+          console.log(result);
+        }).fail(function(err) {
+          throw err;
+        });
+    </script>
+</div>
+<div class="row">
+    <div class="panel panel-default">
+                <div data-toggle="collapse" data-target="#panelCollapse0" class="panel-heading text-info">
+                    Visualization
+                </div>
+
+        <div class="panel-body metadata-panel-body">
+   
+        <div class="col-xs-12 hidden-sm hidden-md hidden-lg">
+            <div class="alert alert-info">To see the visualization, you must
+            be on a screen of at least nnn X nnn.  (e.g. widen browser, switch device, etc.</div>
+
+            (static image)
+            <img src="http://worldmap.harvard.edu/download/wms/15272/png?layers=geonode%3Ainvestment_growth_in_boston_cyq&width=655&bbox=-71.1914644962%2C42.2272481395%2C-70.9861620286%2C42.3994625741&service=WMS&format=image%2Fpng&srs=EPSG%3A4326&request=GetMap&height=550" />
+        </div>
+        <div class="hidden-xs col-sm-12">
+            {% if interactiveDataset.visualizationURL %}
+{#            <hr />
+            <h3>Visualization Url</h3>
+         <p>{{ interactiveDataset.visualizationURL }}</p>
+     #}               <iframe src="{{ interactiveDataset.visualizationURL }}" style="width:100%;height:600px;border:none;"></iframe>
+            {% endif %}
+        </div>
+    {#    <div class="row">
+            <div class="col-xs-12 hidden-sm hidden-md hidden-lg"><span class="btn btn-sm btn-danger">xtra-small</span></div>
+            <div class="hidden-xs col-sm-12  hidden-md hidden-lg"><span class="btn btn-sm btn-info">small</span></div>
+            <div class="hidden-xs hidden-sm  col-md-12 hidden-lg"><span class="btn btn-sm btn-success">medium</span></div>
+            <div class="hidden-xs hidden-sm  hidden-md col-lg-12"><span class="btn btn-sm btn-warning">large</span></div>
+        </div>#}
+    </div>
+    </div>
+</div>

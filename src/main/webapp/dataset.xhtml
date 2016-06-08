@@ -299,7 +299,7 @@
                                 <h:outputText value="#{bundle['dataset.versionUI.deaccessioned']}" styleClass="label label-danger" rendered="#{DatasetPage.workingVersion.deaccessioned}"/>
                             </div>
                             <!-- CITATION BLOCK -->
-                            <ui:fragment rendered="#{!empty DatasetPage.displayCitation}">
+                            <ui:fragment rendered="#{!empty DatasetPage.displayCitation}"><!-- dataset id: #{DatasetPage.dataset.id} -->
                                 <ui:include src="dataset-citation.xhtml">
                                     <ui:param name="datasetPage" value="true"/>
                                 </ui:include>
