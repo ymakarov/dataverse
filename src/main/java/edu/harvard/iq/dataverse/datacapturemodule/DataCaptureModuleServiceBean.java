@@ -32,6 +32,11 @@ public class DataCaptureModuleServiceBean implements Serializable {
     public Response requestRsyncScriptCreation(AuthenticatedUser user) throws Exception {
         /**
          * @todo Move this to a "util" class.
+         *
+         * @todo Send user id instead of "userIdentifier" ... may need to add
+         * more lookups by user database id to the "admin" API.
+         *
+         * @todo pass dataset id
          */
         JsonObjectBuilder jsonObject = Json.createObjectBuilder();
         jsonObject.add("userIdentifier", user.getAuthenticatedUserLookup().getPersistentUserId());
@@ -42,13 +47,16 @@ public class DataCaptureModuleServiceBean implements Serializable {
             throw new Exception("Problem POSTing JSON to Data Capture Module. The '" + DataCaptureModuleUrl + "' setting has not been configured.");
         }
         try {
+            /**
+             * @todo Rewrite this using Unirest: http://unirest.io/java.html
+             */
             Response response = given()
                     .body(json)
                     .contentType(ContentType.JSON)
                     .post(dcmBaseUrl + "/ur.py");
             return response;
         } catch (Exception ex) {
-            throw new Exception("Problem POSTing JSON to Data Capture Module: " + ex.getLocalizedMessage());
+            throw new Exception("Problem POSTing JSON to Data Capture Module at " + dcmBaseUrl + " . " + ex.getLocalizedMessage());
         }
 
     }

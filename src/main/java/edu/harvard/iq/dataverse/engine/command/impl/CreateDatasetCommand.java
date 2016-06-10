@@ -218,6 +218,15 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
            logger.log(Level.FINE,"after create version user "  + formatter.format(new Date().getTime()));       
 
         for (DatasetField datasetField : savedDataset.getLatestVersion().getDatasetFields()) {
+            /**
+             * @todo What should the trigger be for kicking off the
+             * RequestRsyncScriptCommand? For now we're looking for the presence
+             * of the "dataType" field, which is way too course.
+             *
+             * Does an argument get passed to the CreateDatasetCommand? What's
+             * the trigger? Something configured at the parent dataverse? Is the
+             * user forced to use rsync?
+             */
             if ("dataType".equals(datasetField.getDatasetFieldType().getName())) {
                 try {
                     ctxt.engine().submit(new RequestRsyncScriptCommand(getRequest(), savedDataset, datasetField));

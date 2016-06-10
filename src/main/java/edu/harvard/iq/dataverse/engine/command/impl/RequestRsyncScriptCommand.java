@@ -40,6 +40,11 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
         }
         AuthenticatedUser au = (AuthenticatedUser) user;
         Response response;
+        /**
+         * @todo notify user on any failure.
+         *
+         * @todo make sure the error is logged to the actionlogrecord
+         */
         try {
             response = ctxt.dataCaptureModule().requestRsyncScriptCreation(au);
         } catch (Exception ex) {
