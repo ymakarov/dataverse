@@ -1,12 +1,12 @@
 package edu.harvard.iq.dataverse.datacapturemodule;
 
-import com.jayway.restassured.http.ContentType;
-import com.jayway.restassured.response.Response;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import java.util.logging.Logger;
 import javax.json.Json;
 import javax.json.JsonObjectBuilder;
-import static com.jayway.restassured.RestAssured.given;
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.JsonNode;
+import com.mashape.unirest.http.Unirest;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import static edu.harvard.iq.dataverse.settings.SettingsServiceBean.Key.DataCaptureModuleUrl;
 import java.io.Serializable;
@@ -25,11 +25,11 @@ public class DataCaptureModuleServiceBean implements Serializable {
 
     /**
      * @param user AuthenticatedUser
-     * @return Rest Assured Response or null.
+     * @return Unirest response as JSON or null.
      * @throws Exception Throws an exception if Data Capture Module URL hasn't
      * been configured or if the POST failed.
      */
-    public Response requestRsyncScriptCreation(AuthenticatedUser user) throws Exception {
+    public HttpResponse<JsonNode> requestRsyncScriptCreation(AuthenticatedUser user) throws Exception {
         /**
          * @todo Move this to a "util" class.
          *
@@ -47,14 +47,10 @@ public class DataCaptureModuleServiceBean implements Serializable {
             throw new Exception("Problem POSTing JSON to Data Capture Module. The '" + DataCaptureModuleUrl + "' setting has not been configured.");
         }
         try {
-            /**
-             * @todo Rewrite this using Unirest: http://unirest.io/java.html
-             */
-            Response response = given()
+            HttpResponse<JsonNode> jsonResponse = Unirest.post(dcmBaseUrl + "/ur.py")
                     .body(json)
-                    .contentType(ContentType.JSON)
-                    .post(dcmBaseUrl + "/ur.py");
-            return response;
+                    .asJson();
+            return jsonResponse;
         } catch (Exception ex) {
             throw new Exception("Problem POSTing JSON to Data Capture Module at " + dcmBaseUrl + " . " + ex.getLocalizedMessage());
         }

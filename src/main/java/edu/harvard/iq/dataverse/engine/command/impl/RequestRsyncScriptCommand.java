@@ -8,7 +8,8 @@ import edu.harvard.iq.dataverse.engine.command.CommandContext;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
 import edu.harvard.iq.dataverse.engine.command.RequiredPermissions;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
-import com.jayway.restassured.response.Response;
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.JsonNode;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandExecutionException;
@@ -39,7 +40,7 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
             throw new CommandExecutionException("Authenticated users only.", this);
         }
         AuthenticatedUser au = (AuthenticatedUser) user;
-        Response response;
+        HttpResponse<JsonNode> response;
         /**
          * @todo notify user on any failure.
          *
@@ -50,11 +51,11 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
         } catch (Exception ex) {
             throw new CommandException("Problem retrieving rsync script from Data Capture Module: " + ex.getLocalizedMessage(), this);
         }
-        int statusCode = response.getStatusCode();
+        int statusCode = response.getStatus();
         if (statusCode != 200) {
             logger.info("Problem retrieving rsync script from Data Capture Module. Status code was: " + statusCode);
         }
-        String script = response.body().jsonPath().getString("script");
+        String script = response.getBody().getObject().getString("script");
         if (script == null || script.isEmpty()) {
             logger.info("Problem retrieving rsync script from Data Capture Module. The script was null or empty.");
         }
