@@ -14,6 +14,8 @@ import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandExecutionException;
 import java.util.logging.Logger;
+import javax.json.Json;
+import javax.json.JsonObjectBuilder;
 
 @RequiredPermissions(Permission.AddDataset)
 public class RequestRsyncScriptCommand extends AbstractVoidCommand {
@@ -46,14 +48,18 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
          *
          * @todo make sure the error is logged to the actionlogrecord
          */
+        JsonObjectBuilder jab = Json.createObjectBuilder();
+        // The general rule should be to always pass the user id and dataset id to the DCM.
+        jab.add("userId", au.getId());
+        jab.add("datasetId", dataset.getId());
         try {
-            response = ctxt.dataCaptureModule().requestRsyncScriptCreation(au);
+            response = ctxt.dataCaptureModule().requestRsyncScriptCreation(au, dataset, jab);
         } catch (Exception ex) {
             throw new CommandException("Problem retrieving rsync script from Data Capture Module: " + ex.getLocalizedMessage(), this);
         }
         int statusCode = response.getStatus();
         if (statusCode != 200) {
-            logger.info("Problem retrieving rsync script from Data Capture Module. Status code was: " + statusCode);
+            logger.info("Problem retrieving rsync script from Data Capture Module. Status code was " + statusCode + " and body was \'" + response.getBody() + "\'.");
         }
         String script = response.getBody().getObject().getString("script");
         if (script == null || script.isEmpty()) {
