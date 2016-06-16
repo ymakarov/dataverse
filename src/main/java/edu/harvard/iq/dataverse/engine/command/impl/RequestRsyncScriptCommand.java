@@ -54,6 +54,9 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
         }
         AuthenticatedUser au = (AuthenticatedUser) user;
         HttpResponse<JsonNode> response;
+        /**
+         * @todo Refactor this building of JSON to make it testable.
+         */
         JsonObjectBuilder jab = Json.createObjectBuilder();
         // The general rule should be to always pass the user id and dataset id to the DCM.
         jab.add("userId", au.getId());
@@ -65,6 +68,10 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
             throw new RuntimeException(errorPreamble + ex.getLocalizedMessage(), ex);
         }
         int statusCode = response.getStatus();
+        /**
+         * @todo Since we're creating something, maybe a 201 response would be
+         * more appropriate.
+         */
         if (statusCode != 200) {
             /**
              * @todo is the body too big to fit in the actionlogrecord? The
@@ -73,12 +80,29 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
              */
             throw new RuntimeException(errorPreamble + "Rather than 200 the status code was " + statusCode + ". The body was \'" + response.getBody() + "\'.");
         }
+        String message = response.getBody().getObject().getString("status");
+        logger.info("Message from Data Caputure Module upload request endpoint: " + message);
         /**
          * @todo Don't expect to get the script from ur.py (upload request). Go
          * fetch it from sr.py (script request) after a minute or so. (Cron runs
-         * every minute.) Wait 90 seconds to be safe. Note that it's possible
-         * for a different user id to call ur.py vs. sr.py
+         * every minute.) Wait 90 seconds to be safe.
          */
+        long millisecondsToSleep = 0;
+        try {
+            Thread.sleep(millisecondsToSleep);
+        } catch (InterruptedException ex) {
+            throw new RuntimeException(errorPreamble + "Unable to wait " + millisecondsToSleep + " milliseconds: " + ex.getLocalizedMessage());
+        }
+        try {
+            response = ctxt.dataCaptureModule().retreiveRequestedRsyncScript(au, dataset);
+        } catch (Exception ex) {
+            throw new RuntimeException(errorPreamble + "Problem retrieving rsync script: " + ex.getLocalizedMessage());
+        }
+        statusCode = response.getStatus();
+        if (statusCode != 200) {
+            throw new RuntimeException(errorPreamble + "Rather than 200 the status code was " + statusCode + ". The body was \'" + response.getBody() + "\'.");
+        }
+        long datasetId = response.getBody().getObject().getLong("datasetId");
         String script = response.getBody().getObject().getString("script");
         if (script == null || script.isEmpty()) {
             throw new RuntimeException(errorPreamble + "The script was null or empty.");
@@ -87,8 +111,7 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
          * @todo Put this in the database somewhere. Will I be able to query the
          * DCM at any time and GET the script again, based on an id?
          */
-        logger.info("script: " + script);
-
+        logger.info("script for dataset " + datasetId + ": " + script);
     }
 
 }

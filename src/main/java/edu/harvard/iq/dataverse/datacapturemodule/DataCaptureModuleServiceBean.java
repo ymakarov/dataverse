@@ -36,10 +36,21 @@ public class DataCaptureModuleServiceBean implements Serializable {
         }
         String jsonString = jab.build().toString();
         logger.fine("JSON to send to Data Capture Module: " + jsonString);
-        HttpResponse<JsonNode> jsonResponse = Unirest.post(dcmBaseUrl + "/ur.py")
+        HttpResponse<JsonNode> uploadRequest = Unirest.post(dcmBaseUrl + "/ur.py")
                 .body(jsonString)
                 .asJson();
-        return jsonResponse;
+        return uploadRequest;
+    }
+
+    public HttpResponse<JsonNode> retreiveRequestedRsyncScript(AuthenticatedUser user, Dataset dataset) throws Exception {
+        String dcmBaseUrl = settingsService.getValueForKey(DataCaptureModuleUrl);
+        if (dcmBaseUrl == null) {
+            throw new Exception("Problem GETing JSON to Data Capture Module for dataset " + dataset.getId() + " The '" + DataCaptureModuleUrl + "' setting has not been configured.");
+        }
+        HttpResponse<JsonNode> scriptRequest = Unirest
+                .get(dcmBaseUrl + "/sr.py/" + dataset.getId())
+                .asJson();
+        return scriptRequest;
     }
 
 }
