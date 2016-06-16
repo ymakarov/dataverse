@@ -230,7 +230,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
             if ("dataType".equals(datasetField.getDatasetFieldType().getName())) {
                 try {
                     ctxt.engine().submit(new RequestRsyncScriptCommand(getRequest(), savedDataset, datasetField));
-                } catch (CommandException ex) {
+                } catch (CommandException | RuntimeException ex) {
                     logger.info("Attempt to request rsync script failed: " + ex.getLocalizedMessage());
                 }
             }

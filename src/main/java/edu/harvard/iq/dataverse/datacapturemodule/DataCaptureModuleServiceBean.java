@@ -26,8 +26,8 @@ public class DataCaptureModuleServiceBean implements Serializable {
     /**
      * @param user AuthenticatedUser
      * @return Unirest response as JSON or null.
-     * @throws Exception Throws an exception if Data Capture Module URL hasn't
-     * been configured or if the POST failed.
+     * @throws Exception if Data Capture Module URL hasn't been configured or if
+     * the POST failed for any reason.
      */
     public HttpResponse<JsonNode> requestRsyncScriptCreation(AuthenticatedUser user, Dataset dataset, JsonObjectBuilder jab) throws Exception {
         String dcmBaseUrl = settingsService.getValueForKey(DataCaptureModuleUrl);
@@ -35,16 +35,11 @@ public class DataCaptureModuleServiceBean implements Serializable {
             throw new Exception("Problem POSTing JSON to Data Capture Module. The '" + DataCaptureModuleUrl + "' setting has not been configured.");
         }
         String jsonString = jab.build().toString();
-        logger.info("JSON to send to Data Capture Module: " + jsonString);
-        try {
-            HttpResponse<JsonNode> jsonResponse = Unirest.post(dcmBaseUrl + "/ur.py")
-                    .body(jsonString)
-                    .asJson();
-            return jsonResponse;
-        } catch (Exception ex) {
-            throw new Exception("Problem POSTing JSON to Data Capture Module at " + dcmBaseUrl + " . " + ex.getLocalizedMessage());
-        }
-
+        logger.fine("JSON to send to Data Capture Module: " + jsonString);
+        HttpResponse<JsonNode> jsonResponse = Unirest.post(dcmBaseUrl + "/ur.py")
+                .body(jsonString)
+                .asJson();
+        return jsonResponse;
     }
 
 }

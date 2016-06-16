@@ -7,16 +7,23 @@ import edu.harvard.iq.dataverse.engine.command.AbstractVoidCommand;
 import edu.harvard.iq.dataverse.engine.command.CommandContext;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
 import edu.harvard.iq.dataverse.engine.command.RequiredPermissions;
-import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
-import edu.harvard.iq.dataverse.engine.command.exception.CommandExecutionException;
+import edu.harvard.iq.dataverse.engine.command.exception.PermissionException;
+import java.util.Collections;
 import java.util.logging.Logger;
 import javax.json.Json;
 import javax.json.JsonObjectBuilder;
 
+/**
+ * Always catch a RuntimeException when calling this command, which may occur on
+ * any problem contacting the Data Capture Module! We have to throw a
+ * RuntimeException because otherwise ctxt.engine().submit() will put "OK" for
+ * "actiontype" in the actionlogrecord rather than "InternalError" if you throw
+ * a CommandExecutionException.
+ */
 @RequiredPermissions(Permission.AddDataset)
 public class RequestRsyncScriptCommand extends AbstractVoidCommand {
 
@@ -34,36 +41,47 @@ public class RequestRsyncScriptCommand extends AbstractVoidCommand {
     }
 
     @Override
-    protected void executeImpl(CommandContext ctxt) throws CommandException {
-        System.out.println("RequestRsyncScriptCommand executing... found " + datasetField.getValue());
+    protected void executeImpl(CommandContext ctxt) throws PermissionException, RuntimeException {
         // {"dep_email": "bob.smith@example.com", "uid": 42, "depositor_name": ["Smith", "Bob"], "lab_email": "john.doe@example.com", "datacite.resourcetype": "X-Ray Diffraction"}
         User user = request.getUser();
         if (!(user instanceof AuthenticatedUser)) {
-            throw new CommandExecutionException("Authenticated users only.", this);
+            /**
+             * @todo get Permission.AddDataset from above somehow rather than
+             * duplicating it here.
+             */
+            throw new PermissionException("This command can only be called by an AuthenticatedUser, not " + user,
+                    this, Collections.singleton(Permission.AddDataset), dataset);
         }
         AuthenticatedUser au = (AuthenticatedUser) user;
         HttpResponse<JsonNode> response;
-        /**
-         * @todo notify user on any failure.
-         *
-         * @todo make sure the error is logged to the actionlogrecord
-         */
         JsonObjectBuilder jab = Json.createObjectBuilder();
         // The general rule should be to always pass the user id and dataset id to the DCM.
         jab.add("userId", au.getId());
         jab.add("datasetId", dataset.getId());
+        String errorPreamble = "User id " + au.getId() + " had a problem retrieving rsync script for dataset id " + dataset.getId() + " from Data Capture Module. ";
         try {
             response = ctxt.dataCaptureModule().requestRsyncScriptCreation(au, dataset, jab);
         } catch (Exception ex) {
-            throw new CommandException("Problem retrieving rsync script from Data Capture Module: " + ex.getLocalizedMessage(), this);
+            throw new RuntimeException(errorPreamble + ex.getLocalizedMessage(), ex);
         }
         int statusCode = response.getStatus();
         if (statusCode != 200) {
-            logger.info("Problem retrieving rsync script from Data Capture Module. Status code was " + statusCode + " and body was \'" + response.getBody() + "\'.");
+            /**
+             * @todo is the body too big to fit in the actionlogrecord? The
+             * column length on "info" is 1024. See also
+             * https://github.com/IQSS/dataverse/issues/2669
+             */
+            throw new RuntimeException(errorPreamble + "Rather than 200 the status code was " + statusCode + ". The body was \'" + response.getBody() + "\'.");
         }
+        /**
+         * @todo Don't expect to get the script from ur.py (upload request). Go
+         * fetch it from sr.py (script request) after a minute or so. (Cron runs
+         * every minute.) Wait 90 seconds to be safe. Note that it's possible
+         * for a different user id to call ur.py vs. sr.py
+         */
         String script = response.getBody().getObject().getString("script");
         if (script == null || script.isEmpty()) {
-            logger.info("Problem retrieving rsync script from Data Capture Module. The script was null or empty.");
+            throw new RuntimeException(errorPreamble + "The script was null or empty.");
         }
         /**
          * @todo Put this in the database somewhere. Will I be able to query the
