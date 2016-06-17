@@ -14,6 +14,10 @@ import javax.ejb.Stateless;
 import javax.inject.Named;
 import javax.json.JsonObjectBuilder;
 
+/**
+ * This class contains all the methods that have external runtime dependencies
+ * such a the Data Capture Module itself and PostgreSQL.
+ */
 @Stateless
 @Named
 public class DataCaptureModuleServiceBean implements Serializable {

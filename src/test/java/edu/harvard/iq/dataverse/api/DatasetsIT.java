@@ -7,10 +7,13 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.AfterClass;
 import static com.jayway.restassured.RestAssured.given;
+import com.jayway.restassured.http.ContentType;
 import static junit.framework.Assert.assertEquals;
 import com.jayway.restassured.path.json.JsonPath;
 import java.util.List;
 import java.util.Map;
+import javax.json.Json;
+import javax.json.JsonObjectBuilder;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -62,6 +65,7 @@ public class DatasetsIT {
         createUser.prettyPrint();
         String username = UtilIT.getUsernameFromResponse(createUser);
         String apiToken = UtilIT.getApiTokenFromResponse(createUser);
+        long userId = JsonPath.from(createUser.body().asString()).getLong("data.authenticatedUser.id");
 
         Response createDataverseResponse = UtilIT.createRandomDataverse(apiToken);
         createDataverseResponse.prettyPrint();
@@ -131,24 +135,36 @@ public class DatasetsIT {
 
         /**
          * Here we are pretending to be the Data Capture Module reporting on if
-         * checksum validation success or failure. Don't notify the user yet
-         * (too chatty). This should kick off crawling of the files so they are
-         * imported into Dataverse. Once the crawling and importing is complete,
-         * notify the user.
+         * checksum validation success or failure. Don't notify the user on
+         * success (too chatty) but do notify on failure.
+         *
+         * @todo On success a process should be kicked off to crawl the files so
+         * they are imported into Dataverse. Once the crawling and importing is
+         * complete, notify the user.
          *
          * @todo What authentication should be used here? The API token of the
          * user? (If so, pass the token in the initial upload request payload.)
-         * Or should Dataverse be able to be configured so that it only will
-         * receive these messages from trusted IP addresses? Should there be a
-         * shared secret that's used for *all* requests from the Data Capture
-         * Module to Dataverse?
+         * This is suboptimal because of the security risk of having the Data
+         * Capture Module store the API token. Or should Dataverse be able to be
+         * configured so that it only will receive these messages from trusted
+         * IP addresses? Should there be a shared secret that's used for *all*
+         * requests from the Data Capture Module to Dataverse?
          */
-//        Response uploadSuccessful = given()
-//                .header(UtilIT.API_TOKEN_HTTP_HEADER, apiToken)
-//                // send json here: { "userId":"$bar", "datasetId" : "$foo" , "status" : "$status"}
-//                //  status either "validation passed" or "validation failed"
-//                .post("/api/dataCaptureModule/checksumValidation");
-//        uploadSuccessful.prettyPrint();
+        JsonObjectBuilder checksumValidationResults = Json.createObjectBuilder();
+        checksumValidationResults.add("userId", userId);
+        checksumValidationResults.add("datasetId", datasetId);
+        // the other valid status is "validation failed" per https://github.com/sbgrid/data-capture-module/blob/master/doc/api.md#post-upload
+        checksumValidationResults.add("status", "validation passed");
+//        checksumValidationResults.add("status", "validation failed");
+        Response uploadSuccessful = given()
+                .body(checksumValidationResults.build().toString())
+                .contentType(ContentType.JSON)
+                .post("/api/datasets/" + datasetId1 + "/dataCaptureModule/checksumValidation");
+        uploadSuccessful.prettyPrint();
+        uploadSuccessful.then().assertThat()
+                .statusCode(200)
+                .body("data.message", startsWith("Next we will"));
+
         Response deleteDatasetResponse = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
         deleteDatasetResponse.prettyPrint();
         assertEquals(200, deleteDatasetResponse.getStatusCode());

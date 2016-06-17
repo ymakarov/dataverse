@@ -9,9 +9,11 @@ import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
 import edu.harvard.iq.dataverse.MetadataBlock;
+import edu.harvard.iq.dataverse.UserNotification;
 import static edu.harvard.iq.dataverse.api.AbstractApiBean.errorResponse;
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
 import edu.harvard.iq.dataverse.authorization.RoleAssignee;
+import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
@@ -39,6 +41,8 @@ import static edu.harvard.iq.dataverse.util.json.JsonPrinter.*;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.sql.Timestamp;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -46,6 +50,7 @@ import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.json.Json;
 import javax.json.JsonArrayBuilder;
+import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.ws.rs.DELETE;
@@ -590,6 +595,52 @@ public class Datasets extends AbstractApiBean {
             return ex.getResponse();
         }
         return errorResponse(Response.Status.NOT_FOUND, "An rsync script was not found for dataset id " + id);
+    }
+
+    /**
+     * @todo How will authentication be handled for this method?
+     */
+    @POST
+    @Path("{identifier}/dataCaptureModule/checksumValidation")
+    public Response receiveChecksumValidationResults(@PathParam("identifier") String id, JsonObject result) {
+        JsonNumber userIdWhoMadeUploadRequest = result.getJsonNumber("userId");
+        JsonNumber datasetId = result.getJsonNumber("datasetId");
+        String status = result.getString("status");
+        try {
+            /**
+             * @todo Make sure id and datasetId match, I guess. Or maybe
+             * datasetId doesn't need to be sent in the JSON since we're using
+             * the id that was sent in the path.
+             */
+            Dataset dataset = findDatasetOrDie(id);
+            if ("validation passed".equals(status)) {
+                /**
+                 * @todo Actually kick off the crawling and importing code at
+                 * https://github.com/bmckinney/bio-dataverse/tree/feature/file-system-import
+                 */
+                return okResponse("Next we will write code to kick off crawling and importing of files ( https://github.com/bmckinney/bio-dataverse/tree/feature/file-system-import ) and which will notify the user if the crawling and importing was successful or not.");
+            } else if ("validation failed".equals(status)) {
+                /**
+                 * @todo We've talked about notifying all users who have edit
+                 * access to the dataset rather than just the user who made the
+                 * upload request.
+                 */
+                AuthenticatedUser au;
+                try {
+                    au = userSvc.find(userIdWhoMadeUploadRequest);
+                } catch (Exception ex) {
+                    return errorResponse(Response.Status.BAD_REQUEST, "Unable to notify user about checksum validation failure. Could not find user based on id " + userIdWhoMadeUploadRequest + ".");
+                }
+                userNotificationSvc.sendNotification(au,
+                        new Timestamp(new Date().getTime()),
+                        UserNotification.Type.CHECKSUMFAIL, dataset.getId());
+                return okResponse("User notified about checksum validation failure.");
+            } else {
+                return errorResponse(Response.Status.BAD_REQUEST, "Unexpected status cannot be processed: " + status);
+            }
+        } catch (WrappedResponse ex) {
+            return ex.getResponse();
+        }
     }
 
 }
