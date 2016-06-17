@@ -27,6 +27,7 @@ import edu.harvard.iq.dataverse.engine.command.impl.GetLatestAccessibleDatasetVe
 import edu.harvard.iq.dataverse.engine.command.impl.GetLatestPublishedDatasetVersionCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.ListVersionsCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.PublishDatasetCommand;
+import edu.harvard.iq.dataverse.engine.command.impl.RequestRsyncScriptCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.SetDatasetCitationDateCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDatasetTargetURLCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.UpdateDatasetVersionCommand;
@@ -560,6 +561,35 @@ public class Datasets extends AbstractApiBean {
             LOGGER.log(Level.WARNING, "Can''t create assignment: {0}", ex.getMessage());
             return ex.getResponse();
         }
+    }
+
+    @GET
+    @Path("{identifier}/dataCaptureModule/rsync")
+    public Response getRsync(@PathParam("identifier") String id) {
+        try {
+            Dataset dataset = findDatasetOrDie(id);
+            /**
+             * @todo This logic really doesn't belong here but for now the Data
+             * Capture Module will blindly create an rsync script for *any*
+             * dataset, regardless of if the dataset has been configured to
+             * support rsync or not.
+             */
+            for (DatasetField datasetField : dataset.getLatestVersion().getDatasetFields()) {
+                /**
+                 * @todo What should the trigger be for kicking off the
+                 * RequestRsyncScriptCommand? For now we're looking for the
+                 * presence of the "dataType" field, which is way too course.
+                 * This is copied from CreateDatasetCommand.
+                 */
+                if ("dataType".equals(datasetField.getDatasetFieldType().getName())) {
+                    JsonObjectBuilder jab = execCommand(new RequestRsyncScriptCommand(createDataverseRequest(findUserOrDie()), dataset));
+                    return okResponse(jab);
+                }
+            }
+        } catch (WrappedResponse ex) {
+            return ex.getResponse();
+        }
+        return errorResponse(Response.Status.NOT_FOUND, "An rsync script was not found for dataset id " + id);
     }
 
 }

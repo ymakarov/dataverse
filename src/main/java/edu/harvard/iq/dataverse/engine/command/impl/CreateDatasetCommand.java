@@ -4,8 +4,6 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetVersionUser;
 import edu.harvard.iq.dataverse.DatasetField;
-import edu.harvard.iq.dataverse.DatasetFieldConstant;
-import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.DatasetVersion.VersionState;
 import edu.harvard.iq.dataverse.RoleAssignment;
@@ -14,7 +12,6 @@ import edu.harvard.iq.dataverse.api.imports.ImportUtil;
 import edu.harvard.iq.dataverse.api.imports.ImportUtil.ImportType;
 import edu.harvard.iq.dataverse.authorization.Permission;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
-import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.AbstractCommand;
 import edu.harvard.iq.dataverse.engine.command.CommandContext;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
@@ -28,7 +25,6 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.validation.ConstraintViolation;
@@ -229,7 +225,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
              */
             if ("dataType".equals(datasetField.getDatasetFieldType().getName())) {
                 try {
-                    ctxt.engine().submit(new RequestRsyncScriptCommand(getRequest(), savedDataset, datasetField));
+                    ctxt.engine().submit(new RequestRsyncScriptCommand(getRequest(), savedDataset));
                 } catch (CommandException | RuntimeException ex) {
                     logger.info("Attempt to request rsync script failed: " + ex.getLocalizedMessage());
                 }
