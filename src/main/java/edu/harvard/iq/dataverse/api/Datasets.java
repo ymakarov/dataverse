@@ -603,8 +603,11 @@ public class Datasets extends AbstractApiBean {
     @POST
     @Path("{identifier}/dataCaptureModule/checksumValidation")
     public Response receiveChecksumValidationResults(@PathParam("identifier") String id, JsonObject result) {
-        JsonNumber userIdWhoMadeUploadRequest = result.getJsonNumber("userId");
-        JsonNumber datasetId = result.getJsonNumber("datasetId");
+        /**
+         * @todo What kind of error checking do we need here?
+         */
+        long userIdWhoMadeUploadRequest = result.getJsonNumber("userId").longValue();
+        long datasetId = result.getJsonNumber("datasetId").longValue();
         String status = result.getString("status");
         try {
             /**
@@ -613,6 +616,10 @@ public class Datasets extends AbstractApiBean {
              * the id that was sent in the path.
              */
             Dataset dataset = findDatasetOrDie(id);
+            /**
+             * @todo Determine if the dataset has had an rsync script requested
+             * for it or not. dataset.getRsyncScript != null or something.
+             */
             if ("validation passed".equals(status)) {
                 /**
                  * @todo Actually kick off the crawling and importing code at
@@ -631,6 +638,9 @@ public class Datasets extends AbstractApiBean {
                 } catch (Exception ex) {
                     return errorResponse(Response.Status.BAD_REQUEST, "Unable to notify user about checksum validation failure. Could not find user based on id " + userIdWhoMadeUploadRequest + ".");
                 }
+                /**
+                 * @todo Make sure an email is sent as well.
+                 */
                 userNotificationSvc.sendNotification(au,
                         new Timestamp(new Date().getTime()),
                         UserNotification.Type.CHECKSUMFAIL, dataset.getId());

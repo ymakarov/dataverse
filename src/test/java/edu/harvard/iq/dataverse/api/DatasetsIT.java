@@ -149,21 +149,49 @@ public class DatasetsIT {
          * configured so that it only will receive these messages from trusted
          * IP addresses? Should there be a shared secret that's used for *all*
          * requests from the Data Capture Module to Dataverse?
+         *
+         * @todo Write test for a "normal" dataset that is not configured for
+         * rsync. Dataverse should reply with something like "This dataset is
+         * not configured for rsync."
          */
-        JsonObjectBuilder checksumValidationResults = Json.createObjectBuilder();
-        checksumValidationResults.add("userId", userId);
-        checksumValidationResults.add("datasetId", datasetId);
-        // the other valid status is "validation failed" per https://github.com/sbgrid/data-capture-module/blob/master/doc/api.md#post-upload
-        checksumValidationResults.add("status", "validation passed");
-//        checksumValidationResults.add("status", "validation failed");
-        Response uploadSuccessful = given()
-                .body(checksumValidationResults.build().toString())
+        JsonObjectBuilder badNews = Json.createObjectBuilder();
+        badNews.add("userId", userId);
+        badNews.add("datasetId", datasetId);
+        // Status options are documented at https://github.com/sbgrid/data-capture-module/blob/master/doc/api.md#post-upload
+        badNews.add("status", "validation failed");
+        Response uploadFailed = given()
+                .body(badNews.build().toString())
                 .contentType(ContentType.JSON)
-                .post("/api/datasets/" + datasetId1 + "/dataCaptureModule/checksumValidation");
+                .post("/api/datasets/" + datasetId + "/dataCaptureModule/checksumValidation");
+        uploadFailed.prettyPrint();
+
+        uploadFailed.then().assertThat()
+                /**
+                 * @todo Double check that we're ok with 200 here. We're saying
+                 * "Ok, the bad news was delivered."
+                 */
+                .statusCode(200)
+                .body("data.message", equalTo("User notified about checksum validation failure."));
+
+        /**
+         * @todo How can we test what the checksum validation notification looks
+         * like? There is no API for retrieving notifications.
+         */
+//              System.out.println("try logging in with " + username);
+        // Meanwhile, the user trys uploading again...
+        JsonObjectBuilder goodNews = Json.createObjectBuilder();
+        goodNews.add("userId", userId);
+        goodNews.add("datasetId", datasetId);
+        goodNews.add("status", "validation passed");
+        Response uploadSuccessful = given()
+                .body(goodNews.build().toString())
+                .contentType(ContentType.JSON)
+                .post("/api/datasets/" + datasetId + "/dataCaptureModule/checksumValidation");
         uploadSuccessful.prettyPrint();
+
         uploadSuccessful.then().assertThat()
                 .statusCode(200)
-                .body("data.message", startsWith("Next we will"));
+                .body("data.message", startsWith("Next we will write code to kick off crawling and importing of files"));
 
         Response deleteDatasetResponse = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
         deleteDatasetResponse.prettyPrint();
