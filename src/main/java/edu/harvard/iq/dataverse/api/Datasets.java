@@ -616,10 +616,10 @@ public class Datasets extends AbstractApiBean {
              * the id that was sent in the path.
              */
             Dataset dataset = findDatasetOrDie(id);
-            /**
-             * @todo Determine if the dataset has had an rsync script requested
-             * for it or not. dataset.getRsyncScript != null or something.
-             */
+            String rsyncScript = dataset.getRsyncScript();
+            if (rsyncScript == null || rsyncScript.isEmpty()) {
+                return errorResponse(Response.Status.BAD_REQUEST, "Dataset id " + dataset.getId() + " does not have an rsync script.");
+            }
             if ("validation passed".equals(status)) {
                 /**
                  * @todo Actually kick off the crawling and importing code at

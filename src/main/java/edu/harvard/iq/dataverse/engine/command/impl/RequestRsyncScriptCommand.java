@@ -114,10 +114,8 @@ public class RequestRsyncScriptCommand extends AbstractCommand<JsonObjectBuilder
         if (script == null || script.isEmpty()) {
             throw new RuntimeException(errorPreamble + "The script was null or empty.");
         }
-        /**
-         * @todo Put the script in the database somewhere.
-         */
         logger.fine("script for dataset " + datasetId + ": " + script);
+        Dataset updatedDataset = ctxt.dataCaptureModule().persistRsyncScript(dataset, script);
         NullSafeJsonBuilder nullSafeJsonBuilder = jsonObjectBuilder()
                 .add("datasetId", datasetId)
                 .add("script", script);

@@ -149,11 +149,21 @@ public class DatasetsIT {
          * configured so that it only will receive these messages from trusted
          * IP addresses? Should there be a shared secret that's used for *all*
          * requests from the Data Capture Module to Dataverse?
-         *
-         * @todo Write test for a "normal" dataset that is not configured for
-         * rsync. Dataverse should reply with something like "This dataset is
-         * not configured for rsync."
          */
+        JsonObjectBuilder wrongDataset = Json.createObjectBuilder();
+        wrongDataset.add("userId", userId);
+        wrongDataset.add("datasetId", datasetId1);
+        wrongDataset.add("status", "validation passed");
+        Response datasetWithoutRsyncScript = given()
+                .body(wrongDataset.build().toString())
+                .contentType(ContentType.JSON)
+                .post("/api/datasets/" + datasetId1 + "/dataCaptureModule/checksumValidation");
+        datasetWithoutRsyncScript.prettyPrint();
+
+        datasetWithoutRsyncScript.then().assertThat()
+                .statusCode(400)
+                .body("message", equalTo("Dataset id " + datasetId1 + " does not have an rsync script."));
+
         JsonObjectBuilder badNews = Json.createObjectBuilder();
         badNews.add("userId", userId);
         badNews.add("datasetId", datasetId);

@@ -88,6 +88,17 @@ public class Dataset extends DvObjectContainer {
     @ManyToOne
     @JoinColumn(name = "citationDateDatasetFieldType_id")
     private DatasetFieldType citationDateDatasetFieldType;
+
+    /**
+     * The Data Capture Module provides an rsync script for uploading data.
+     * Dataverse presents the script to the user for download instead of the
+     * usual "Upload Files" option. Yes, we are effectively telling the user,
+     * "To upload, you must first download." :)
+     *
+     * @todo Is this the right place to store the rsync script?
+     */
+    @Column(columnDefinition = "TEXT", nullable = true)
+    private String rsyncScript;
     
     public DatasetFieldType getCitationDateDatasetFieldType() {
         return citationDateDatasetFieldType;
@@ -178,6 +189,14 @@ public class Dataset extends DvObjectContainer {
 
     public void setFiles(List<DataFile> files) {
         this.files = files;
+    }
+
+    public String getRsyncScript() {
+        return rsyncScript;
+    }
+
+    public void setRsyncScript(String rsyncScript) {
+        this.rsyncScript = rsyncScript;
     }
 
     public DatasetLock getDatasetLock() {

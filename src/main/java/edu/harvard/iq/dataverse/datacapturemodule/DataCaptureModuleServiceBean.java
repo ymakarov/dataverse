@@ -13,10 +13,12 @@ import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.inject.Named;
 import javax.json.JsonObjectBuilder;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 
 /**
  * This class contains all the methods that have external runtime dependencies
- * such a the Data Capture Module itself and PostgreSQL.
+ * such as the Data Capture Module itself and PostgreSQL.
  */
 @Stateless
 @Named
@@ -26,6 +28,9 @@ public class DataCaptureModuleServiceBean implements Serializable {
 
     @EJB
     SettingsServiceBean settingsService;
+
+    @PersistenceContext(unitName = "VDCNet-ejbPU")
+    private EntityManager em;
 
     /**
      * @param user AuthenticatedUser
@@ -55,6 +60,11 @@ public class DataCaptureModuleServiceBean implements Serializable {
                 .get(dcmBaseUrl + "/sr.py/" + dataset.getId())
                 .asJson();
         return scriptRequest;
+    }
+
+    public Dataset persistRsyncScript(Dataset dataset, String script) {
+        dataset.setRsyncScript(script);
+        return em.merge(dataset);
     }
 
 }
