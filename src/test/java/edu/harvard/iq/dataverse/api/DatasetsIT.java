@@ -175,9 +175,11 @@ public class DatasetsIT {
 
         /**
          * @todo How can we test what the checksum validation notification looks
-         * like? There is no API for retrieving notifications.
+         * like in the GUI? There is no API for retrieving notifications.
+         *
+         * @todo How can we test that the email notification looks ok?
          */
-//              System.out.println("try logging in with " + username);
+//        System.out.println("try logging in with " + username);
         // Meanwhile, the user trys uploading again...
         JsonObjectBuilder goodNews = Json.createObjectBuilder();
         goodNews.add("userId", userId);
