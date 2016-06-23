@@ -40,6 +40,23 @@ import org.hibernate.validator.constraints.NotBlank;
         uniqueConstraints = @UniqueConstraint(columnNames = {"authority,protocol,identifier,doiseparator"}))
 public class Dataset extends DvObjectContainer {
 
+    public enum FileUploadMechanism {
+        /**
+         * Files are uploaded through the GUI or SWORD.
+         *
+         * @todo Instead of "STANDARD" should we split out "GUI" and "SWORD" as
+         * separate mechanisms? What if we add a non-SWORD API endpoint for
+         * uploads ( https://github.com/IQSS/dataverse/issues/1612 )some day?
+         */
+        STANDARD,
+        /**
+         * Files are uploaded via rsync only and upload via any other mechanism
+         * is not allowed. This option requires setup of the Data Capture
+         * Module.
+         */
+        RSYNC
+    };
+
 //    public static final String REDIRECT_URL = "/dataset.xhtml?persistentId=";
     public static final String TARGET_URL = "/citation?persistentId=";
     private static final long serialVersionUID = 1L;

@@ -87,6 +87,12 @@ public class RequestRsyncScriptCommand extends AbstractCommand<JsonObjectBuilder
         String message = response.getBody().getObject().getString("status");
         logger.info("Message from Data Caputure Module upload request endpoint: " + message);
         /**
+         * @todo Should we persist to the database the fact that we have
+         * requested a script? That way we could avoid hitting ur.py (upload
+         * request) over and over since it is preferred that we only hit it
+         * once.
+         */
+        /**
          * @todo Don't expect to get the script from ur.py (upload request). Go
          * fetch it from sr.py (script request) after a minute or so. (Cron runs
          * every minute.) Wait 90 seconds to be safe.

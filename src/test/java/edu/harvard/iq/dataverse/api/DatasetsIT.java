@@ -10,6 +10,9 @@ import static com.jayway.restassured.RestAssured.given;
 import com.jayway.restassured.http.ContentType;
 import static junit.framework.Assert.assertEquals;
 import com.jayway.restassured.path.json.JsonPath;
+import edu.harvard.iq.dataverse.Dataset;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import javax.json.Json;
@@ -18,6 +21,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.Assert.fail;
 
 public class DatasetsIT {
 
@@ -43,6 +47,10 @@ public class DatasetsIT {
         Response createDataverse1Response = UtilIT.createRandomDataverse(apiToken1);
         createDataverse1Response.prettyPrint();
         dataverseAlias1 = UtilIT.getAliasFromResponse(createDataverse1Response);
+        createDataverse1Response.then().assertThat()
+                .statusCode(201)
+                .body("data.alias", equalTo(dataverseAlias1))
+                .body("data.fileUploadMechanismsEnabled[0]", equalTo(Dataset.FileUploadMechanism.STANDARD.toString()));
 
         Response createDataset1Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias1, apiToken1);
         createDataset1Response.prettyPrint();
@@ -66,10 +74,24 @@ public class DatasetsIT {
         String username = UtilIT.getUsernameFromResponse(createUser);
         String apiToken = UtilIT.getApiTokenFromResponse(createUser);
         long userId = JsonPath.from(createUser.body().asString()).getLong("data.authenticatedUser.id");
+        Response urlConfigured = given()
+                .header(UtilIT.API_TOKEN_HTTP_HEADER, apiToken)
+                .get("/api/admin/settings/" + SettingsServiceBean.Key.DataCaptureModuleUrl.toString());
+        if (urlConfigured.getStatusCode() != 200) {
+            fail(SettingsServiceBean.Key.DataCaptureModuleUrl + " has not been not configured. This test cannot run without it.");
+        }
 
-        Response createDataverseResponse = UtilIT.createRandomDataverse(apiToken);
+        /**
+         * @todo Query system to see which file upload mechanisms are available.
+         */
+        String dataverseAlias = UtilIT.getRandomIdentifier();
+        List<String> fileUploadMechanismsEnabled = Arrays.asList(Dataset.FileUploadMechanism.RSYNC.toString());
+        Response createDataverseResponse = UtilIT.createDataverse(dataverseAlias, fileUploadMechanismsEnabled, apiToken);
         createDataverseResponse.prettyPrint();
-        String dataverseAlias = UtilIT.getAliasFromResponse(createDataverseResponse);
+        createDataverseResponse.then().assertThat()
+                .statusCode(201)
+                .body("data.alias", equalTo(dataverseAlias))
+                .body("data.fileUploadMechanismsEnabled[0]", equalTo(Dataset.FileUploadMechanism.RSYNC.toString()));
 
         /**
          * @todo Make this configurable at runtime similar to

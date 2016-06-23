@@ -20,6 +20,7 @@ import org.junit.Test;
 import static com.jayway.restassured.RestAssured.given;
 import static com.jayway.restassured.path.xml.XmlPath.from;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
+import java.util.ArrayList;
 import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -85,7 +86,7 @@ public class UtilIT {
         return "user" + getRandomIdentifier().substring(0, 8);
     }
 
-    private static String getRandomIdentifier() {
+    static String getRandomIdentifier() {
         return UUID.randomUUID().toString().substring(0, 8);
     }
 
@@ -133,21 +134,31 @@ public class UtilIT {
         return response;
     }
 
-    static Response createDataverse(String alias, String apiToken) {
+    static Response createDataverse(String alias, List<String> fileUploadMechanismsEnabled, String apiToken) {
         JsonArrayBuilder contactArrayBuilder = Json.createArrayBuilder();
         contactArrayBuilder.add(Json.createObjectBuilder().add("contactEmail", getEmailFromUserName(getRandomIdentifier())));
         JsonArrayBuilder subjectArrayBuilder = Json.createArrayBuilder();
         subjectArrayBuilder.add("Other");
+        JsonArrayBuilder fileUploadMechanismEnabled = Json.createArrayBuilder();
+        fileUploadMechanismsEnabled.stream().forEach((mechanism) -> {
+            fileUploadMechanismEnabled.add(mechanism);
+        });
         JsonObject dvData = Json.createObjectBuilder()
                 .add("alias", alias)
                 .add("name", alias)
                 .add("dataverseContacts", contactArrayBuilder)
                 .add("dataverseSubjects", subjectArrayBuilder)
+                .add("fileUploadMechanismsEnabled", fileUploadMechanismEnabled)
                 .build();
         Response createDataverseResponse = given()
                 .body(dvData.toString()).contentType(ContentType.JSON)
                 .when().post("/api/dataverses/:root?key=" + apiToken);
         return createDataverseResponse;
+    }
+
+    static Response createDataverse(String alias, String apiToken) {
+        List<String> fileUploadMechanismsEnabled = new ArrayList<>();
+        return createDataverse(alias, fileUploadMechanismsEnabled, apiToken);
     }
 
     static Response createRandomDataverse(String apiToken) {
