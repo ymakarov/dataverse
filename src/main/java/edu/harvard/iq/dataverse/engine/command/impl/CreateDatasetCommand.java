@@ -213,6 +213,11 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         }
            logger.log(Level.FINE,"after create version user "  + formatter.format(new Date().getTime()));       
 
+           /** @todo use something like this as a trigger instead? */
+//        if (savedDataset.getOwner().getFileUploadMechanisms().contains("RSYNC")) {
+//
+//        }
+         /** @todo Go ahead and create the folder for files. Don't wait */
         for (DatasetField datasetField : savedDataset.getLatestVersion().getDatasetFields()) {
             /**
              * @todo What should the trigger be for kicking off the

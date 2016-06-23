@@ -41,6 +41,7 @@ import org.hibernate.validator.constraints.NotBlank;
 public class Dataset extends DvObjectContainer {
 
     public enum FileUploadMechanism {
+        /** @todo Eventually, rather than hard-coding "RSYNC" et al here, each should be a row in a table. */
         /**
          * Files are uploaded through the GUI or SWORD.
          *
