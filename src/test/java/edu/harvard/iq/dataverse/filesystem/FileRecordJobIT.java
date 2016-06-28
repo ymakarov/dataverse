@@ -115,6 +115,11 @@ public class FileRecordJobIT {
             datasetId = UtilIT.getDatasetIdFromResponse(createDataset1Response);
             JsonPath createdDataset = JsonPath.from(createDataset1Response.body().asString());
             String identifier = createdDataset.getString("data.identifier");
+            if (identifier == null) {
+                System.out.println("Unable to parse dataset identifier from json response: " +
+                        createDataset1Response.body().asString());
+                fail();
+            }
             String pid = PROTOCOL + ":" + AUTHORITY + DOI_SEP + identifier;
             datasetDir = DATA_DIR + SEP + AUTHORITY + SEP + identifier;
 
@@ -122,12 +127,14 @@ public class FileRecordJobIT {
             File file1 = createTestFile(datasetDir, "testfile.txt", 0.5);
             boolean isDirCreated = new File(datasetDir + SEP + "subdir").mkdirs();
             if (!isDirCreated) {
+                System.out.println("Unable to create directory: " + datasetDir + SEP + "subdir");
                 fail();
             }
             File fileCopy = new File(datasetDir + SEP + "subdir" + SEP + "testfile.txt");
             if (file1 != null) {
                 FileUtils.copyFile(file1, fileCopy);
             } else {
+                System.out.println("Unable to copy file: " + datasetDir + SEP + "subdir" + SEP + "testfile.txt");
                 fail();
             }
 
