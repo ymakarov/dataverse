@@ -60,10 +60,10 @@ public class ChecksumProcessor implements ItemProcessor {
         // set the checksum
         if (dataFile != null) {
             if (dataFile.getmd5().equalsIgnoreCase(value)) {
-                logger.log(Level.INFO, "Datafile: " + dataFile.getDisplayName() + " already has a checksum set.");
+                logger.log(Level.INFO, "Datafile: " + dataFile.getStorageIdentifier() + " already has a checksum set.");
                 return null; // skip it, it was already set
             } else {
-                logger.log(Level.INFO, dataFile.getDisplayName() + " : " + dataFile.getmd5() + " -> " + value );
+                logger.log(Level.INFO, dataFile.getStorageIdentifier() + " : " + dataFile.getmd5() + " -> " + value );
                 dataFile.setmd5(value);
                 return dataFile;
             }
