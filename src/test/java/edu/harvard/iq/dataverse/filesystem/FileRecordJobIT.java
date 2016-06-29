@@ -21,13 +21,16 @@ package edu.harvard.iq.dataverse.filesystem;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.restassured.RestAssured;
+import com.jayway.restassured.http.ContentType;
 import com.jayway.restassured.path.json.JsonPath;
 import com.jayway.restassured.response.Response;
-import edu.harvard.iq.dataverse.api.UtilIT;
 import edu.harvard.iq.dataverse.batch.entities.JobExecutionEntity;
 import edu.harvard.iq.dataverse.batch.entities.StepExecutionEntity;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -37,6 +40,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.security.MessageDigest;
@@ -44,6 +48,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 
 import static com.jayway.restassured.RestAssured.given;
 import static junit.framework.Assert.assertEquals;
@@ -54,31 +59,127 @@ import static junit.framework.Assert.fail;
  */
 public class FileRecordJobIT {
 
+    private static final ObjectMapper mapper = new ObjectMapper();
+    private static ClassLoader classLoader = FileRecordJobIT.class.getClassLoader();
+
     private static final String SEP = File.separator;
     private static final String API_TOKEN_HTTP_HEADER = "X-Dataverse-key";
     private static final String AUTHORITY = "10.5072/FK2";
-    private static final String PROTOCOL = "doi";
-    private static final String DOI_SEP = "/";
-    private static final String DATA_DIR = "/usr/local/glassfish4/glassfish/domains/domain1/files";
-    private static final String FILESYSTEM_API = "/api/import/dataset/files";
-    private static final String JOB_STATUS_API = "/api/batch/job/";
+    private static final String DATA_DIR = "/usr/local/glassfish4/glassfish/domains/domain1/files/10.5072/FK2/";
     private static final int POLLING_RETRIES = 10;
     private static final long POLLING_WAIT = 1000;
+    private static final String BUILTIN_USER_KEY = "burrito";
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    // api paths
+    private static final String FILESYSTEM_API = "/api/import/dataset/files";
+    private static final String JOB_STATUS_API = "/api/batch/job/";
+    private static final String DATASET_API = "/api/datasets/:persistentId?persistentId=";
+
+    // test properties
+    private static String testName;
+    private static String token;
+
+    // dataset properties
+    private static String dsGlobalId;
+    private static String dsDir;
+    private static int dsId;
+    private static JsonPath dsPath;
 
     @BeforeClass
-    public static void setUpClass() {
-        RestAssured.baseURI = UtilIT.getRestAssuredBaseUri();
+    public static void setUpClass() throws Exception {
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = Integer.getInteger("http.port", 8080);
+    }
+
+    @Before
+    public void setUpDataverse() {
+
+        try {
+            String dsIdentifier;
+            // create random test name
+            testName = UUID.randomUUID().toString().substring(0, 8);
+            // create user and set token
+            token = given()
+                    .body("{" +
+                            "   \"userName\": \"" + testName + "\"," +
+                            "   \"firstName\": \"" + testName + "\"," +
+                            "   \"lastName\": \"" + testName + "\"," +
+                            "   \"email\": \"" + testName + "@mailinator.com\"" +
+                            "}")
+                    .contentType(ContentType.JSON)
+                    .request()
+                    .post("/api/builtin-users/secret/" + BUILTIN_USER_KEY)
+                    .then().assertThat().statusCode(200)
+                    .extract().jsonPath().getString("data.apiToken");
+            // create dataverse
+            given().body("{" +
+                        "    \"name\": \"" + testName + "\"," +
+                        "    \"alias\": \"" + testName + "\"," +
+                        "    \"affiliation\": \"Test-Driven University\"," +
+                        "    \"dataverseContacts\": [" +
+                        "        {" +
+                        "            \"contactEmail\": \"test@example.com\"" +
+                        "        }," +
+                        "        {" +
+                        "            \"contactEmail\": \"test@example.org\"" +
+                        "        }" +
+                        "    ]," +
+                        "    \"permissionRoot\": true," +
+                        "    \"description\": \"test Description.\"" +
+                        "}")
+                    .contentType(ContentType.JSON).request()
+                    .post("/api/dataverses/:root?key=" + token)
+                    .then().assertThat().statusCode(201);
+            // create dataset and set id
+            dsId = given()
+                    .header(API_TOKEN_HTTP_HEADER, token)
+                    .body(IOUtils.toString(classLoader.getResourceAsStream("json/dataset-finch1.json")))
+                    .contentType("application/json")
+                    .post("/api/dataverses/" + testName + "/datasets")
+                    .then().assertThat().statusCode(201)
+                    .extract().jsonPath().getInt("data.id");
+            // get dataset identifier
+            dsIdentifier = given()
+                    .header(API_TOKEN_HTTP_HEADER, token)
+                    .get("/api/datasets/" + dsId)
+                    .then().assertThat().statusCode(200)
+                    .extract().jsonPath().getString("data.identifier");
+            dsGlobalId = "doi:" + AUTHORITY + SEP + dsIdentifier;
+            dsDir = DATA_DIR + dsIdentifier + SEP;
+        } catch (IOException ioe) {
+            System.out.println("Error creating test dataset: " + ioe.getMessage());
+            fail();
+        }
     }
 
     @AfterClass
     public static void tearDownClass() {
-        // no-op
+        RestAssured.reset();
+    }
+
+    @After
+    public void tearDownDataverse() {
+        try {
+            // delete dataset
+            given().header(API_TOKEN_HTTP_HEADER, token)
+                    .delete("/api/datasets/" + dsId)
+                    .then().assertThat().statusCode(200);
+            // delete dataverse
+            given().header(API_TOKEN_HTTP_HEADER, token)
+                    .delete("/api/dataverses/" + testName)
+                    .then().assertThat().statusCode(200);
+            // delete user
+            given().header(API_TOKEN_HTTP_HEADER, token)
+                    .delete("/api/admin/authenticatedUsers/"+testName+"/")
+                    .then().assertThat().statusCode(200);
+            FileUtils.deleteDirectory(new File(dsDir));
+        } catch (IOException ioe) {
+            System.out.println("Error creating test dataset: " + ioe.getMessage());
+            fail();
+        }
     }
 
     /**
-     * Test 1
      * Import the same file in different directories, in the same dataset.
      * This is not permitted via HTTP file upload since identical checksums are not allowed in the same dataset.
      * Ignores failed checksum manifest import.
@@ -87,82 +188,33 @@ public class FileRecordJobIT {
     public void testSameFileInDifferentDirectories() {
 
         try {
-            String username;
-            String apiToken;
-            String dataverseAlias;
-            String datasetDir;
-            int datasetId;
 
-            // create test user
-            Response createUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUserResponse.getStatusCode());
-            apiToken = UtilIT.getApiTokenFromResponse(createUserResponse);
-            username = UtilIT.getUsernameFromResponse(createUserResponse);
-
-            // create dataverse
-            Response createDataverse1Response = UtilIT.createRandomDataverse(apiToken);
-            if (createDataverse1Response.getStatusCode() != 201) {
-                System.out.println("A test dataverse couldn't be created in the root dataverse:");
-                System.out.println(createDataverse1Response.body().asString());
-                System.out.println("Make sure users can created dataverses in the root for this test to run.");
-            }
-            assertEquals(201, createDataverse1Response.getStatusCode());
-            dataverseAlias = UtilIT.getAliasFromResponse(createDataverse1Response);
-
-            // create dataset
-            Response createDataset1Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias, apiToken);
-            assertEquals(201, createDataset1Response.getStatusCode());
-            datasetId = UtilIT.getDatasetIdFromResponse(createDataset1Response);
-            JsonPath createdDataset = JsonPath.from(createDataset1Response.body().asString());
-            String identifier = createdDataset.getString("data.identifier");
-            if (identifier == null) {
-                System.out.println("Unable to parse dataset identifier from json response: " +
-                        createDataset1Response.body().asString());
-                fail();
-            }
-            String pid = PROTOCOL + ":" + AUTHORITY + DOI_SEP + identifier;
-            datasetDir = DATA_DIR + SEP + AUTHORITY + SEP + identifier;
-
-            // create a test file and put it in two places
-            File file1 = createTestFile(datasetDir, "testfile.txt", 0.5);
-            boolean isDirCreated = new File(datasetDir + SEP + "subdir").mkdirs();
+            // create a single test file and put it in two places
+            String file1 =  "testfile.txt";
+            String file2 = "subdir/testfile.txt";
+            File file = createTestFile(dsDir, file1, 0.25);
+            boolean isDirCreated = new File(dsDir + "subdir").mkdirs();
             if (!isDirCreated) {
-                System.out.println("Unable to create directory: " + datasetDir + SEP + "subdir");
+                System.out.println("Unable to create directory: " + dsDir + "subdir");
                 fail();
             }
-            File fileCopy = new File(datasetDir + SEP + "subdir" + SEP + "testfile.txt");
-            if (file1 != null) {
-                FileUtils.copyFile(file1, fileCopy);
+            if (file != null) {
+                FileUtils.copyFile(file, new File(dsDir + file2));
             } else {
-                System.out.println("Unable to copy file: " + datasetDir + SEP + "subdir" + SEP + "testfile.txt");
+                System.out.println("Unable to copy file: " + dsDir + file2);
                 fail();
             }
 
-            // run batch job
-            Response jobResponse = given()
-                    .header(API_TOKEN_HTTP_HEADER, apiToken)
-                    .queryParam("datasetId", pid)
-                    .queryParam("key", apiToken)
-                    .get(FILESYSTEM_API);
-            assertEquals(200, jobResponse.getStatusCode());
-
-            // get job id and wait for completion
-            String jobId = JsonPath.from(jobResponse.body().asString()).getString("data.executionId");
-            String jobResult = pollJobStatus(jobId, apiToken, POLLING_RETRIES, POLLING_WAIT);
-
-            JobExecutionEntity job;
-            job = mapper.readValue(jobResult, JobExecutionEntity.class);
+            // validate job
+            JobExecutionEntity job = getJob();
             assertEquals(job.getSteps().size(), 2);
             StepExecutionEntity step1 = job.getSteps().get(0);
             Map<String, Long> metrics = step1.getMetrics();
-            // check job status
             assertEquals(job.getExitStatus(), BatchStatus.COMPLETED.name());
             assertEquals(job.getStatus(), BatchStatus.COMPLETED);
-            // check step 1 status and name
             assertEquals(step1.getExitStatus(), BatchStatus.COMPLETED.name());
             assertEquals(step1.getStatus(), BatchStatus.COMPLETED);
             assertEquals(step1.getName(), "import-files");
-            // verify step 1 metrics
             assertEquals((long) metrics.get("write_skip_count"), 0);
             assertEquals((long) metrics.get("commit_count"), 1);
             assertEquals((long) metrics.get("process_skip_count"), 0);
@@ -171,29 +223,15 @@ public class FileRecordJobIT {
             assertEquals((long) metrics.get("rollback_count"), 0);
             assertEquals((long) metrics.get("filter_count"), 0);
             assertEquals((long) metrics.get("read_count"), 2);
-            // should be no user data (error messages)
             assertEquals(step1.getPersistentUserData(), null);
 
             // confirm data files were imported
+            updateDatasetJsonPath();
             List<String> filenames = new ArrayList<>();
-            Response updatedDatasetResponse = UtilIT.getDatasetResponse(pid, apiToken);
-            //updatedDatasetResponse.prettyPrint();
-            JsonPath dsJson = JsonPath.from(updatedDatasetResponse.body().asString());
-            String fileOne = dsJson.getString("data.latestVersion.files[0].datafile.filename");
-            String fileTwo = dsJson.getString("data.latestVersion.files[1].datafile.filename");
-            filenames.add(fileOne);
-            filenames.add(fileTwo);
-            assert(filenames.contains("testfile.txt"));
-            assert(filenames.contains("subdir/testfile.txt"));
-
-            // tear down: delete dataverse, dataset and files
-            FileUtils.deleteDirectory(new File(datasetDir));
-            Response deleteDataset1Response = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
-            assertEquals(200, deleteDataset1Response.getStatusCode());
-            Response deleteDataverse1Response = UtilIT.deleteDataverse(dataverseAlias, apiToken);
-            assertEquals(200, deleteDataverse1Response.getStatusCode());
-            Response deleteUser1Response = UtilIT.deleteUser(username);
-            assertEquals(200, deleteUser1Response.getStatusCode());
+            filenames.add(dsPath.getString("data.latestVersion.files[0].datafile.filename"));
+            filenames.add(dsPath.getString("data.latestVersion.files[1].datafile.filename"));
+            assert(filenames.contains(file1));
+            assert(filenames.contains(file2));
 
         } catch (Exception e) {
             System.out.println("Error testIdenticalFilesInDifferentDirectories: " + e.getMessage());
@@ -205,46 +243,13 @@ public class FileRecordJobIT {
     public void testFilesWithChecksumManifest() {
 
         try {
-            String username;
-            String apiToken;
-            String dataverseAlias;
-            String datasetDir;
-            int datasetId;
-
-            // create test user
-            Response createUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUserResponse.getStatusCode());
-            apiToken = UtilIT.getApiTokenFromResponse(createUserResponse);
-            username = UtilIT.getUsernameFromResponse(createUserResponse);
-
-            // create dataverse
-            Response createDataverse2Response = UtilIT.createRandomDataverse(apiToken);
-            if (createDataverse2Response.getStatusCode() != 201) {
-                System.out.println("A test dataverse couldn't be created in the root dataverse:");
-                System.out.println(createDataverse2Response.body().asString());
-                System.out.println("Make sure users can created dataverses in the root for this test to run.");
-            }
-            assertEquals(201, createDataverse2Response.getStatusCode());
-            dataverseAlias = UtilIT.getAliasFromResponse(createDataverse2Response);
-
-            // create dataset
-            Response createDataset2Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias, apiToken);
-            assertEquals(201, createDataset2Response.getStatusCode());
-            datasetId = UtilIT.getDatasetIdFromResponse(createDataset2Response);
-            JsonPath createdDataset = JsonPath.from(createDataset2Response.body().asString());
-            String identifier = createdDataset.getString("data.identifier");
-            String pid = PROTOCOL + ":" + AUTHORITY + DOI_SEP + identifier;
-            datasetDir = DATA_DIR + SEP + AUTHORITY + SEP + identifier;
-
             // create test files and checksum manifest
-            File file1 = createTestFile(datasetDir, "testfile1.txt", 0.5);
-            File file2 = createTestFile(datasetDir, "testfile2.txt", 0.5);
-            String checksum1 = "";
-            String checksum2 = "";
+            File file1 = createTestFile(dsDir, "testfile1.txt", 0.25);
+            File file2 = createTestFile(dsDir, "testfile2.txt", 0.25);
+            String checksum1 = "asfdasdfasdfasdf";
+            String checksum2 = "sgsdgdsgfsdgsdgf";
             if (file1 != null && file2 != null) {
-                PrintWriter pw = new PrintWriter(new FileWriter(datasetDir + "/files.sha"));
-                checksum1 = getFileChecksum(file1.getAbsolutePath(), "SHA1");
-                checksum2 = getFileChecksum(file2.getAbsolutePath(), "SHA1");
+                PrintWriter pw = new PrintWriter(new FileWriter(dsDir + "/files.sha"));
                 pw.write(checksum1 + " " + file1.getName());
                 pw.write("\n");
                 pw.write(checksum2 + " " + file2.getName());
@@ -254,28 +259,15 @@ public class FileRecordJobIT {
                 fail();
             }
 
-            // run batch job
-            Response jobResponse = given()
-                    .header(API_TOKEN_HTTP_HEADER, apiToken)
-                    .queryParam("datasetId", pid)
-                    .queryParam("key", apiToken)
-                    .get(FILESYSTEM_API);
-            assertEquals(200, jobResponse.getStatusCode());
-
-            // get job id and wait for completion
-            String jobId = JsonPath.from(jobResponse.body().asString()).getString("data.executionId");
-            String jobResult = pollJobStatus(jobId, apiToken, POLLING_RETRIES, POLLING_WAIT);
-
-            JobExecutionEntity job;
-            job = mapper.readValue(jobResult, JobExecutionEntity.class);
+            JobExecutionEntity job = getJob();
             assertEquals(job.getSteps().size(), 2);
             StepExecutionEntity step1 = job.getSteps().get(0);
             StepExecutionEntity step2 = job.getSteps().get(1);
             Map<String, Long> metrics1 = step1.getMetrics();
             Map<String, Long> metrics2 = step2.getMetrics();
             // check job status
-            assertEquals(job.getExitStatus(), BatchStatus.COMPLETED.name());
-            assertEquals(job.getStatus(), BatchStatus.COMPLETED);
+            assertEquals(BatchStatus.COMPLETED.name(), job.getExitStatus());
+            assertEquals(BatchStatus.COMPLETED, job.getStatus());
             // check step 1 status and name
             assertEquals(step1.getExitStatus(), BatchStatus.COMPLETED.name());
             assertEquals(step1.getStatus(), BatchStatus.COMPLETED);
@@ -308,33 +300,19 @@ public class FileRecordJobIT {
             assertEquals(step2.getPersistentUserData(), null);
 
             // confirm files were imported
+            updateDatasetJsonPath();
             List<String> filenames = new ArrayList<>();
-            Response datasetResponse = UtilIT.getDatasetResponse(pid, apiToken);
-            JsonPath dsJson = JsonPath.from(datasetResponse.body().asString());
-            String fileOne = dsJson.getString("data.latestVersion.files[0].datafile.filename");
-            String fileTwo = dsJson.getString("data.latestVersion.files[1].datafile.filename");
-            filenames.add(fileOne);
-            filenames.add(fileTwo);
+            filenames.add(dsPath.getString("data.latestVersion.files[0].datafile.filename"));
+            filenames.add(dsPath.getString("data.latestVersion.files[1].datafile.filename"));
             assert(filenames.contains("testfile1.txt"));
             assert(filenames.contains("testfile2.txt"));
 
             // confirm checksums were imported
             List<String> checksums = new ArrayList<>();
-            String checksumOne = dsJson.getString("data.latestVersion.files[0].datafile.md5");
-            String checksumTwo = dsJson.getString("data.latestVersion.files[1].datafile.md5");
-            checksums.add(checksumOne);
-            checksums.add(checksumTwo);
+            checksums.add(dsPath.getString("data.latestVersion.files[0].datafile.md5"));
+            checksums.add(dsPath.getString("data.latestVersion.files[1].datafile.md5"));
             assert(checksums.contains(checksum1));
             assert(checksums.contains(checksum2));
-
-            // tear down: delete dataverse, dataset and files
-            FileUtils.deleteDirectory(new File(datasetDir));
-            Response deleteDataset1Response = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
-            assertEquals(200, deleteDataset1Response.getStatusCode());
-            Response deleteDataverse1Response = UtilIT.deleteDataverse(dataverseAlias, apiToken);
-            assertEquals(200, deleteDataverse1Response.getStatusCode());
-            Response deleteUser1Response = UtilIT.deleteUser(username);
-            assertEquals(200, deleteUser1Response.getStatusCode());
 
         } catch (Exception e) {
             System.out.println("Error testChecksumImport: " + e.getMessage());
@@ -347,55 +325,12 @@ public class FileRecordJobIT {
     public void testFilesWithoutChecksumManifest() {
 
         try {
-            String username;
-            String apiToken;
-            String dataverseAlias;
-            String datasetDir;
-            int datasetId;
-
-            // create test user
-            Response createUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUserResponse.getStatusCode());
-            apiToken = UtilIT.getApiTokenFromResponse(createUserResponse);
-            username = UtilIT.getUsernameFromResponse(createUserResponse);
-
-            // create dataverse
-            Response createDataverse2Response = UtilIT.createRandomDataverse(apiToken);
-            if (createDataverse2Response.getStatusCode() != 201) {
-                System.out.println("A test dataverse couldn't be created in the root dataverse:");
-                System.out.println(createDataverse2Response.body().asString());
-                System.out.println("Make sure users can created dataverses in the root for this test to run.");
-            }
-            assertEquals(201, createDataverse2Response.getStatusCode());
-            dataverseAlias = UtilIT.getAliasFromResponse(createDataverse2Response);
-
-            // create dataset
-            Response createDataset2Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias, apiToken);
-            assertEquals(201, createDataset2Response.getStatusCode());
-            datasetId = UtilIT.getDatasetIdFromResponse(createDataset2Response);
-            JsonPath createdDataset = JsonPath.from(createDataset2Response.body().asString());
-            String identifier = createdDataset.getString("data.identifier");
-            String pid = PROTOCOL + ":" + AUTHORITY + DOI_SEP + identifier;
-            datasetDir = DATA_DIR + SEP + AUTHORITY + SEP + identifier;
 
             // create test files and NO checksum manifest
-            createTestFile(datasetDir, "testfile1.txt", 0.25);
-            createTestFile(datasetDir, "testfile2.txt", 0.25);
+            createTestFile(dsDir, "testfile1.txt", 0.25);
+            createTestFile(dsDir, "testfile2.txt", 0.25);
 
-            // run batch job
-            Response jobResponse = given()
-                    .header(API_TOKEN_HTTP_HEADER, apiToken)
-                    .queryParam("datasetId", pid)
-                    .queryParam("key", apiToken)
-                    .get(FILESYSTEM_API);
-            assertEquals(200, jobResponse.getStatusCode());
-
-            // get job id and wait for completion
-            String jobId = JsonPath.from(jobResponse.body().asString()).getString("data.executionId");
-            String jobResult = pollJobStatus(jobId, apiToken, POLLING_RETRIES, POLLING_WAIT);
-
-            JobExecutionEntity job;
-            job = mapper.readValue(jobResult, JobExecutionEntity.class);
+            JobExecutionEntity job = getJob();
             assertEquals(job.getSteps().size(), 2);
             StepExecutionEntity step1 = job.getSteps().get(0);
             StepExecutionEntity step2 = job.getSteps().get(1);
@@ -435,32 +370,15 @@ public class FileRecordJobIT {
             // should include detailed error message
             assert(step2.getPersistentUserData().contains("FAILED: missing checksums"));
 
-            // confirm files were imported
+            // confirm files were imported and checksums unknown
+            updateDatasetJsonPath();
             List<String> filenames = new ArrayList<>();
-            Response datasetResponse = UtilIT.getDatasetResponse(pid, apiToken);
-            //datasetResponse.prettyPrint();
-            JsonPath dsJson = JsonPath.from(datasetResponse.body().asString());
-            String fileOne = dsJson.getString("data.latestVersion.files[0].datafile.filename");
-            String fileTwo = dsJson.getString("data.latestVersion.files[1].datafile.filename");
-            filenames.add(fileOne);
-            filenames.add(fileTwo);
+            filenames.add(dsPath.getString("data.latestVersion.files[0].datafile.filename"));
+            filenames.add(dsPath.getString("data.latestVersion.files[1].datafile.filename"));
             assert(filenames.contains("testfile1.txt"));
             assert(filenames.contains("testfile2.txt"));
-
-            // confirm checksums are unknown
-            String checksumOne = dsJson.getString("data.latestVersion.files[0].datafile.md5");
-            String checksumTwo = dsJson.getString("data.latestVersion.files[1].datafile.md5");
-            assert(checksumOne.equalsIgnoreCase("unknown"));
-            assert(checksumTwo.equalsIgnoreCase("unknown"));
-
-            // tear down: delete dataverse, dataset and files
-            FileUtils.deleteDirectory(new File(datasetDir));
-            Response deleteDataset1Response = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
-            assertEquals(200, deleteDataset1Response.getStatusCode());
-            Response deleteDataverse1Response = UtilIT.deleteDataverse(dataverseAlias, apiToken);
-            assertEquals(200, deleteDataverse1Response.getStatusCode());
-            Response deleteUser1Response = UtilIT.deleteUser(username);
-            assertEquals(200, deleteUser1Response.getStatusCode());
+            assert(dsPath.getString("data.latestVersion.files[0].datafile.md5").equalsIgnoreCase("unknown"));
+            assert(dsPath.getString("data.latestVersion.files[1].datafile.md5").equalsIgnoreCase("unknown"));
 
         } catch (Exception e) {
             System.out.println("Error testChecksumImportMissingManifest: " + e.getMessage());
@@ -473,44 +391,14 @@ public class FileRecordJobIT {
     public void testFileMissingInChecksumManifest() {
 
         try {
-            String username;
-            String apiToken;
-            String dataverseAlias;
-            String datasetDir;
-            int datasetId;
-
-            // create test user
-            Response createUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUserResponse.getStatusCode());
-            apiToken = UtilIT.getApiTokenFromResponse(createUserResponse);
-            username = UtilIT.getUsernameFromResponse(createUserResponse);
-
-            // create dataverse
-            Response createDataverse2Response = UtilIT.createRandomDataverse(apiToken);
-            if (createDataverse2Response.getStatusCode() != 201) {
-                System.out.println("A test dataverse couldn't be created in the root dataverse:");
-                System.out.println(createDataverse2Response.body().asString());
-                System.out.println("Make sure users can created dataverses in the root for this test to run.");
-            }
-            assertEquals(201, createDataverse2Response.getStatusCode());
-            dataverseAlias = UtilIT.getAliasFromResponse(createDataverse2Response);
-
-            // create dataset
-            Response createDataset2Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias, apiToken);
-            assertEquals(201, createDataset2Response.getStatusCode());
-            datasetId = UtilIT.getDatasetIdFromResponse(createDataset2Response);
-            JsonPath createdDataset = JsonPath.from(createDataset2Response.body().asString());
-            String identifier = createdDataset.getString("data.identifier");
-            String pid = PROTOCOL + ":" + AUTHORITY + DOI_SEP + identifier;
-            datasetDir = DATA_DIR + SEP + AUTHORITY + SEP + identifier;
 
             // create test files and checksum manifest with just one of the files
-            File file1 = createTestFile(datasetDir, "testfile1.txt", 0.25);
-            File file2 = createTestFile(datasetDir, "testfile2.txt", 0.25);
+            File file1 = createTestFile(dsDir, "testfile1.txt", 0.25);
+            File file2 = createTestFile(dsDir, "testfile2.txt", 0.25);
             String checksum1 = "";
             if (file1 != null && file2 != null) {
-                PrintWriter pw = new PrintWriter(new FileWriter(datasetDir + "/files.sha"));
-                checksum1 = getFileChecksum(file1.getAbsolutePath(), "SHA1");
+                PrintWriter pw = new PrintWriter(new FileWriter(dsDir + "/files.sha"));
+                checksum1 = "asasdlfkj880asfdasflj";
                 pw.write(checksum1 + " " + file1.getName());
                 pw.write("\n");
                 pw.close();
@@ -518,20 +406,7 @@ public class FileRecordJobIT {
                 fail();
             }
 
-            // run batch job
-            Response jobResponse = given()
-                    .header(API_TOKEN_HTTP_HEADER, apiToken)
-                    .queryParam("datasetId", pid)
-                    .queryParam("key", apiToken)
-                    .get(FILESYSTEM_API);
-            assertEquals(200, jobResponse.getStatusCode());
-
-            // get job id and wait for completion
-            String jobId = JsonPath.from(jobResponse.body().asString()).getString("data.executionId");
-            String jobResult = pollJobStatus(jobId, apiToken, POLLING_RETRIES, POLLING_WAIT);
-
-            JobExecutionEntity job;
-            job = mapper.readValue(jobResult, JobExecutionEntity.class);
+            JobExecutionEntity job = getJob();
             assertEquals(job.getSteps().size(), 2);
             StepExecutionEntity step1 = job.getSteps().get(0);
             StepExecutionEntity step2 = job.getSteps().get(1);
@@ -572,33 +447,18 @@ public class FileRecordJobIT {
             assert(step2.getPersistentUserData().contains("FAILED: missing checksums [testfile2.txt]"));
 
             // confirm files were imported
+            updateDatasetJsonPath();
             List<String> filenames = new ArrayList<>();
-            Response datasetResponse = UtilIT.getDatasetResponse(pid, apiToken);
-            JsonPath dsJson = JsonPath.from(datasetResponse.body().asString());
-            String fileOne = dsJson.getString("data.latestVersion.files[0].datafile.filename");
-            String fileTwo = dsJson.getString("data.latestVersion.files[1].datafile.filename");
-            filenames.add(fileOne);
-            filenames.add(fileTwo);
+            filenames.add(dsPath.getString("data.latestVersion.files[0].datafile.filename"));
+            filenames.add(dsPath.getString("data.latestVersion.files[1].datafile.filename"));
             assert(filenames.contains("testfile1.txt"));
             assert(filenames.contains("testfile2.txt"));
-
-            // confirm checksums were imported
+            // confirm one checksums was imported, one not
             List<String> checksums = new ArrayList<>();
-            String checksumOne = dsJson.getString("data.latestVersion.files[0].datafile.md5");
-            String checksumTwo = dsJson.getString("data.latestVersion.files[1].datafile.md5");
-            checksums.add(checksumOne);
-            checksums.add(checksumTwo);
+            checksums.add(dsPath.getString("data.latestVersion.files[0].datafile.md5"));
+            checksums.add(dsPath.getString("data.latestVersion.files[1].datafile.md5"));
             assert(checksums.contains(checksum1));
             assert(checksums.contains("Unknown"));
-
-            // tear down: delete dataverse, dataset and files
-            FileUtils.deleteDirectory(new File(datasetDir));
-            Response deleteDataset1Response = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
-            assertEquals(200, deleteDataset1Response.getStatusCode());
-            Response deleteDataverse1Response = UtilIT.deleteDataverse(dataverseAlias, apiToken);
-            assertEquals(200, deleteDataverse1Response.getStatusCode());
-            Response deleteUser1Response = UtilIT.deleteUser(username);
-            assertEquals(200, deleteUser1Response.getStatusCode());
 
         } catch (Exception e) {
             System.out.println("Error testChecksumImport: " + e.getMessage());
@@ -611,46 +471,14 @@ public class FileRecordJobIT {
     public void testFileInChecksumManifestDoesntExist() {
 
         try {
-            String username;
-            String apiToken;
-            String dataverseAlias;
-            String datasetDir;
-            int datasetId;
-
-            // create test user
-            Response createUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUserResponse.getStatusCode());
-            apiToken = UtilIT.getApiTokenFromResponse(createUserResponse);
-            username = UtilIT.getUsernameFromResponse(createUserResponse);
-
-            // create dataverse
-            Response createDataverse2Response = UtilIT.createRandomDataverse(apiToken);
-            if (createDataverse2Response.getStatusCode() != 201) {
-                System.out.println("A test dataverse couldn't be created in the root dataverse:");
-                System.out.println(createDataverse2Response.body().asString());
-                System.out.println("Make sure users can created dataverses in the root for this test to run.");
-            }
-            assertEquals(201, createDataverse2Response.getStatusCode());
-            dataverseAlias = UtilIT.getAliasFromResponse(createDataverse2Response);
-
-            // create dataset
-            Response createDataset2Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias, apiToken);
-            assertEquals(201, createDataset2Response.getStatusCode());
-            datasetId = UtilIT.getDatasetIdFromResponse(createDataset2Response);
-            JsonPath createdDataset = JsonPath.from(createDataset2Response.body().asString());
-            String identifier = createdDataset.getString("data.identifier");
-            String pid = PROTOCOL + ":" + AUTHORITY + DOI_SEP + identifier;
-            datasetDir = DATA_DIR + SEP + AUTHORITY + SEP + identifier;
 
             // create test files and checksum manifest with record that doesn't exist
-            File file1 = createTestFile(datasetDir, "testfile1.txt", 0.25);
-            File file2 = createTestFile(datasetDir, "testfile2.txt", 0.25);
-            String checksum1 = "";
-            String checksum2 = "";
+            File file1 = createTestFile(dsDir, "testfile1.txt", 0.25);
+            File file2 = createTestFile(dsDir, "testfile2.txt", 0.25);
+            String checksum1 = "aorjsonaortargj848";
+            String checksum2 = "ldgklrrshfdsnosri4948";
             if (file1 != null && file2 != null) {
-                PrintWriter pw = new PrintWriter(new FileWriter(datasetDir + "/files.sha"));
-                checksum1 = getFileChecksum(file1.getAbsolutePath(), "SHA1");
-                checksum2 = getFileChecksum(file2.getAbsolutePath(), "SHA1");
+                PrintWriter pw = new PrintWriter(new FileWriter(dsDir + "/files.sha"));
                 pw.write(checksum1 + " " + file1.getName());
                 pw.write("\n");
                 pw.write(checksum2 + " " + file2.getName());
@@ -662,20 +490,7 @@ public class FileRecordJobIT {
                 fail();
             }
 
-            // run batch job
-            Response jobResponse = given()
-                    .header(API_TOKEN_HTTP_HEADER, apiToken)
-                    .queryParam("datasetId", pid)
-                    .queryParam("key", apiToken)
-                    .get(FILESYSTEM_API);
-            assertEquals(200, jobResponse.getStatusCode());
-
-            // get job id and wait for completion
-            String jobId = JsonPath.from(jobResponse.body().asString()).getString("data.executionId");
-            String jobResult = pollJobStatus(jobId, apiToken, POLLING_RETRIES, POLLING_WAIT);
-
-            JobExecutionEntity job;
-            job = mapper.readValue(jobResult, JobExecutionEntity.class);
+            JobExecutionEntity job = getJob();
             assertEquals(job.getSteps().size(), 2);
             StepExecutionEntity step1 = job.getSteps().get(0);
             StepExecutionEntity step2 = job.getSteps().get(1);
@@ -716,33 +531,18 @@ public class FileRecordJobIT {
             assert(step2.getPersistentUserData().contains("FAILED: missing data files [fileThatDoesntExist.txt]"));
 
             // confirm files were imported
+            updateDatasetJsonPath();
             List<String> filenames = new ArrayList<>();
-            Response datasetResponse = UtilIT.getDatasetResponse(pid, apiToken);
-            JsonPath dsJson = JsonPath.from(datasetResponse.body().asString());
-            String fileOne = dsJson.getString("data.latestVersion.files[0].datafile.filename");
-            String fileTwo = dsJson.getString("data.latestVersion.files[1].datafile.filename");
-            filenames.add(fileOne);
-            filenames.add(fileTwo);
+            filenames.add(dsPath.getString("data.latestVersion.files[0].datafile.filename"));
+            filenames.add(dsPath.getString("data.latestVersion.files[1].datafile.filename"));
             assert(filenames.contains("testfile1.txt"));
             assert(filenames.contains("testfile2.txt"));
-
             // confirm checksums were imported
             List<String> checksums = new ArrayList<>();
-            String checksumOne = dsJson.getString("data.latestVersion.files[0].datafile.md5");
-            String checksumTwo = dsJson.getString("data.latestVersion.files[1].datafile.md5");
-            checksums.add(checksumOne);
-            checksums.add(checksumTwo);
+            checksums.add(dsPath.getString("data.latestVersion.files[0].datafile.md5"));
+            checksums.add(dsPath.getString("data.latestVersion.files[1].datafile.md5"));
             assert(checksums.contains(checksum1));
             assert(checksums.contains(checksum2));
-
-            // tear down: delete dataverse, dataset and files
-            FileUtils.deleteDirectory(new File(datasetDir));
-            Response deleteDataset1Response = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
-            assertEquals(200, deleteDataset1Response.getStatusCode());
-            Response deleteDataverse1Response = UtilIT.deleteDataverse(dataverseAlias, apiToken);
-            assertEquals(200, deleteDataverse1Response.getStatusCode());
-            Response deleteUser1Response = UtilIT.deleteUser(username);
-            assertEquals(200, deleteUser1Response.getStatusCode());
 
         } catch (Exception e) {
             System.out.println("Error testChecksumImport: " + e.getMessage());
@@ -753,33 +553,15 @@ public class FileRecordJobIT {
 
     @Test
     public void testNoDatasetFound() {
-
         try {
-            String username;
-            String apiToken;
-
-            // create test user
-            Response createUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUserResponse.getStatusCode());
-            apiToken = UtilIT.getApiTokenFromResponse(createUserResponse);
-            username = UtilIT.getUsernameFromResponse(createUserResponse);
-
             // run batch job
-            Response jobResponse = given()
-                    .header(API_TOKEN_HTTP_HEADER, apiToken)
+            String dsNotFound  = given()
+                    .header(API_TOKEN_HTTP_HEADER, token)
                     .queryParam("datasetId", "NO_SUCH_DATASET")
-                    .queryParam("key", apiToken)
-                    .get(FILESYSTEM_API);
-            assertEquals(400, jobResponse.getStatusCode());
-
-            //jobResponse.prettyPrint();
-            JsonPath json = JsonPath.from(jobResponse.body().asString());
-            assertEquals("ERROR", json.getString("status"));
-            assertEquals("Can't find dataset with ID: NO_SUCH_DATASET", json.getString("message"));
-
-            // tear down: delete dataverse, dataset and files
-            Response deleteUser1Response = UtilIT.deleteUser(username);
-            assertEquals(200, deleteUser1Response.getStatusCode());
+                    .get(FILESYSTEM_API)
+                    .then().assertThat().statusCode(400)
+                    .extract().jsonPath().getString("message");
+            assertEquals("Can't find dataset with ID: NO_SUCH_DATASET", dsNotFound);
 
         } catch (Exception e) {
             System.out.println("Error testNoDatasetFound: " + e.getMessage());
@@ -790,78 +572,42 @@ public class FileRecordJobIT {
 
     @Test
     public void testUnauthorizedUser() {
-
         try {
-            String username;
-            String apiToken;
-            String unauthorizedUsername;
-            String unauthorizedApiToken;
-            String dataverseAlias;
-            String datasetDir;
-            int datasetId;
-
-            // create authorized user
-            Response createUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUserResponse.getStatusCode());
-            apiToken = UtilIT.getApiTokenFromResponse(createUserResponse);
-            username = UtilIT.getUsernameFromResponse(createUserResponse);
-
-            // create dataverse
-            Response createDataverse2Response = UtilIT.createRandomDataverse(apiToken);
-            if (createDataverse2Response.getStatusCode() != 201) {
-                System.out.println("A test dataverse couldn't be created in the root dataverse:");
-                System.out.println(createDataverse2Response.body().asString());
-                System.out.println("Make sure users can created dataverses in the root for this test to run.");
-            }
-            assertEquals(201, createDataverse2Response.getStatusCode());
-            dataverseAlias = UtilIT.getAliasFromResponse(createDataverse2Response);
-
-            // create dataset
-            Response createDataset2Response = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias, apiToken);
-            assertEquals(201, createDataset2Response.getStatusCode());
-            datasetId = UtilIT.getDatasetIdFromResponse(createDataset2Response);
-            JsonPath createdDataset = JsonPath.from(createDataset2Response.body().asString());
-            String identifier = createdDataset.getString("data.identifier");
-            String pid = PROTOCOL + ":" + AUTHORITY + DOI_SEP + identifier;
-            datasetDir = DATA_DIR + SEP + AUTHORITY + SEP + identifier;
-
             // create unauthorized user
-            Response createUnauthorizedUserResponse = UtilIT.createRandomUser();
-            assertEquals(200, createUnauthorizedUserResponse.getStatusCode());
-            unauthorizedApiToken = UtilIT.getApiTokenFromResponse(createUnauthorizedUserResponse);
-            unauthorizedUsername = UtilIT.getUsernameFromResponse(createUnauthorizedUserResponse);
+            String unauthUser = UUID.randomUUID().toString().substring(0, 8);
+            String unauthToken = given()
+                    .body("{" +
+                            "   \"userName\": \"" + unauthUser + "\"," +
+                            "   \"firstName\": \"" + unauthUser + "\"," +
+                            "   \"lastName\": \"" + unauthUser + "\"," +
+                            "   \"email\": \"" + unauthUser + "@mailinator.com\"" +
+                            "}")
+                    .contentType(ContentType.JSON)
+                    .request()
+                    .post("/api/builtin-users/secret/" + BUILTIN_USER_KEY)
+                    .then().assertThat().statusCode(200)
+                    .extract().jsonPath().getString("data.apiToken");
 
-            // run batch job as unauthorized user
-            Response jobResponse = given()
-                    .header(API_TOKEN_HTTP_HEADER, unauthorizedApiToken)
-                    .queryParam("datasetId", pid)
-                    .queryParam("key", unauthorizedApiToken)
-                    .get(FILESYSTEM_API);
-            assertEquals(403, jobResponse.getStatusCode());
+            // attempt to run batch job as unauthorized user
+            String message  = given()
+                    .header(API_TOKEN_HTTP_HEADER, unauthToken)
+                    .queryParam("datasetId", dsGlobalId)
+                    .get(FILESYSTEM_API)
+                    .then().assertThat().statusCode(403)
+                    .extract().jsonPath().getString("message");
+            assertEquals("User is not authorized.", message);
 
-            //jobResponse.prettyPrint();
-            JsonPath json = JsonPath.from(jobResponse.body().asString());
-            assertEquals("ERROR", json.getString("status"));
-            assertEquals("User is not authorized.", json.getString("message"));
-
-            // tear down: delete dataverse, dataset and files
-            FileUtils.deleteDirectory(new File(datasetDir));
-            Response deleteDataset1Response = UtilIT.deleteDatasetViaNativeApi(datasetId, apiToken);
-            assertEquals(200, deleteDataset1Response.getStatusCode());
-            Response deleteDataverse1Response = UtilIT.deleteDataverse(dataverseAlias, apiToken);
-            assertEquals(200, deleteDataverse1Response.getStatusCode());
-            Response deleteUser1Response = UtilIT.deleteUser(username);
-            assertEquals(200, deleteUser1Response.getStatusCode());
-            Response deleteUser2Response = UtilIT.deleteUser(unauthorizedUsername);
-            assertEquals(200, deleteUser2Response.getStatusCode());
+            // delete unauthorized user
+            given().header(API_TOKEN_HTTP_HEADER, token)
+                    .delete("/api/admin/authenticatedUsers/"+unauthUser+"/")
+                    .then().assertThat().statusCode(200);
 
         } catch (Exception e) {
-            System.out.println("Error testChecksumImport: " + e.getMessage());
+            System.out.println("Error testUnauthorizedUser: " + e.getMessage());
             e.printStackTrace();
             fail();
         }
     }
-
 
     // UTILS
 
@@ -926,7 +672,6 @@ public class FileRecordJobIT {
      * @return the checksum for the file as a hex string
      */
     static String getFileChecksum(String file, String format) {
-
         try {
             MessageDigest md = MessageDigest.getInstance(format);
             FileInputStream fis = new FileInputStream(file);
@@ -951,11 +696,9 @@ public class FileRecordJobIT {
             System.out.println("Error getting " + format + " checksum for " + file + ": " + e.getMessage());
             return null;
         }
-
     }
 
     public static String pollJobStatus(String jobId, String apiToken, int retry, long sleep) {
-
         int maxTries = 0;
         String json = "";
         String status = BatchStatus.STARTED.name();
@@ -977,6 +720,32 @@ public class FileRecordJobIT {
            System.out.println(ie.getMessage());
         }
         return json;
+    }
+
+    private JobExecutionEntity getJob() {
+        try {
+            // run batch job and wait for result
+            String jobId = given()
+                    .header(API_TOKEN_HTTP_HEADER, token)
+                    .queryParam("datasetId", dsGlobalId)
+                    .get(FILESYSTEM_API)
+                    .then().assertThat().statusCode(200)
+                    .extract().jsonPath().getString("data.executionId");
+            String jobResult = pollJobStatus(jobId, token, POLLING_RETRIES, POLLING_WAIT);
+            return mapper.readValue(jobResult, JobExecutionEntity.class);
+        } catch (IOException ioe) {
+            System.out.println("Error getting job execution entity: " + ioe.getMessage());
+            return null;
+        }
+    }
+
+    private void updateDatasetJsonPath() {
+        dsPath = given()
+            .header(API_TOKEN_HTTP_HEADER, token)
+            .contentType(ContentType.JSON)
+            .get(DATASET_API + dsGlobalId)
+            .then().assertThat().statusCode(200)
+            .extract().jsonPath();
     }
 
 }
