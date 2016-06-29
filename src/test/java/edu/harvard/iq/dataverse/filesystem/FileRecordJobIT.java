@@ -52,10 +52,12 @@ import java.util.UUID;
 
 import static com.jayway.restassured.RestAssured.given;
 import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
+import static org.hamcrest.Matchers.equalTo;
 
 /**
- * Batch Job Integration Tests
+ * Batch File System Import Job Integration Tests
  */
 public class FileRecordJobIT {
 
@@ -232,6 +234,19 @@ public class FileRecordJobIT {
             filenames.add(dsPath.getString("data.latestVersion.files[1].datafile.filename"));
             assert(filenames.contains(file1));
             assert(filenames.contains(file2));
+
+            // test the reporting apis
+            given()
+                .header(API_TOKEN_HTTP_HEADER, token)
+                .get(JOB_STATUS_API + job.getId())
+                .then().assertThat()
+                .body("status", equalTo("COMPLETED"));
+            List<Integer> ids =  given()
+                        .header(API_TOKEN_HTTP_HEADER, token)
+                        .get("/api/batch/jobs/")
+                        .then().extract().jsonPath()
+                        .getList("jobs.id");
+            assertTrue(ids.contains((int)job.getId()));
 
         } catch (Exception e) {
             System.out.println("Error testIdenticalFilesInDifferentDirectories: " + e.getMessage());
