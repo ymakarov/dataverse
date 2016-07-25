@@ -338,13 +338,12 @@ public abstract class AbstractApiBean {
           
         } catch (PermissionException ex) {
             /**
-             * @todo Is there any harm in exposing ex.getLocalizedMessage()?
-             * There's valuable information in there that can help people reason
-             * about permissions!
+             * @todo Check if there is any harm in exposing
+             * ex.getLocalizedMessage()? There's valuable information in there
+             * that can help people reason about permissions!
              */
             throw new WrappedResponse(errorResponse(Response.Status.UNAUTHORIZED, 
-                                                    "User " + cmd.getRequest().getUser().getIdentifier() + " is not permitted to perform requested action.") );
-            
+                    "User " + cmd.getRequest().getUser().getIdentifier() + " is not permitted to perform requested action: " + ex.getLocalizedMessage()));
         } catch (CommandException ex) {
             Logger.getLogger(AbstractApiBean.class.getName()).log(Level.SEVERE, "Error while executing command " + cmd, ex);
             throw new WrappedResponse(ex, errorResponse(Status.INTERNAL_SERVER_ERROR, ex.getMessage()));

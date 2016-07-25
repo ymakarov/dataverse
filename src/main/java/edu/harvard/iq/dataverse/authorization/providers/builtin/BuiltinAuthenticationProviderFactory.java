@@ -1,9 +1,11 @@
 package edu.harvard.iq.dataverse.authorization.providers.builtin;
 
 import edu.harvard.iq.dataverse.authorization.AuthenticationProvider;
+import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.exceptions.AuthorizationSetupException;
 import edu.harvard.iq.dataverse.authorization.providers.AuthenticationProviderFactory;
 import edu.harvard.iq.dataverse.authorization.providers.AuthenticationProviderRow;
+import edu.harvard.iq.dataverse.util.SystemConfig;
 
 /**
  * Creates the built in authentication provider. There is only one, so calling
@@ -15,8 +17,8 @@ public class BuiltinAuthenticationProviderFactory implements AuthenticationProvi
     
     private final BuiltinAuthenticationProvider provider;
 
-    public BuiltinAuthenticationProviderFactory( BuiltinUserServiceBean busBean ) {
-        provider = new BuiltinAuthenticationProvider( busBean );
+    public BuiltinAuthenticationProviderFactory(BuiltinUserServiceBean busBean, AuthenticationServiceBean asb, SystemConfig systemConfig) {
+        provider = new BuiltinAuthenticationProvider(busBean, asb, systemConfig);
     }
     
     @Override

@@ -18,8 +18,10 @@ import edu.harvard.iq.dataverse.authorization.providers.echo.EchoAuthenticationP
 import edu.harvard.iq.dataverse.authorization.providers.shib.ShibAuthenticationProvider;
 import edu.harvard.iq.dataverse.authorization.users.ApiToken;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
-import java.sql.SQLException;
+import edu.harvard.iq.dataverse.util.SystemConfig;
 import java.sql.Timestamp;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -52,7 +54,7 @@ import javax.validation.ValidatorFactory;
 @Singleton
 public class AuthenticationServiceBean {
     private static final Logger logger = Logger.getLogger(AuthenticationServiceBean.class.getName());
-    
+
     /**
      * Where all registered authentication providers live.
      */
@@ -72,6 +74,9 @@ public class AuthenticationServiceBean {
     @EJB
     UserNotificationServiceBean userNotificationService;
 
+    @EJB
+    SystemConfig systemConfig;
+
     @PersistenceContext(unitName = "VDCNet-ejbPU")
     private EntityManager em;
     
@@ -80,7 +85,7 @@ public class AuthenticationServiceBean {
         
         // First, set up the factories
         try {
-            registerProviderFactory( new BuiltinAuthenticationProviderFactory(builtinUserServiceBean) );
+            registerProviderFactory(new BuiltinAuthenticationProviderFactory(builtinUserServiceBean, this, systemConfig));
             registerProviderFactory( new EchoAuthenticationProviderFactory() );
             /**
              * Register shib provider factory here. Test enable/disable via Admin API, etc.
@@ -573,6 +578,44 @@ public class AuthenticationServiceBean {
         em.persist(authenticatedUser);
         em.flush();
         return builtinUser;
+    }
+
+    public AuthenticatedUser lockUser(Long id) throws ParseException {
+        AuthenticatedUser userToDisable = findByID(id);
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy");
+        Date date = simpleDateFormat.parse("9999");
+        Timestamp forever = new Timestamp(date.getTime());
+        userToDisable.setLockedUntil(forever);
+        return save(userToDisable);
+    }
+
+    public AuthenticatedUser lockUser(Long id, long seconds) {
+        AuthenticatedUser userToLock = findByID(id);
+        long nowInMilliseconds = new Date().getTime();
+        long ONE_SECOND_IN_MILLISECONDS = 1000;
+        long futureInMilliseconds = nowInMilliseconds + (seconds * ONE_SECOND_IN_MILLISECONDS);
+        Timestamp lockedUntil = new Timestamp(new Date(futureInMilliseconds).getTime());
+        userToLock.setLockedUntil(lockedUntil);
+        return save(userToLock);
+    }
+
+    public AuthenticatedUser unlockUser(Long id) {
+        AuthenticatedUser userToUnlock = findByID(id);
+        userToUnlock.setLockedUntil(null);
+        userToUnlock.setBadLogins(0);
+        return save(userToUnlock);
+    }
+
+    public AuthenticatedUser recordBadLoginAttempt(AuthenticatedUser authenticatedUser) {
+        int badlogins = authenticatedUser.getBadLogins();
+        authenticatedUser.setBadLogins(badlogins + 1);
+        AuthenticatedUser savedAuthenticatedUser = save(authenticatedUser);
+        if (authenticatedUser.getBadLogins() >= systemConfig.getNumBadLoginsRequiredToLockAccount()) {
+            int secondsInMinute = 60;
+            int secondsToLockAccount = systemConfig.getMinutesToLockAccountForBadLogins() * secondsInMinute;
+            savedAuthenticatedUser = lockUser(authenticatedUser.getId(), secondsToLockAccount);
+        }
+        return savedAuthenticatedUser;
     }
 
 }

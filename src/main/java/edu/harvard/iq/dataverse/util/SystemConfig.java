@@ -2,6 +2,7 @@ package edu.harvard.iq.dataverse.util;
 
 import com.ocpsoft.pretty.PrettyContext;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean.Key;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -485,6 +486,53 @@ public class SystemConfig {
         }
         
         return getTabularIngestSizeLimit();        
+    }
+
+    public int getNumBadLoginsRequiredToLockAccount() {
+        int saneDefault = getSaneDefaultForNumBadLoginsRequiredToLockAccount();
+        int numBadLoginsRequiredToLockAccount = saneDefault;
+        Key settingKey = SettingsServiceBean.Key.NumBadLoginsRequiredToLockAccount;
+        String valueFromDb = settingsService.get(settingKey.toString());
+        String errorInvalidValue = "Invalid value for " + settingKey + " setting (\"" + valueFromDb + "\"). The default value \"" + saneDefault + "\" will be used instead.";
+        if (valueFromDb != null) {
+            try {
+                Integer numBadLoginsRequired = new Integer(valueFromDb);
+                if (numBadLoginsRequired > 0) {
+                return numBadLoginsRequired;
+                } else {
+                    logger.warning(errorInvalidValue);
+                }
+            } catch (NumberFormatException nfe) {
+                logger.warning(errorInvalidValue);
+            }
+        }
+        return numBadLoginsRequiredToLockAccount;
+    }
+
+    public static int getSaneDefaultForNumBadLoginsRequiredToLockAccount() {
+        // three strikes and you're out
+        return 3;
+    }
+
+    public int getMinutesToLockAccountForBadLogins() {
+        int saneDefault = 60;
+        int minutesToLockAccountForBadLogins = saneDefault;
+        Key settingKey = SettingsServiceBean.Key.MinutesToLockAccountForBadLogins;
+        String valueFromDb = settingsService.get(settingKey.toString());
+        String errorInvalidValue = "Invalid value for " + settingKey + " setting (\"" + valueFromDb + "\"). The default value \"" + saneDefault + "\" will be used instead.";
+        if (valueFromDb != null) {
+            try {
+                Integer numMinutesToLock = new Integer(valueFromDb);
+                if (numMinutesToLock > 0) {
+                    return numMinutesToLock;
+                } else {
+                    logger.warning(errorInvalidValue);
+                }
+            } catch (NumberFormatException nfe) {
+                logger.warning(errorInvalidValue);
+            }
+        }
+        return minutesToLockAccountForBadLogins;
     }
 
 }

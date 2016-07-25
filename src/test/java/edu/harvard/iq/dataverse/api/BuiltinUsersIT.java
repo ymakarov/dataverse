@@ -5,11 +5,17 @@ import static com.jayway.restassured.RestAssured.given;
 import com.jayway.restassured.http.ContentType;
 import com.jayway.restassured.path.json.JsonPath;
 import com.jayway.restassured.response.Response;
+import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
+import edu.harvard.iq.dataverse.util.SystemConfig;
 import java.util.UUID;
 import java.util.logging.Logger;
 import javax.json.Json;
 import javax.json.JsonObjectBuilder;
 import static junit.framework.Assert.assertEquals;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.Matchers.containsString;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -25,6 +31,189 @@ public class BuiltinUsersIT {
     @BeforeClass
     public static void setUp() {
         RestAssured.baseURI = UtilIT.getRestAssuredBaseUri();
+    }
+
+    /**
+     * @todo We're simulating a password guessing attack here by using the API
+     * token lookup endpoint but are there other ways to easily test this? Is it
+     * time to start trying to use https://www.cypress.io for automated API
+     * testing? Or just use Selenium? See tests/passwordguess.py
+     */
+    @Test
+    public void testPasswordGuessingAttack() throws InterruptedException {
+        String email = null;
+        Response createUserToBeAttacked = createUser(getRandomUsername(), "firstName", "lastName", email);
+        createUserToBeAttacked.prettyPrint();
+        createUserToBeAttacked.then().assertThat()
+                .statusCode(200);
+
+        long userIdUnderAttack = JsonPath.from(createUserToBeAttacked.body().asString()).getLong("data.authenticatedUser.id");
+        String usernameUnderAttack = JsonPath.from(createUserToBeAttacked.body().asString()).getString("data.user.userName");
+        String apiToken = JsonPath.from(createUserToBeAttacked.body().asString()).getString("data.apiToken");
+        int expectedNumBadLoginsRequiredToLockAccount = SystemConfig.getSaneDefaultForNumBadLoginsRequiredToLockAccount();
+        int numAttemptsNeededToLockAccountMinusOne = expectedNumBadLoginsRequiredToLockAccount - 1;
+
+        for (int i = 0; i < numAttemptsNeededToLockAccountMinusOne; i++) {
+            Response getApiTokenShouldFail = getApiTokenUsingUsername(usernameUnderAttack, "guess" + i);
+            getApiTokenShouldFail.prettyPrint();
+            getApiTokenShouldFail.then().assertThat()
+                    .statusCode(400)
+                    .body("message", equalTo("Bad username or password"));
+        }
+
+        Response getUserAlmostLocked = UtilIT.getAuthenticatedUser(usernameUnderAttack, apiToken);
+        getUserAlmostLocked.prettyPrint();
+        getUserAlmostLocked.then().assertThat()
+                .statusCode(200)
+                .body("data.badLogins", equalTo(numAttemptsNeededToLockAccountMinusOne));
+
+        Response attemptShouldLockAccount = getApiTokenUsingUsername(usernameUnderAttack, "guess" + numAttemptsNeededToLockAccountMinusOne + 1);
+        attemptShouldLockAccount.prettyPrint();
+        attemptShouldLockAccount.then().assertThat()
+                .statusCode(400)
+                // "2" is for 2016 or whatever (Y3K bug!)
+                .body("message", startsWith("The username, email address, or password you entered is invalid. " + expectedNumBadLoginsRequiredToLockAccount + " successive invalid login attempts. Locking account until 2"));
+
+        Response getUserLocked = UtilIT.getAuthenticatedUser(usernameUnderAttack, apiToken);
+        getUserLocked.prettyPrint();
+        getUserLocked.then().assertThat()
+                .statusCode(200)
+                .body("data.badLogins", equalTo(expectedNumBadLoginsRequiredToLockAccount))
+                // "2" is for 2016 or whatever (Y3K bug!)
+                .body("data.lockedUntil", startsWith("2"));
+
+        Response shouldShowAlreadyLockedResponse = getApiTokenUsingUsername(usernameUnderAttack, "wrongPassword");
+        shouldShowAlreadyLockedResponse.prettyPrint();
+        shouldShowAlreadyLockedResponse.then().assertThat()
+                .statusCode(400)
+                // "2" is for 2016 or whatever (Y3K bug!)
+                .body("message", startsWith("Your account has been locked until 2"));
+
+        boolean systemConfiguredToUnlockAfterOneMinute = false;
+        Response getMinutes = given().when().get("/api/admin/settings/" + SettingsServiceBean.Key.MinutesToLockAccountForBadLogins);
+        if (getMinutes.getStatusCode() == 200) {
+            String minutesAsString = JsonPath.from(getMinutes.body().asString()).getString("data.message");
+            if (minutesAsString.equals("1")) {
+                systemConfiguredToUnlockAfterOneMinute = true;
+            }
+        }
+
+        if (systemConfiguredToUnlockAfterOneMinute) {
+            int secondsInMinute = 60;
+            Thread.sleep(1100 * secondsInMinute);
+            Response shouldWorkNow = getApiTokenUsingUsername(usernameUnderAttack, usernameUnderAttack);
+            shouldWorkNow.prettyPrint();
+            shouldWorkNow.then().assertThat()
+                    .statusCode(200);
+
+        }
+    }
+
+    @Test
+    public void testDisableAccount() throws InterruptedException {
+
+        String email = null;
+        Response createUserWhoWillBeDisabled = createUser(getRandomUsername(), "firstName", "lastName", email);
+        createUserWhoWillBeDisabled.prettyPrint();
+        createUserWhoWillBeDisabled.then().assertThat()
+                .statusCode(200);
+
+        long userIdToBeDisabled = JsonPath.from(createUserWhoWillBeDisabled.body().asString()).getLong("data.authenticatedUser.id");
+        String userToBeDisabledApiToken = JsonPath.from(createUserWhoWillBeDisabled.body().asString()).getString("data.apiToken");
+        String usernameToBeDisabled = JsonPath.from(createUserWhoWillBeDisabled.body().asString()).getString("data.user.userName");
+
+        Response getApiToken = getApiTokenUsingUsername(usernameToBeDisabled, usernameToBeDisabled);
+        getApiToken.then().assertThat()
+                .statusCode(200);
+
+        Response createDataverse = UtilIT.createRandomDataverse(userToBeDisabledApiToken);
+        createDataverse.prettyPrint();
+        createDataverse.then().assertThat()
+                .statusCode(201);
+        String dataverseAlias = JsonPath.from(createDataverse.body().asString()).getString("data.alias");
+
+        UtilIT.deleteDataverse(dataverseAlias, userToBeDisabledApiToken).then().assertThat()
+                .statusCode(200);
+
+        Response createSuperuser = createUser(getRandomUsername(), "firstName", "lastName", email);
+        createSuperuser.prettyPrint();
+        createSuperuser.then().assertThat()
+                .statusCode(200);
+
+        String superuserUsername = JsonPath.from(createSuperuser.body().asString()).getString("data.user.userName");
+        String superuserApiToken = JsonPath.from(createSuperuser.body().asString()).getString("data.apiToken");
+
+        Response makeSuperUser = UtilIT.makeSuperUser(superuserUsername);
+        makeSuperUser.then().assertThat()
+                .statusCode(200);
+
+        Response attemptToDisableSelf = UtilIT.lockUser(userIdToBeDisabled, userToBeDisabledApiToken);
+        attemptToDisableSelf.prettyPrint();
+        attemptToDisableSelf.then().assertThat()
+                .statusCode(403)
+                .body("message", equalTo("Superusers only."));
+
+        long numSecondsToLock = 3;
+        Response lockUserTemporarily = UtilIT.lockAccount(userIdToBeDisabled, numSecondsToLock, superuserApiToken);
+        lockUserTemporarily.prettyPrint();
+        lockUserTemporarily.then().assertThat()
+                .statusCode(200)
+                .body("data.message", equalTo("User id " + userIdToBeDisabled + " has been locked for " + numSecondsToLock + " seconds."));
+
+        Response createDataverseShouldFail = UtilIT.createRandomDataverse(userToBeDisabledApiToken);
+        createDataverseShouldFail.prettyPrint();
+        createDataverseShouldFail.then().assertThat()
+                .statusCode(401)
+                .body("message", containsString("account for user id " + userIdToBeDisabled + " is locked until"));
+
+        Response getApiTokenShouldFail = getApiTokenUsingUsername(usernameToBeDisabled, usernameToBeDisabled);
+        getApiTokenShouldFail.prettyPrint();
+        getApiTokenShouldFail.then().assertThat()
+                .statusCode(400)
+                .body("message", startsWith("Your account has been locked until"));;
+
+        Thread.sleep(numSecondsToLock * 1000);
+
+        Response createDataverseShouldWorkAgain = UtilIT.createRandomDataverse(userToBeDisabledApiToken);
+//        createDataverseShouldWorkAgain.prettyPrint();
+        createDataverseShouldWorkAgain.then().assertThat()
+                .statusCode(201);
+
+        Response lockUserIndefinitely = UtilIT.lockUser(userIdToBeDisabled, superuserApiToken);
+        lockUserIndefinitely.prettyPrint();
+        lockUserIndefinitely.then().assertThat()
+                .statusCode(200)
+                .body("data.message", equalTo("User id " + userIdToBeDisabled + " has been locked indefinitely."));
+
+        Response createDataverseShouldFailLockedIndefinitely = UtilIT.createRandomDataverse(userToBeDisabledApiToken);
+//        createDataverseShouldFailLockedIndefinitely.prettyPrint();
+        createDataverseShouldFailLockedIndefinitely.then().assertThat()
+                .statusCode(401)
+                .body("message", containsString("account for user id " + userIdToBeDisabled + " is locked until"));
+
+        Response userLockedIndefinitely = getUserFromDatabase(usernameToBeDisabled);
+        userLockedIndefinitely.prettyPrint();
+        userLockedIndefinitely.then().assertThat()
+                .statusCode(200)
+                .body("data.lockedUntil", startsWith("9999"));
+
+        Response unlockUser = UtilIT.unlockUser(userIdToBeDisabled, superuserApiToken);
+        unlockUser.prettyPrint();
+        unlockUser.then().assertThat()
+                .statusCode(200)
+                .body("data.message", equalTo("User id " + userIdToBeDisabled + " has been unlocked."));
+
+        Response createDataverseShouldWorkOnceAgain = UtilIT.createRandomDataverse(userToBeDisabledApiToken);
+//        createDataverseShouldWorkOnceAgain.prettyPrint();
+        createDataverseShouldWorkOnceAgain.then().assertThat()
+                .statusCode(201);
+
+        Response userNoLongerLocked = getUserFromDatabase(usernameToBeDisabled);
+        userNoLongerLocked.prettyPrint();
+        userNoLongerLocked.then().assertThat()
+                .statusCode(200)
+                .body("data.lockedUntil", nullValue());
+
     }
 
     @Test

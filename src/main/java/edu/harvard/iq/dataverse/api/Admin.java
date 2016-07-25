@@ -33,6 +33,7 @@ import javax.ws.rs.core.Response;
 
 import static edu.harvard.iq.dataverse.util.json.NullSafeJsonBuilder.jsonObjectBuilder;
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.*;
+import java.text.ParseException;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -261,6 +262,65 @@ public class Admin extends AbstractApiBean {
         });
         return okResponse(userArray);
     }
+
+    /**
+     * Locks a user for so many seconds in the future that it's effectively
+     * forever.
+     * @param id The user id of the user to lock.
+     */
+    @PUT
+    @Path("authenticatedUsers/id/{id}/lock")
+    public Response lockUser(@PathParam("id") Long id) {
+        try {
+            AuthenticatedUser user = findAuthenticatedUserOrDie();
+            if (!user.isSuperuser()) {
+                return errorResponse(Response.Status.FORBIDDEN, "Superusers only.");
+            }
+        } catch (WrappedResponse ex) {
+            return errorResponse(Response.Status.FORBIDDEN, "Superusers only.");
+        }
+        try {
+            AuthenticatedUser lockedUser = authSvc.lockUser(id);
+            return okResponse("User id " + id + " has been locked indefinitely.");
+        } catch (ParseException ex) {
+            return errorResponse(Status.INTERNAL_SERVER_ERROR, "Couldn't lock user: " + ex.getLocalizedMessage());
+        }
+    }
+
+    /**
+     * @param id The user id of the user to lock.
+     * @param seconds The number of seconds the user should be locked.
+     */
+    @PUT
+    @Path("authenticatedUsers/id/{id}/lock/{seconds}")
+    public Response lockUser(@PathParam("id") Long id, @PathParam("seconds") long seconds) {
+        try {
+            AuthenticatedUser user = findAuthenticatedUserOrDie();
+            if (!user.isSuperuser()) {
+                return errorResponse(Response.Status.FORBIDDEN, "Superusers only.");
+            }
+        } catch (WrappedResponse ex) {
+            return errorResponse(Response.Status.FORBIDDEN, "Superusers only.");
+        }
+        AuthenticatedUser lockedUser = authSvc.lockUser(id, seconds);
+        return okResponse("User id " + id + " has been locked for " + seconds + " seconds.");
+    }
+
+    @PUT
+    @Path("authenticatedUsers/id/{id}/unlock")
+    public Response unlockUser(@PathParam("id") Long id) {
+        try {
+            AuthenticatedUser user = findAuthenticatedUserOrDie();
+            if (!user.isSuperuser()) {
+                return errorResponse(Response.Status.FORBIDDEN, "Superusers only.");
+            }
+        } catch (WrappedResponse ex) {
+            return errorResponse(Response.Status.FORBIDDEN, "Superusers only.");
+        }
+        AuthenticatedUser unlockedUser = authSvc.unlockUser(id);
+        return okResponse("User id " + id + " has been unlocked.");
+    }
+
 
     /**
      * curl -X PUT -d "shib@mailinator.com"

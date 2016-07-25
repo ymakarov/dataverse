@@ -1,14 +1,17 @@
 package edu.harvard.iq.dataverse.api;
 
 import edu.harvard.iq.dataverse.actionlogging.ActionLogRecord;
+import static edu.harvard.iq.dataverse.api.AbstractApiBean.errorResponse;
+import edu.harvard.iq.dataverse.authorization.AuthenticationRequest;
 import edu.harvard.iq.dataverse.authorization.UserRecordIdentifier;
+import edu.harvard.iq.dataverse.authorization.exceptions.AuthenticationFailedException;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinAuthenticationProvider;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUser;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUserServiceBean;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.PasswordEncryption;
 import edu.harvard.iq.dataverse.authorization.users.ApiToken;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
-import edu.harvard.iq.dataverse.util.json.JsonPrinter;
+import edu.harvard.iq.dataverse.util.BundleUtil;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.logging.Level;
@@ -38,11 +41,14 @@ public class BuiltinUsers extends AbstractApiBean {
     private static final Logger logger = Logger.getLogger(BuiltinUsers.class.getName());
 
     private static final String API_KEY_IN_SETTINGS = "BuiltinUsers.KEY";
+
     /**
      * Users have not requested the ability to retrieve their API token using
      * their email address but we could. Here's the issue for which we are
      * enabling login via email address:
      * https://github.com/IQSS/dataverse/issues/2115
+     *
+     * This is potentially useful in API/integration testing.
      */
     public static boolean retrievingApiTokenViaEmailEnabled = false;
 
@@ -51,24 +57,24 @@ public class BuiltinUsers extends AbstractApiBean {
 
     @GET
     @Path("{username}/api-token")
-    public Response getApiToken( @PathParam("username") String username, @QueryParam("password") String password ) {
-        BuiltinUser u = null;
-        if (retrievingApiTokenViaEmailEnabled) {
-            u = builtinUserSvc.findByUsernameOrEmail(username);
-        } else {
-            u = builtinUserSvc.findByUserName(username);
+    public Response getApiToken(@PathParam("username") String username, @QueryParam("password") String password) {
+        AuthenticationRequest authReq = new AuthenticationRequest();
+        /**
+         * @todo Should this really be coming from a bundle like this? Added
+         * because that's what BuiltinAuthenticationProvider does.
+         */
+        authReq.putCredential(BundleUtil.getStringFromBundle("login.builtin.credential.usernameOrEmail"), username);
+        authReq.putCredential(BundleUtil.getStringFromBundle("login.builtin.credential.password"), password);
+        String credentialsAuthProviderId = BuiltinAuthenticationProvider.PROVIDER_ID;
+        AuthenticatedUser authUser;
+        try {
+//        authReq.setIpAddress( dvRequestService.getDataverseRequest().getSourceAddress() );
+            authUser = authSvc.authenticate(credentialsAuthProviderId, authReq);
+            ApiToken t = authSvc.findApiTokenByUser(authUser);
+            return (t != null) ? okResponse(t.getTokenString()) : notFound("User " + username + " does not have an API token");
+        } catch (AuthenticationFailedException ex) {
+            return errorResponse(Response.Status.BAD_REQUEST, ex.getResponse().getMessage());
         }
-        if ( u == null ) return badRequest("Bad username or password");
-        
-        boolean passwordOk = PasswordEncryption.getVersion(u.getPasswordEncryptionVersion())
-                                            .check(password, u.getEncryptedPassword() );
-        if ( ! passwordOk ) return badRequest("Bad username or password");
-        
-        AuthenticatedUser authUser = authSvc.lookupUser(BuiltinAuthenticationProvider.PROVIDER_ID, u.getUserName());
-        
-        ApiToken t = authSvc.findApiTokenByUser(authUser);
-        
-        return (t != null ) ? okResponse(t.getTokenString()) : notFound("User " + username + " does not have an API token");
     }
     
     /**
