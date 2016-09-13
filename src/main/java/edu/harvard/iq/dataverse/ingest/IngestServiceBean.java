@@ -1091,7 +1091,7 @@ public class IngestServiceBean {
         long ingestSizeLimit = -1; 
         try {
             ingestSizeLimit = systemConfig.getTabularIngestSizeLimit(getTabDataReaderByMimeType(dataFile.getContentType()).getFormatName());
-        } catch (IOException ioex) {
+        } catch (IOException ioex) {          
             logger.warning("IO Exception trying to retrieve the ingestable format identifier from the plugin for type "+dataFile.getContentType()+" (non-fatal);");
         }
         
@@ -1121,7 +1121,7 @@ public class IngestServiceBean {
         // Check if the user is a super user
         // ----------------------------
         if (!(user.isSuperuser())){
-            return SimpleIngestMessage.getInfoFail("Permission denied. Currently this call is restricted to superusers.");
+        //    return SimpleIngestMessage.getInfoFail("Permission denied. Currently this call is restricted to superusers.");
         }
         
         // ----------------------------
@@ -1130,43 +1130,50 @@ public class IngestServiceBean {
         if (dataFile.getDataTable() != null){
             return SimpleIngestMessage.getInfoFail("This file has already been ingested. (A data table exists for this file).");
         }
-   
+
+       
         // ----------------------------
         // Set the appropriate status on the file
         // ----------------------------
         dataFile.SetIngestScheduled();
         dataFile = fileService.save(dataFile);
      
+
         // ----------------------------
         // Check size limit
         // ----------------------------
         long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
 
-        if (ingestSizeLimit != -1 || dataFile.getFilesize() >= ingestSizeLimit) {
+        if (ingestSizeLimit == -1 || (dataFile.getFilesize() <= ingestSizeLimit)) {
+            // Keep going
+        }else{
+            // Nope, doesn't work
             dataFile.setIngestDone();
             dataFile = fileService.save(dataFile);
                     
             String errMsg = "Skipping tabular ingest of the file " + dataFile.getFileMetadata().getLabel() + "(file id: " + dataFile.getId() + "), because of the size limit (set to "+ ingestSizeLimit +" bytes).";
             logger.info(errMsg);
             return SimpleIngestMessage.getInfoFail(errMsg);
+
         }
            
         // ----------------------------
         // Prepare for ingest!
         // ----------------------------
-        
+
         // Update status
         dataFile.SetIngestInProgress();               
         dataFile = fileService.save(dataFile);            
         logger.fine("Attempting to queue the file " + dataFile.getFileMetadata().getLabel() + " for ingest, file id: " + dataFile.getId());
-                
+
+
         // Make an IngestMessage object
         IngestMessage ingestMessage = new IngestMessage(IngestMessage.INGEST_MESAGE_LEVEL_INFO);
         ingestMessage.addFileId(dataFile.getId());
         
         // Actually send the file to the ingest queue
         sendIngestMessageToQueue(ingestMessage);
-        
+
         return SimpleIngestMessage.getInfoSuccess();
     }
     
@@ -1187,7 +1194,7 @@ public class IngestServiceBean {
                 // gotten from the loop, the roles assignment added at create is removed
                 // (switching to refinding via id resolves that)                
                 dataFile = fileService.find(dataFile.getId());
-                
+
                 long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
                 
                 
@@ -1241,44 +1248,7 @@ public class IngestServiceBean {
             
             this.sendIngestMessageToQueue(ingestMessage);
         }
-            /*
-            QueueConnection conn = null;
-            QueueSession session = null;
-            QueueSender sender = null;
-            try {
-                conn = factory.createQueueConnection();
-                session = conn.createQueueSession(false, 0);
-                sender = session.createSender(queue);
-
-                //ingestMessage.addFile(new File(tempFileLocation));
-                Message message = session.createObjectMessage(ingestMessage);
-
-                //try {
-                    sender.send(message);
-                //} catch (JMSException ex) {
-                //    ex.printStackTrace();
-                //}
-
-            } catch (JMSException ex) {
-                ex.printStackTrace();
-                //throw new IOException(ex.getMessage());
-            } finally {
-                try {
-
-                    if (sender != null) {
-                        sender.close();
-                    }
-                    if (session != null) {
-                        session.close();
-                    }
-                    if (conn != null) {
-                        conn.close();
-                    }
-                } catch (JMSException ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }*/
+          
     }
     
 
