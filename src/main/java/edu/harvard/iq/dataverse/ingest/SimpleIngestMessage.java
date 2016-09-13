@@ -9,7 +9,7 @@ package edu.harvard.iq.dataverse.ingest;
  *
  * @author rmp553
  */
-  class SimpleIngestMessage{
+public class SimpleIngestMessage{
         
         public boolean success = true;
         public String errorMessage = null;

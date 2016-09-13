@@ -1082,7 +1082,7 @@ public class IngestServiceBean {
      * @param dataFile
      * @return long
      */
-    private long getIngestSizeLimit(DataFile dataFile){
+    private Long getIngestSizeLimit(DataFile dataFile){
         
         if (dataFile == null){
             throw new NullPointerException("dataFile should not be null!");
@@ -1090,7 +1090,13 @@ public class IngestServiceBean {
         
         long ingestSizeLimit = -1; 
         try {
-            ingestSizeLimit = systemConfig.getTabularIngestSizeLimit(getTabDataReaderByMimeType(dataFile.getContentType()).getFormatName());
+            TabularDataFileReader tabFileReader = getTabDataReaderByMimeType(dataFile.getContentType());
+            if (tabFileReader == null){
+                return null;
+            }else{
+                ingestSizeLimit = systemConfig.getTabularIngestSizeLimit(tabFileReader.getFormatName());
+            }
+            //getTabDataReaderByMimeType(dataFile.getContentType()).getFormatName());
         } catch (IOException ioex) {          
             logger.warning("IO Exception trying to retrieve the ingestable format identifier from the plugin for type "+dataFile.getContentType()+" (non-fatal);");
         }
@@ -1120,6 +1126,10 @@ public class IngestServiceBean {
         
     }
     
+    private void msg(String m){
+        System.out.println(m);
+    }
+    
     /**
      * Start Ingest of a single file that has NOT been previously ingested
      * 
@@ -1129,6 +1139,8 @@ public class IngestServiceBean {
      */
     public SimpleIngestMessage startIngestSingleFile(DataFile dataFile, AuthenticatedUser user){
        
+        
+        msg("startIngestSingleFile 1: " + dataFile);
         // ----------------------------
         // Check for nulls
         // ----------------------------
@@ -1145,7 +1157,9 @@ public class IngestServiceBean {
         if (!(user.isSuperuser())){
         //    return SimpleIngestMessage.getInfoFail("Permission denied. Currently this call is restricted to superusers.");
         }
-        
+    
+        msg("startIngestSingleFile 2");
+
         // ----------------------------
         // Check for an existing DataTable
         // ----------------------------
@@ -1153,6 +1167,7 @@ public class IngestServiceBean {
             return SimpleIngestMessage.getInfoFail("This file has already been ingested. (A data table exists for this file).");
         }
 
+        msg("startIngestSingleFile 3");
        
         // ----------------------------
         // Set the appropriate status on the file
@@ -1160,15 +1175,30 @@ public class IngestServiceBean {
         dataFile.SetIngestScheduled();
         dataFile = fileService.save(dataFile);
      
+        msg("startIngestSingleFile 4");
 
         // ----------------------------
         // Check size limit
         // ----------------------------
-        long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
+        // TAKEN FROM LEONID'S CODE:
+        // todo: investigate why when calling save with the file object
+        // gotten from the loop, the roles assignment added at create is removed
+        // (switching to refinding via id resolves that)                
+        //dataFile = fileService.find(dataFile.getId());
+        //msg("startIngestSingleFile 5: " + dataFile);
 
-        if (ingestSizeLimit == -1 || (dataFile.getFilesize() <= ingestSizeLimit)) {
+        Long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
+
+        msg("startIngestSingleFile ingestSizeLimit 6:" + ingestSizeLimit);
+
+        if (ingestSizeLimit == null){
+            return SimpleIngestMessage.getInfoFail("sorry!  Could not ingest file. Could not find a TabularDataFileReader for this file");
+            
+        }else if (ingestSizeLimit == -1 || (dataFile.getFilesize() <= ingestSizeLimit)) {
             // Keep going
         }else{
+            msg("startIngestSingleFile ingestSizeLimit 7");
+
             // Nope, doesn't work
             dataFile.setIngestDone();
             dataFile = fileService.save(dataFile);
@@ -1178,7 +1208,8 @@ public class IngestServiceBean {
             return SimpleIngestMessage.getInfoFail(errMsg);
 
         }
-           
+        msg("startIngestSingleFile ingestSizeLimit 8");
+
         // ----------------------------
         // Prepare for ingest!
         // ----------------------------
@@ -1188,6 +1219,7 @@ public class IngestServiceBean {
         dataFile = fileService.save(dataFile);            
         logger.fine("Attempting to queue the file " + dataFile.getFileMetadata().getLabel() + " for ingest, file id: " + dataFile.getId());
 
+        msg("startIngestSingleFile ingestSizeLimit 9");
 
         // Make an IngestMessage object
         IngestMessage ingestMessage = new IngestMessage(IngestMessage.INGEST_MESAGE_LEVEL_INFO);
@@ -1195,6 +1227,7 @@ public class IngestServiceBean {
         
         // Actually send the file to the ingest queue
         sendIngestMessageToQueue(ingestMessage);
+        msg("startIngestSingleFile ingestSizeLimit 10");
 
         return SimpleIngestMessage.getInfoSuccess();
     }
@@ -1217,10 +1250,17 @@ public class IngestServiceBean {
                 // (switching to refinding via id resolves that)                
                 dataFile = fileService.find(dataFile.getId());
 
-                long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
+                Long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
                 
-                
-                if (ingestSizeLimit == -1 || dataFile.getFilesize() < ingestSizeLimit) {
+                if (ingestSizeLimit == null){
+                    dataFile.setIngestDone();
+                    dataFile = fileService.save(dataFile);
+                    
+                    logger.info("Skipping tabular ingest of the file " + dataFile.getFileMetadata().getLabel() + ", because could not find a TabularDataFileReader for this file");
+                    // TODO: (urgent!)
+                    // send notification to the user!
+
+                }else if (ingestSizeLimit == -1 || dataFile.getFilesize() < ingestSizeLimit) {
                     dataFile.SetIngestInProgress();               
                     dataFile = fileService.save(dataFile);
 

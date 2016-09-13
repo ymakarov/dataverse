@@ -32,6 +32,8 @@ import edu.harvard.iq.dataverse.dataaccess.ImageThumbConverter;
 import edu.harvard.iq.dataverse.datavariable.DataVariable;
 import edu.harvard.iq.dataverse.datavariable.VariableServiceBean;
 import edu.harvard.iq.dataverse.export.DDIExportServiceBean;
+import edu.harvard.iq.dataverse.ingest.IngestServiceBean;
+import edu.harvard.iq.dataverse.ingest.SimpleIngestMessage;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import edu.harvard.iq.dataverse.util.SystemConfig;
 import edu.harvard.iq.dataverse.worldmapauth.WorldMapTokenServiceBean;
@@ -107,6 +109,8 @@ public class Access extends AbstractApiBean {
     DDIExportServiceBean ddiExportService;
     @EJB
     PermissionServiceBean permissionService;
+    @EJB
+    IngestServiceBean ingestService;
     @Inject
     DataverseSession session;
     @EJB
@@ -167,6 +171,57 @@ public class Access extends AbstractApiBean {
         
         return downloadInstance; 
     }
+    
+    @Path("datafile/ingest/{fileId}")
+    @GET
+    @Produces("application/json")
+    public Response startFileIngest(@PathParam("fileId") Long fileId, @QueryParam("key") String apiToken,  @Context HttpHeaders headers){
+        
+        DataFile df = dataFileService.find(fileId);
+        if (df == null) {
+           return errorResponse(Response.Status.NOT_FOUND, "DataFile not found for id: " + fileId);
+        }
+        
+        // (1) check for token in query param
+        if (apiToken == null || apiToken.equals("")) {
+
+            // (2) check for token in HttpHeaders
+            apiToken = headers.getHeaderString(API_KEY_HEADER);
+            
+            if (apiToken == null || apiToken.equals("")) {
+                return errorResponse(Response.Status.FORBIDDEN, "You must have a valid API key");
+
+            }
+        }
+        
+        // NEED TO CHECK PERMISSIONS OR RESTRICT TO SUPERUSER FOR NOW
+        // This will throw a WebApplicationException, with the correct 
+        // exit code, if access isn't authorized: 
+        //checkAuthorization(df, apiToken);
+        
+        
+        AuthenticatedUser authUser = authSvc.lookupUser(apiToken);
+        if (authUser == null){
+            return errorResponse(Response.Status.FORBIDDEN, "You must have a valid API key");
+        }        
+        
+        SimpleIngestMessage sim = ingestService.startIngestSingleFile(df, authUser);
+        
+        if (sim.wasErrorFound()){
+           // We don't want FORBIDDEN, want a 500 or something...or status set within
+           // SimpleIngestMessage object
+           //
+           return errorResponse(Response.Status.FORBIDDEN, sim.getErrorMessage());
+        }
+        
+        return okResponse("File ingest started for: " + df.getFileMetadata().getLabel());
+
+    } // end startFileIngest
+    /*
+
+ curl http://localhost:8080/api/access/datafile/ingest/3?key=ad4db0df-2fea-4bea-b4fa-e75462371d69
+    localhost:8080/api/access/datafile/ingest/92?key=ad4db0df-2fea-4bea-b4fa-e75462371d69
+    */
     
     @Path("datafile/{fileId}")
     @GET
