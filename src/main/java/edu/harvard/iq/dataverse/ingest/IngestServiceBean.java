@@ -1098,6 +1098,28 @@ public class IngestServiceBean {
         return ingestSizeLimit;
     }
     
+    
+    
+    public SimpleIngestMessage startIngestSingleFile(Long datafileId, AuthenticatedUser user){
+        // ----------------------------
+        // Check for nulls
+        // ----------------------------
+        if (datafileId==null){
+            throw new NullPointerException("datafileId cannot be null");
+        }
+        if (user == null){
+            throw new NullPointerException("user cannot be null");           
+        }
+
+        DataFile dataFile = fileService.find(datafileId);
+        if (dataFile==null){
+            return SimpleIngestMessage.getInfoFail("No file was found for DataFile id: " + datafileId);            
+        }
+
+        return this.startIngestSingleFile(dataFile, user);
+        
+    }
+    
     /**
      * Start Ingest of a single file that has NOT been previously ingested
      * 
