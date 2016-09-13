@@ -1074,6 +1074,104 @@ public class IngestServiceBean {
         return filesTempDirectory;
     }
     
+    
+  
+    /**
+     * Based on the systemConfig, return the ingest size limit for this file type
+     * 
+     * @param dataFile
+     * @return long
+     */
+    private long getIngestSizeLimit(DataFile dataFile){
+        
+        if (dataFile == null){
+            throw new NullPointerException("dataFile should not be null!");
+        }
+        
+        long ingestSizeLimit = -1; 
+        try {
+            ingestSizeLimit = systemConfig.getTabularIngestSizeLimit(getTabDataReaderByMimeType(dataFile.getContentType()).getFormatName());
+        } catch (IOException ioex) {
+            logger.warning("IO Exception trying to retrieve the ingestable format identifier from the plugin for type "+dataFile.getContentType()+" (non-fatal);");
+        }
+        
+        return ingestSizeLimit;
+    }
+    
+    /**
+     * Start Ingest of a single file that has NOT been previously ingested
+     * 
+     * @param dataFile
+     * @param user
+     * @return 
+     */
+    public SimpleIngestMessage startIngestSingleFile(DataFile dataFile, AuthenticatedUser user){
+       
+        // ----------------------------
+        // Check for nulls
+        // ----------------------------
+        if (dataFile==null){
+            throw new NullPointerException("dataFile cannot be null");
+        }
+        if (user == null){
+            throw new NullPointerException("user cannot be null");           
+        }
+        
+        // ----------------------------
+        // Check if the user is a super user
+        // ----------------------------
+        if (!(user.isSuperuser())){
+            return SimpleIngestMessage.getInfoFail("Permission denied. Currently this call is restricted to superusers.");
+        }
+        
+        // ----------------------------
+        // Check for an existing DataTable
+        // ----------------------------
+        if (dataFile.getDataTable() != null){
+            return SimpleIngestMessage.getInfoFail("This file has already been ingested. (A data table exists for this file).");
+        }
+   
+        // ----------------------------
+        // Set the appropriate status on the file
+        // ----------------------------
+        dataFile.SetIngestScheduled();
+        dataFile = fileService.save(dataFile);
+     
+        // ----------------------------
+        // Check size limit
+        // ----------------------------
+        long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
+
+        if (ingestSizeLimit != -1 || dataFile.getFilesize() >= ingestSizeLimit) {
+            dataFile.setIngestDone();
+            dataFile = fileService.save(dataFile);
+                    
+            String errMsg = "Skipping tabular ingest of the file " + dataFile.getFileMetadata().getLabel() + "(file id: " + dataFile.getId() + "), because of the size limit (set to "+ ingestSizeLimit +" bytes).";
+            logger.info(errMsg);
+            return SimpleIngestMessage.getInfoFail(errMsg);
+        }
+           
+        // ----------------------------
+        // Prepare for ingest!
+        // ----------------------------
+        
+        // Update status
+        dataFile.SetIngestInProgress();               
+        dataFile = fileService.save(dataFile);            
+        logger.fine("Attempting to queue the file " + dataFile.getFileMetadata().getLabel() + " for ingest, file id: " + dataFile.getId());
+                
+        // Make an IngestMessage object
+        IngestMessage ingestMessage = new IngestMessage(IngestMessage.INGEST_MESAGE_LEVEL_INFO);
+        ingestMessage.addFileId(dataFile.getId());
+        
+        // Actually send the file to the ingest queue
+        sendIngestMessageToQueue(ingestMessage);
+        
+        return SimpleIngestMessage.getInfoSuccess();
+    }
+    
+    
+    
     // TODO: consider creating a version of this method that would take 
     // datasetversion as the argument. 
     // -- L.A. 4.0 post-beta. 
@@ -1090,12 +1188,8 @@ public class IngestServiceBean {
                 // (switching to refinding via id resolves that)                
                 dataFile = fileService.find(dataFile.getId());
                 
-                long ingestSizeLimit = -1; 
-                try {
-                    ingestSizeLimit = systemConfig.getTabularIngestSizeLimit(getTabDataReaderByMimeType(dataFile.getContentType()).getFormatName());
-                } catch (IOException ioex) {
-                    logger.warning("IO Exception trying to retrieve the ingestable format identifier from the plugin for type "+dataFile.getContentType()+" (non-fatal);");
-                }
+                long ingestSizeLimit = this.getIngestSizeLimit(dataFile);
+                
                 
                 if (ingestSizeLimit == -1 || dataFile.getFilesize() < ingestSizeLimit) {
                     dataFile.SetIngestInProgress();               
@@ -1145,6 +1239,9 @@ public class IngestServiceBean {
                 logger.fine("Sorted order: "+i+" (size="+scheduledFilesArray[i].getFilesize()+")");
             }
             
+            this.sendIngestMessageToQueue(ingestMessage);
+        }
+            /*
             QueueConnection conn = null;
             QueueSession session = null;
             QueueSender sender = null;
@@ -1181,8 +1278,59 @@ public class IngestServiceBean {
                     ex.printStackTrace();
                 }
             }
-        }
+        }*/
     }
+    
+
+    /**
+     * Shared ingest method for single files and datasets
+     * 
+     * @param ingestMessage 
+     */
+    private void sendIngestMessageToQueue(IngestMessage ingestMessage){
+        
+        if (ingestMessage == null){
+            throw new NullPointerException("ingestMessage should not be null");            
+        }
+        
+      
+        QueueConnection conn = null;
+        QueueSession session = null;
+        QueueSender sender = null;
+        try {
+            conn = factory.createQueueConnection();
+            session = conn.createQueueSession(false, 0);
+            sender = session.createSender(queue);
+
+            //ingestMessage.addFile(new File(tempFileLocation));
+            Message message = session.createObjectMessage(ingestMessage);
+
+            //try {
+                sender.send(message);
+            //} catch (JMSException ex) {
+            //    ex.printStackTrace();
+            //}
+
+        } catch (JMSException ex) {
+            ex.printStackTrace();
+            //throw new IOException(ex.getMessage());
+        } finally {
+            try {
+
+                if (sender != null) {
+                    sender.close();
+                }
+                if (session != null) {
+                    session.close();
+                }
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (JMSException ex) {
+                ex.printStackTrace();
+            }
+        }
+    } // end: sendIngestMessageToQueue
     
     public void produceSummaryStatistics(DataFile dataFile) throws IOException {
         /*
