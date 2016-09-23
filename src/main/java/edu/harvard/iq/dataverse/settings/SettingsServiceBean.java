@@ -33,6 +33,7 @@ public class SettingsServiceBean {
      * So there.
      */
     public enum Key {
+        MinutesUntilConfirmEmailTokenExpires,
         /**
          * For example, https://datacapture.example.org
          */

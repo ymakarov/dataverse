@@ -23,6 +23,7 @@ import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.authorization.users.GuestUser;
 import edu.harvard.iq.dataverse.authorization.users.PrivateUrlUser;
 import edu.harvard.iq.dataverse.authorization.users.User;
+import edu.harvard.iq.dataverse.confirmemail.ConfirmEmailServiceBean;
 import edu.harvard.iq.dataverse.engine.command.Command;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
@@ -175,6 +176,9 @@ public abstract class AbstractApiBean {
 
     @EJB
     protected PrivateUrlServiceBean privateUrlSvc;
+
+    @EJB
+    protected ConfirmEmailServiceBean confirmEmailSvc;
 
     @EJB
     protected UserNotificationServiceBean userNotificationSvc;
