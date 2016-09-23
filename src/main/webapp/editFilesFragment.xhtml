@@ -1,15 +1,15 @@
 <ui:composition
-    xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:h="http://java.sun.com/jsf/html"
-    xmlns:f="http://java.sun.com/jsf/core"
-    xmlns:ui="http://java.sun.com/jsf/facelets"
-    xmlns:p="http://primefaces.org/ui"
-    xmlns:c="http://xmlns.jcp.org/jsp/jstl/core"
-    xmlns:jsf="http://xmlns.jcp.org/jsf"
-    xmlns:pt="http://java.sun.com/jsf/passthrough"
-    xmlns:cc="http://java.sun.com/jsf/composite"
-    xmlns:o="http://omnifaces.org/ui"
-    xmlns:iqbs="http://xmlns.jcp.org/jsf/composite/iqbs">
+        xmlns="http://www.w3.org/1999/xhtml"
+        xmlns:h="http://java.sun.com/jsf/html"
+        xmlns:f="http://java.sun.com/jsf/core"
+        xmlns:ui="http://java.sun.com/jsf/facelets"
+        xmlns:p="http://primefaces.org/ui"
+        xmlns:c="http://xmlns.jcp.org/jsp/jstl/core"
+        xmlns:jsf="http://xmlns.jcp.org/jsf"
+        xmlns:pt="http://java.sun.com/jsf/passthrough"
+        xmlns:cc="http://java.sun.com/jsf/composite"
+        xmlns:o="http://omnifaces.org/ui"
+        xmlns:iqbs="http://xmlns.jcp.org/jsf/composite/iqbs">
 
     <!-- Static Tab Layout -->
     <div data-widget="content" class="ui-tabs ui-widget ui-widget-content ui-corner-all ui-hidden-container ui-tabs-top" id="datasetForm:tabView">
@@ -20,206 +20,320 @@
         </ul>
         <div class="ui-tabs-panels">
             <div aria-hidden="false" role="tabpanel" class="ui-tabs-panel ui-widget-content ui-corner-bottom" id="datasetForm:tabView:dataFilesTab">
-                <!-- Upload -->
-                <ui:fragment rendered="#{datasetPage || EditDatafilesPage.showFileUploadFileComponent()}">
-                    <script>
-                        function uploadWidgetDropMsg() {
-                            var fileUpload = $('div[id$="fileUpload"] div.ui-fileupload-content');
-                            if ($(fileUpload).children('#dragdropMsg').length) {
-                                // do nothing
-                            } else {
-                                $(fileUpload).prepend('<div id="dragdropMsg">#{bundle['file.fromDropbox.description']}</div>');
-                            }
-                        }
-                        function uploadWidgetDropRemoveMsg() {
-                            $('div[id$="fileUpload"] div.ui-fileupload-content div.dropMsg').remove();
-                        }
-                        $(document).ready(function () {
-                            uploadWidgetDropMsg();
-                        });
-                    </script>
-                    <p class="help-block">
-                        <span class="glyphicon glyphicon-info-sign"/>
-                        <ui:fragment rendered="#{systemConfig.maxFileUploadSize !=null and !empty systemConfig.maxFileUploadSize}">
-                        <h:outputFormat value=" #{bundle['file.selectToAdd.tipLimit']}" escape="false">
-                            <f:param value="#{systemConfig.maxFileUploadSize}"/>
-                        </h:outputFormat>                      
-                        </ui:fragment>  
-                        <ui:fragment rendered="true">
-                        <h:outputFormat value=" #{bundle['file.selectToAdd.tipMoreInformation']}" escape="false">
-                            <f:param value="#{systemConfig.guidesBaseUrl}"/>
-                            <f:param value="#{systemConfig.version}"/>
-                        </h:outputFormat>                      
-                        </ui:fragment> 
-                    </p>
-                    <p:fileUpload id="fileUpload" styleClass="margin-bottom" dragDropSupport="true" auto="true" multiple="true" rendered="#{datasetPage || EditDatafilesPage.showFileUploadFileComponent()}"
-                                  fileUploadListener="#{EditDatafilesPage.handleFileUpload}" process="filesTable" update="filesTable,uploadMessage" label="#{bundle['file.selectToAddBtn']}"
-                                  oncomplete="javascript:dataset_fileupload_rebind();uploadWidgetDropMsg();" onstart="javascript:uploadWidgetDropRemoveMsg();"
-                                  sizeLimit="#{EditDatafilesPage.getMaxFileUploadSizeInBytes()}" invalidSizeMessage="File exceeds our limits. Please contact support. " />
-                    <!-- Dropbox Upload -->
-                    <div id="dropboxUploadBlock" class="panel panel-default margin-bottom" jsf:rendered="#{!empty EditDatafilesPage.dropBoxKey}">
-                        <div class="panel-body">
-                            <h:inputText id="dropBoxSelectionInput" style="display:none" value="#{EditDatafilesPage.dropBoxSelection}"/>
-                            <p:commandButton  id="dropBoxButton" actionListener="#{EditDatafilesPage.handleDropBoxUpload}" update="filesTable,dropBoxUploadMessage" style="display:none;" />
-                            <p:commandButton value="#{bundle['file.fromDropbox']}" onclick="openDropboxChooser();" icon="dropin-btn-status" />
-                            <p class="help-block">#{bundle['file.fromDropbox.tip']}</p>
-                        </div>
-                        <p:message for="dropBoxButton" id="dropBoxUploadMessage" display="text" />
+
+                <!-- Standard Browser Upload -->
+                <div id="standardUploadBlock"
+                     class="panel panel-default margin-bottom"
+                     style="width: 90%; margin: 20px auto;"
+                     jsf:rendered='#{EditDatafilesPage.dataset.getDataverseContext().getFileUploadMechanisms() == null or EditDatafilesPage.dataset.getDataverseContext().getFileUploadMechanisms().toUpperCase().contains("STANDARD")}'>
+                    <div class="panel-body">
+                        <p style="font-size: 1.3em; color: #808080; padding: 20px; text-align: center">
+                            #{bundle['file.fromStandard.heading']}
+                        </p>
+                        <img src="/resources/images/#{bundle['file.fromStandard.icon']}"
+                             alt="#{bundle['file.fromStandard.heading']}"
+                             style="width:200px; display: block; margin-left: auto; margin-right: auto;"/>
+                        <p style="text-align: center">#{bundle['file.fromStandard.tip']}</p>
+                        <p:commandButton
+                                id="standardContinue"
+                                value="#{bundle['file.fromStandard.continue']}"
+                                style="display: block; margin: 0 auto;"
+                                onclick="document.getElementById('datasetForm:standardCancel').style.display = 'block'; document.getElementById('fileUploadDiv').style.display = 'block'; this.style.display = 'none'; document.getElementById('rsyncUploadBlock').style.display = 'none'; document.getElementById('dropboxUploadBlock').style.display = 'none';"/>
                     </div>
-                    <p:message for="fileUpload" id="uploadMessage" display="text" />
-                </ui:fragment>
+                    <div id="fileUploadDiv" style="display: none; width: 90%; margin: 0 auto;">
+                        <!-- Upload -->
+                        <ui:fragment rendered="#{datasetPage || EditDatafilesPage.showFileUploadFileComponent()}">
+                            <script>
+                                function uploadWidgetDropMsg() {
+                                    var fileUpload = $('div[id$="fileUpload"] div.ui-fileupload-content');
+                                    if ($(fileUpload).children('#dragdropMsg').length) {
+                                        // do nothing
+                                    } else {
+                                        $(fileUpload).prepend('<div id="dragdropMsg">#{bundle['file.fromDropbox.description']}</div>');
+                                    }
+                                }
+                                function uploadWidgetDropRemoveMsg() {
+                                    $('div[id$="fileUpload"] div.ui-fileupload-content div.dropMsg').remove();
+                                }
+                                $(document).ready(function () {
+                                    uploadWidgetDropMsg();
+                                });
+                            </script>
+                            <!--<p class="help-block">-->
+                            <!--<span class="glyphicon glyphicon-info-sign"/>-->
+                            <!--<h:outputFormat value=" #{bundle['file.selectToAdd.tip']}" escape="false">-->
+                            <!--<f:param value="#{systemConfig.guidesBaseUrl}"/>-->
+                            <!--<f:param value="#{systemConfig.version}"/>-->
+                            <!--</h:outputFormat>-->
+                            <!--</p>-->
 
-                <!-- Files Table -->
-                <!-- _{dataverseSession.user.authenticated and ( ? permissionsWrapper.canIssueUpdateDatasetCommand(DatasetPage.dataset) : permissionsWrapper.canIssueUpdateDatasetCommand(EditDatafilesPage.dataset))}" -->
+                            <p:fileUpload id="fileUpload"
+                                          styleClass="margin-bottom"
+                                          dragDropSupport="true"
+                                          auto="true"
+                                          multiple="true"
+                                          rendered="#{datasetPage || EditDatafilesPage.showFileUploadFileComponent()}"
+                                          fileUploadListener="#{EditDatafilesPage.handleFileUpload}"
+                                          process="filesTable"
+                                          update="filesTable,uploadMessage" label="#{bundle['file.selectToAddBtn']}"
+                                          oncomplete="javascript:dataset_fileupload_rebind();uploadWidgetDropMsg();"
+                                          onstart="javascript:uploadWidgetDropRemoveMsg();"
+                                          sizeLimit="#{EditDatafilesPage.getMaxFileUploadSizeInBytes()}"
+                                          invalidSizeMessage="File exceeds our limits. Please contact support. " />
+                        </ui:fragment>
 
-                <p:dataTable id="filesTable" value="#{datasetPage ? DatasetPage.workingVersion.fileMetadatas : EditDatafilesPage.fileMetadatas}"
-                             rendered="#{datasetPage or (dataverseSession.user.authenticated and permissionsWrapper.canIssueUpdateDatasetCommand(EditDatafilesPage.dataset))}"
-                             rowIndexVar="rowNum" rowKey="#{fileMetadata.dataFile.storageIdentifier}"
-                             selection="#{EditDatafilesPage.selectedFiles}" var="fileMetadata" widgetVar="filesTable"
-                             emptyMessage="#{datasetPage || EditDatafilesPage.showFileUploadFileComponent() ? bundle['file.noUploadedFiles.tip'] : bundle['file.noSelectedFiles.tip']}">
-                    <f:facet name="header">
-                        <div jsf:id="filesHeaderBlock" class="row">
-                            <h:inputHidden id="showAccessPopup" value="#{EditDatafilesPage.showAccessPopup}"/>
-                            <div id="filesHeaderCount" class="col-xs-6 text-left">
-                                <!-- Files Count -->
-                                <h:outputFormat value="#{datasetPage ? bundle['file.count'] : bundle['file.count.selected']}" styleClass="highlightBold" rendered="#{!empty EditDatafilesPage.fileMetadatas}">
-                                    <f:param value="#{EditDatafilesPage.fileMetadatas.size()}"/>
-                                </h:outputFormat>
-                            </div>
-                            <div class="col-xs-6">
-                                <!-- Button Panels -->
-                                <div jsf:id="editFilesRestrictDeletePanel" class="button-block pull-right text-right"
-                                     jsf:rendered="#{!empty EditDatafilesPage.fileMetadatas}">
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
-                                            <span class="glyphicon glyphicon-lock"/> #{bundle['file.restrict']} <span class="caret"></span>
-                                        </button>
-                                        <ul class="dropdown-menu multi-level pull-right text-left" role="menu">
-                                            <li>
-                                                <p:commandLink update="filesTable,:messagePanel" oncomplete="toggle_dropdown();" actionListener="#{EditDatafilesPage.restrictFiles(true)}">
-                                                    <h:outputText value="#{bundle['file.restrict']}"/>
-                                                </p:commandLink>
-                                            </li>
-                                            <li>
-                                                <p:commandLink update="filesTable,:messagePanel" oncomplete="toggle_dropdown();" actionListener="#{EditDatafilesPage.restrictFiles(false)}">
-                                                    <h:outputText value="#{bundle['file.unrestrict']}"/>
-                                                </p:commandLink>
-                                            </li>
-                                        </ul>
+                        <!-- Files Table -->
+                        <!-- _{dataverseSession.user.authenticated and ( ? permissionsWrapper.canIssueUpdateDatasetCommand(DatasetPage.dataset) : permissionsWrapper.canIssueUpdateDatasetCommand(EditDatafilesPage.dataset))}" -->
+
+                        <p:dataTable id="filesTable" value="#{datasetPage ? DatasetPage.workingVersion.fileMetadatas : EditDatafilesPage.fileMetadatas}"
+                                     rendered="#{datasetPage or (dataverseSession.user.authenticated and permissionsWrapper.canIssueUpdateDatasetCommand(EditDatafilesPage.dataset))}"
+                                     rowIndexVar="rowNum" rowKey="#{fileMetadata.dataFile.storageIdentifier}"
+                                     selection="#{EditDatafilesPage.selectedFiles}" var="fileMetadata" widgetVar="filesTable"
+                                     emptyMessage="#{datasetPage || EditDatafilesPage.showFileUploadFileComponent() ? bundle['file.noUploadedFiles.tip'] : bundle['file.noSelectedFiles.tip']}">
+                            <f:facet name="header">
+                                <div jsf:id="filesHeaderBlock" class="row">
+                                    <h:inputHidden id="showAccessPopup" value="#{EditDatafilesPage.showAccessPopup}"/>
+                                    <div id="filesHeaderCount" class="col-xs-6 text-left">
+                                        <!-- Files Count -->
+                                        <h:outputFormat value="#{datasetPage ? bundle['file.count'] : bundle['file.count.selected']}" styleClass="highlightBold" rendered="#{!empty EditDatafilesPage.fileMetadatas}">
+                                            <f:param value="#{EditDatafilesPage.fileMetadatas.size()}"/>
+                                        </h:outputFormat>
                                     </div>
-                                    <p:commandLink type="button" styleClass="btn btn-default" title="#{bundle['file.delete']}" onclick="checkFilesSelected();">
-                                        <span class="glyphicon glyphicon-remove"/> #{bundle['file.delete']}
-                                    </p:commandLink>
+                                    <div class="col-xs-6">
+                                        <!-- Button Panels -->
+                                        <div jsf:id="editFilesRestrictDeletePanel" class="button-block pull-right text-right"
+                                             jsf:rendered="#{!empty EditDatafilesPage.fileMetadatas}">
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">
+                                                    <span class="glyphicon glyphicon-lock"/> #{bundle['file.restrict']} <span class="caret"></span>
+                                                </button>
+                                                <ul class="dropdown-menu multi-level pull-right text-left" role="menu">
+                                                    <li>
+                                                        <p:commandLink update="filesTable,:messagePanel" oncomplete="toggle_dropdown();" actionListener="#{EditDatafilesPage.restrictFiles(true)}">
+                                                            <h:outputText value="#{bundle['file.restrict']}"/>
+                                                        </p:commandLink>
+                                                    </li>
+                                                    <li>
+                                                        <p:commandLink update="filesTable,:messagePanel" oncomplete="toggle_dropdown();" actionListener="#{EditDatafilesPage.restrictFiles(false)}">
+                                                            <h:outputText value="#{bundle['file.unrestrict']}"/>
+                                                        </p:commandLink>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <p:commandLink type="button" styleClass="btn btn-default" title="#{bundle['file.delete']}" onclick="checkFilesSelected();">
+                                                <span class="glyphicon glyphicon-remove"/> #{bundle['file.delete']}
+                                            </p:commandLink>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    </f:facet>
-                    <!-- TODO: do we still need the selection at all?? or is it all going to be handled on the "view" page?? -->
-                    <p:column selectionMode="multiple" class="col-select-width text-center" style="width:40px !important;"/>
-                    <p:column class="col-file-thumb text-center" style="width:73px !important;padding:4px 10px;">
-                        <div class="thumbnail-block">
-                            <!-- Thumbnail Preview -->
+                            </f:facet>
+                            <!-- TODO: do we still need the selection at all?? or is it all going to be handled on the "view" page?? -->
+                            <p:column selectionMode="multiple" class="col-select-width text-center" style="width:40px !important;"/>
+                            <p:column class="col-file-thumb text-center" style="width:73px !important;padding:4px 10px;">
+                                <div class="thumbnail-block">
+                                    <!-- Thumbnail Preview -->
                             <span class="file-thumbnail-preview-img" jsf:rendered="#{!empty fileMetadata.dataFile.id and dataFileServiceBean.isThumbnailAvailable(fileMetadata.dataFile)}"
                                   data-container="body" data-toggle="popover" data-placement="top" data-trigger="hover" data-html="true" data-content="&lt;img src=&#34;/api/access/datafile/#{fileMetadata.dataFile.id}?imageThumb=400&#34; alt=&#34; #{bundle['file.preview']} #{fileMetadata.label}&#34; /&gt;">
                                 <p:graphicImage value="/api/access/datafile/#{fileMetadata.dataFile.id}?imageThumb=true"/>
                             </span>
-                            <!-- Default Icon -->
-                            <span class="icon-#{dataFileServiceBean.getFileClass(fileMetadata.dataFile)} file-thumbnail-icon text-muted" jsf:rendered="#{(!empty fileMetadata.dataFile.id and !dataFileServiceBean.isThumbnailAvailable(fileMetadata.dataFile)) or (empty fileMetadata.dataFile.id and !dataFileServiceBean.isTemporaryPreviewAvailable(fileMetadata.dataFile.storageIdentifier, fileMetadata.dataFile.contentType))}"/>
-                            <ui:fragment rendered="#{empty fileMetadata.dataFile.id and !empty fileMetadata.dataFile.storageIdentifier and dataFileServiceBean.isTemporaryPreviewAvailable(fileMetadata.dataFile.storageIdentifier, fileMetadata.dataFile.contentType)}">
-                                <p:graphicImage value="/api/access/tempPreview/#{fileMetadata.dataFile.storageIdentifier}?mimetype=#{fileMetadata.dataFile.contentType}"/>
-                                <h:outputText id="imgPreview" value="Preview" styleClass="bg-info text-info text-center show"/>
-                            </ui:fragment>
-                            <!-- Restricted File Icon -->
-                            <div class="file-icon-restricted-block" jsf:rendered="#{fileMetadata.restricted}">
-                                <span class="icon-unlock text-success"/>
-                            </div>
-                            <!-- Dataset Thumbnail -->
+                                    <!-- Default Icon -->
+                                    <span class="icon-#{dataFileServiceBean.getFileClass(fileMetadata.dataFile)} file-thumbnail-icon text-muted" jsf:rendered="#{(!empty fileMetadata.dataFile.id and !dataFileServiceBean.isThumbnailAvailable(fileMetadata.dataFile)) or (empty fileMetadata.dataFile.id and !dataFileServiceBean.isTemporaryPreviewAvailable(fileMetadata.dataFile.storageIdentifier, fileMetadata.dataFile.contentType))}"/>
+                                    <ui:fragment rendered="#{empty fileMetadata.dataFile.id and !empty fileMetadata.dataFile.storageIdentifier and dataFileServiceBean.isTemporaryPreviewAvailable(fileMetadata.dataFile.storageIdentifier, fileMetadata.dataFile.contentType)}">
+                                        <p:graphicImage value="/api/access/tempPreview/#{fileMetadata.dataFile.storageIdentifier}?mimetype=#{fileMetadata.dataFile.contentType}"/>
+                                        <h:outputText id="imgPreview" value="Preview" styleClass="bg-info text-info text-center show"/>
+                                    </ui:fragment>
+                                    <!-- Restricted File Icon -->
+                                    <div class="file-icon-restricted-block" jsf:rendered="#{fileMetadata.restricted}">
+                                        <span class="icon-unlock text-success"/>
+                                    </div>
+                                    <!-- Dataset Thumbnail -->
                             <span id="datasetThumbnail" class="bg-info text-info text-center small show"
                                   jsf:rendered="#{EditDatafilesPage.isDesignatedDatasetThumbnail(fileMetadata)}"
                                   data-toggle="tooltip" data-placement="bottom" title="#{bundle['file.selectedThumbnail.tip']}">
                                 #{bundle['file.selectedThumbnail']}
                             </span>
-                        </div>
-                    </p:column>
-                    <p:column class="col-file-metadata">
-                        <ui:fragment>
-                            <label class="control-label" for="fileName" style="margin-right:1em;margin-bottom:.5em;">
-                                #{bundle['file.fileName']}
-                            </label>
-                            <p:inputText id="fileName" value="#{fileMetadata.label}" style="width:60%; margin-bottom:.5em;"/>
-                            <p:message for="fileName"/>
-                        </ui:fragment>
-                        <!-- TYPE + SIZE + DATE + MD5 -->
-                        <div class="text-muted small">
-                            <h:outputText id="fileTypeOutputRegular" value="#{fileMetadata.dataFile.friendlyType}" rendered="#{!(fileMetadata.dataFile.tabularData)}"/>
-                            <h:outputText id="fileTypeOutputTabular" value="#{bundle['file.type.tabularData']}" rendered="#{fileMetadata.dataFile.tabularData}"/>
-                            <h:outputText id="fileCreatePublishDate" value=" - #{EditDatafilesPage.getFileDateToDisplay(fileMetadata)}" rendered="#{!(empty fileMetadata.id)}"/>
-                            <div class="mD5-block">
-                                <h:outputText id="fileMD5" value="#{fileMetadata.dataFile.tabularData ? bundle['file.MD5.origal'] : bundle['file.MD5']}: #{fileMetadata.dataFile.md5};" rendered="#{!(empty fileMetadata.dataFile.md5) and (!EditDatafilesPage.isDuplicate(fileMetadata))}"/>
-                                <h:outputText id="duplicateFileMD5" styleClass="text-danger" value="#{fileMetadata.dataFile.tabularData ? bundle['file.MD5.origal']: bundle['file.MD5']}: #{fileMetadata.dataFile.md5}" rendered="#{!(empty fileMetadata.dataFile.md5) and EditDatafilesPage.isDuplicate(fileMetadata)}"/>
-                                <ui:fragment rendered="#{EditDatafilesPage.isDuplicate(fileMetadata) and (empty fileMetadata.id)}">
-                                    <div style="display:inline-block;" class="ui-message ui-message-error ui-widget ui-corner-all fileDuplicateWarning"><span class="ui-message-error-detail">#{bundle['file.MD5.exists.tip']}</span></div>
+                                </div>
+                            </p:column>
+                            <p:column class="col-file-metadata">
+                                <ui:fragment>
+                                    <label class="control-label" for="fileName" style="margin-right:1em;margin-bottom:.5em;">
+                                        #{bundle['file.fileName']}
+                                    </label>
+                                    <p:inputText id="fileName" value="#{fileMetadata.label}" style="width:60%; margin-bottom:.5em;"/>
+                                    <p:message for="fileName"/>
                                 </ui:fragment>
-                            </div>
-                        </div>
-                        <!-- UNF + Variables, Obsersvations -->
-                        <div class="text-muted small" jsf:rendered="#{fileMetadata.dataFile.tabularData}">
-                            <h:outputText id="fileNumVars" value="#{fileMetadata.dataFile.dataTable.varQuantity} #{bundle['file.metaData.dataFile.dataTab.variables']}, " rendered="#{fileMetadata.dataFile.tabularData}"/>
-                            <h:outputText id="fileNumObs" value="#{fileMetadata.dataFile.dataTable.caseQuantity} #{bundle['file.metaData.dataFile.dataTab.observations']} #{!empty fileMetadata.dataFile.unf ? ' - ' : ''}" rendered="#{fileMetadata.dataFile.tabularData}"/>
-                            <h:outputText id="fileUNF" value="#{fileMetadata.dataFile.unf}" rendered="#{!empty fileMetadata.dataFile.unf}"/>
-                        </div>
-                        <div class="fileDescription">
-                            <ui:fragment>
-                                <label class="control-label" for="fileDescription" style="margin-right:1em; margin-top:.5em; vertical-align:top;">
-                                    #{bundle.description}
-                                </label>
-                                <p:inputTextarea id="fileDescription" immediate="true" rows="2" cols="40" value="#{fileMetadata.description}" style="width:60%; margin-top:.5em;"/>
-                                <p:watermark for="fileDescription" value="#{bundle['file.addDescription']}"/>
-                                <p:message for="fileDescription"/>
-                            </ui:fragment>
-                        </div>
-                        <div class="file-tags-block margin-top-half">
-                            <ui:fragment rendered="#{!(empty fileMetadata.categories)}">
-                                <ui:repeat value="#{fileMetadata.categories}" var="cat">
-                                    <h:outputText value="#{cat.name}" styleClass="label label-default"/>
-                                </ui:repeat>
-                            </ui:fragment>
-                            <ui:fragment rendered="#{!(empty fileMetadata.dataFile.tags)}">
-                                <ui:repeat value="#{fileMetadata.dataFile.tags}" var="tag">
-                                    <h:outputText value="#{tag.typeLabel}" styleClass="label label-info"/>
-                                </ui:repeat>
-                            </ui:fragment>
-                        </div>
-                    </p:column>
-                    <p:column class="col-file-action text-right">
-                        <div class="button-block">
-                            <p:commandLink id="fileCategoriesButton"
-                                           type="button" styleClass="btn btn-default btn-sm"
-                                           actionListener="#{EditDatafilesPage.refreshTagsPopUp(fileMetadata)}"
-                                           update=":datasetForm:editFileTagsPopup"
-                                           oncomplete="PF('editFileTagsPopup').show();bind_bsui_components();">
-                                <span class="glyphicon glyphicon-tag"/> #{bundle['file.editTags']}
-                            </p:commandLink>
-                            <p:commandLink id="fileSetThumbnailBtn"
-                                           rendered="#{!empty fileMetadata.dataFile.id and fileMetadata.dataFile.image}"
-                                           type="button" styleClass="btn btn-default"
-                                           actionListener="#{EditDatafilesPage.setFileMetadataSelectedForThumbnailPopup(fileMetadata)}"
-                                           update=":datasetForm:fileSetThumbnail"
-                                           oncomplete="PF('fileSetThumbnail').show()">
-                                <span class="glyphicon glyphicon-file"/> #{bundle['file.setThumbnail']}
-                            </p:commandLink>
-                            <p:commandLink id="advancedIngestOptionsButton"
-                                           rendered="#{((empty fileMetadata.dataFile.id) and dataFileServiceBean.isSpssPorFile(fileMetadata.dataFile))
+                                <!-- TYPE + SIZE + DATE + MD5 -->
+                                <div class="text-muted small">
+                                    <h:outputText id="fileTypeOutputRegular" value="#{fileMetadata.dataFile.friendlyType}" rendered="#{!(fileMetadata.dataFile.tabularData)}"/>
+                                    <h:outputText id="fileTypeOutputTabular" value="#{bundle['file.type.tabularData']}" rendered="#{fileMetadata.dataFile.tabularData}"/>
+                                    <h:outputText id="fileCreatePublishDate" value=" - #{EditDatafilesPage.getFileDateToDisplay(fileMetadata)}" rendered="#{!(empty fileMetadata.id)}"/>
+                                    <div class="mD5-block">
+                                        <h:outputText id="fileMD5" value="#{fileMetadata.dataFile.tabularData ? bundle['file.MD5.origal'] : bundle['file.MD5']}: #{fileMetadata.dataFile.md5};" rendered="#{!(empty fileMetadata.dataFile.md5) and (!EditDatafilesPage.isDuplicate(fileMetadata))}"/>
+                                        <h:outputText id="duplicateFileMD5" styleClass="text-danger" value="#{fileMetadata.dataFile.tabularData ? bundle['file.MD5.origal']: bundle['file.MD5']}: #{fileMetadata.dataFile.md5}" rendered="#{!(empty fileMetadata.dataFile.md5) and EditDatafilesPage.isDuplicate(fileMetadata)}"/>
+                                        <ui:fragment rendered="#{EditDatafilesPage.isDuplicate(fileMetadata) and (empty fileMetadata.id)}">
+                                            <div style="display:inline-block;" class="ui-message ui-message-error ui-widget ui-corner-all fileDuplicateWarning"><span class="ui-message-error-detail">#{bundle['file.MD5.exists.tip']}</span></div>
+                                        </ui:fragment>
+                                    </div>
+                                </div>
+                                <!-- UNF + Variables, Obsersvations -->
+                                <div class="text-muted small" jsf:rendered="#{fileMetadata.dataFile.tabularData}">
+                                    <h:outputText id="fileNumVars" value="#{fileMetadata.dataFile.dataTable.varQuantity} #{bundle['file.metaData.dataFile.dataTab.variables']}, " rendered="#{fileMetadata.dataFile.tabularData}"/>
+                                    <h:outputText id="fileNumObs" value="#{fileMetadata.dataFile.dataTable.caseQuantity} #{bundle['file.metaData.dataFile.dataTab.observations']} #{!empty fileMetadata.dataFile.unf ? ' - ' : ''}" rendered="#{fileMetadata.dataFile.tabularData}"/>
+                                    <h:outputText id="fileUNF" value="#{fileMetadata.dataFile.unf}" rendered="#{!empty fileMetadata.dataFile.unf}"/>
+                                </div>
+                                <div class="fileDescription">
+                                    <ui:fragment>
+                                        <label class="control-label" for="fileDescription" style="margin-right:1em; margin-top:.5em; vertical-align:top;">
+                                            #{bundle.description}
+                                        </label>
+                                        <p:inputTextarea id="fileDescription" immediate="true" rows="2" cols="40" value="#{fileMetadata.description}" style="width:60%; margin-top:.5em;"/>
+                                        <p:watermark for="fileDescription" value="#{bundle['file.addDescription']}"/>
+                                        <p:message for="fileDescription"/>
+                                    </ui:fragment>
+                                </div>
+                                <div class="file-tags-block margin-top-half">
+                                    <ui:fragment rendered="#{!(empty fileMetadata.categories)}">
+                                        <ui:repeat value="#{fileMetadata.categories}" var="cat">
+                                            <h:outputText value="#{cat.name}" styleClass="label label-default"/>
+                                        </ui:repeat>
+                                    </ui:fragment>
+                                    <ui:fragment rendered="#{!(empty fileMetadata.dataFile.tags)}">
+                                        <ui:repeat value="#{fileMetadata.dataFile.tags}" var="tag">
+                                            <h:outputText value="#{tag.typeLabel}" styleClass="label label-info"/>
+                                        </ui:repeat>
+                                    </ui:fragment>
+                                </div>
+                            </p:column>
+                            <p:column class="col-file-action text-right">
+                                <div class="button-block">
+                                    <p:commandLink id="fileCategoriesButton"
+                                                   type="button" styleClass="btn btn-default btn-sm"
+                                                   actionListener="#{EditDatafilesPage.setFileMetadataSelectedForTagsPopup(fileMetadata)}"
+                                                   update=":datasetForm:editFileTagsPopup"
+                                                   oncomplete="PF('editFileTagsPopup').show();bind_bsui_components();">
+                                        <span class="glyphicon glyphicon-tag"/> #{bundle['file.editTags']}
+                                    </p:commandLink>
+                                    <p:commandLink id="fileSetThumbnailBtn"
+                                                   rendered="#{!empty fileMetadata.dataFile.id and fileMetadata.dataFile.image}"
+                                                   type="button" styleClass="btn btn-default"
+                                                   actionListener="#{EditDatafilesPage.setFileMetadataSelectedForThumbnailPopup(fileMetadata)}"
+                                                   update=":datasetForm:fileSetThumbnail"
+                                                   oncomplete="PF('fileSetThumbnail').show()">
+                                        <span class="glyphicon glyphicon-file"/> #{bundle['file.setThumbnail']}
+                                    </p:commandLink>
+                                    <p:commandLink id="advancedIngestOptionsButton"
+                                                   rendered="#{((empty fileMetadata.dataFile.id) and dataFileServiceBean.isSpssPorFile(fileMetadata.dataFile))
                                                        or ((empty fileMetadata.dataFile.id) and dataFileServiceBean.isSpssSavFile(fileMetadata.dataFile))}"
-                                           type="button" styleClass="btn btn-default"
-                                           actionListener="#{EditDatafilesPage.setFileMetadataSelectedForIngestOptionsPopup(fileMetadata)}"
-                                           update=":datasetForm:fileAdvancedOptions"
-                                           oncomplete="PF('fileAdvancedOptions').show()">
-                                <span class="glyphicon glyphicon-cog"/> #{bundle['file.advancedIngestOptions']}
-                            </p:commandLink>
+                                                   type="button" styleClass="btn btn-default"
+                                                   actionListener="#{EditDatafilesPage.setFileMetadataSelectedForIngestOptionsPopup(fileMetadata)}"
+                                                   update=":datasetForm:fileAdvancedOptions"
+                                                   oncomplete="PF('fileAdvancedOptions').show()">
+                                        <span class="glyphicon glyphicon-cog"/> #{bundle['file.advancedIngestOptions']}
+                                    </p:commandLink>
+                                </div>
+                            </p:column>
+                        </p:dataTable>
+                    </div>
+                    <p:commandButton
+                            id="standardCancel"
+                            value="#{bundle['file.fromStandard.cancel']}"
+                            style="display: none; margin: 0 auto; margin-bottom: 10px;"
+                            onclick="document.getElementById('datasetForm:standardContinue').style.display = 'block'; document.getElementById('fileUploadDiv').style.display = 'none'; this.style.display = 'none'; document.getElementById('rsyncUploadBlock').style.display = 'block'; document.getElementById('dropboxUploadBlock').style.display = 'block';"/>
+                </div>
+                <!-- End Standard Upload -->
+
+                <!-- Rsync Upload -->
+                <div id="rsyncUploadBlock"
+                     class="panel panel-default margin-bottom"
+                     style="width: 90%; margin: 20px auto;"
+                     jsf:rendered='#{EditDatafilesPage.dataset.getDataverseContext().getFileUploadMechanisms().toUpperCase().contains("RSYNC")}'>
+                    <div class="panel-body">
+                        <p style="font-size: 1.3em; color: #808080; padding: 20px; text-align: center">
+                            #{bundle['file.fromRsync.heading']}
+                        </p>
+                        <img src="/resources/images/#{bundle['file.fromRsync.icon']}"
+                             alt="#{bundle['file.fromRsync.heading']}"
+                             style="width:200px; display: block; margin-left: auto; margin-right: auto;"/>
+                        <p style="text-align: center">#{bundle['file.fromRsync.tip']}</p>
+                        <p:commandButton
+                                id="rsyncContinue"
+                                value="#{bundle['file.fromRsync.continue']}"
+                                style="display: block; margin: 0 auto;"
+                                actionListener="#{EditDatafilesPage.dataset.setRsyncScript('requested')}"
+                                onclick="document.getElementById('datasetForm:rsyncCancel').style.display = 'block'; document.getElementById('syncUploadDiv').style.display = 'block'; this.style.display = 'none'; document.getElementById('standardUploadBlock').style.display = 'none'; document.getElementById('dropboxUploadBlock').style.display = 'none';"
+                        />
+
+                        <div id="syncUploadDiv" style="display: none; width: 90%; margin: 0 auto; text-align: center;">
+                            <ui:fragment rendered="#{datasetPage}">
+                                <p style="text-align: center">#{bundle['file.fromRsync.request']}</p>
+                            </ui:fragment>
+                            <ui:fragment rendered="#{!datasetPage}">
+                                <p:commandLink id="rsyncScriptDownloadLink"
+                                               type="button"
+                                               styleClass="btn btn-default"
+                                               actionListener="#{EditDatafilesPage.generateRsyncScript()}"
+                                               oncomplete="window.location = '/api/datasets/#{EditDatafilesPage.dataset.id}/dataCaptureModule/rsyncScript';return false;">
+                                    <span class="glyphicon glyphicon-download-alt"></span> Rsync Script
+                                </p:commandLink>
+                                <p style="text-align: center; margin-top: 20px;">
+                                    #{bundle['file.fromRsync.instructions']}
+                                </p>
+                            </ui:fragment>
                         </div>
-                    </p:column>
-                </p:dataTable>
+                    </div>
+                    <p:commandButton
+                            id="rsyncCancel"
+                            value="#{bundle['file.fromRsync.cancel']}"
+                            style="display: none; margin: 0 auto; margin-bottom: 10px;"
+                            actionListener="#{EditDatafilesPage.dataset.setRsyncScript('')}"
+                            onclick="document.getElementById('datasetForm:rsyncContinue').style.display = 'block'; document.getElementById('syncUploadDiv').style.display = 'none'; this.style.display = 'none'; document.getElementById('standardUploadBlock').style.display = 'block'; document.getElementById('dropboxUploadBlock').style.display = 'block';"/>
+                </div>
+
+                <!-- Dropbox Upload -->
+                <div id="dropboxUploadBlock"
+                     class="panel panel-default margin-bottom"
+                     style="width: 90%; margin: 20px auto;"
+                     jsf:rendered='#{EditDatafilesPage.dataset.getDataverseContext().getFileUploadMechanisms().toUpperCase().contains("DROPBOX")}'>
+                    <div class="panel-body">
+                        <p style="font-size: 1.3em; color: #808080; padding: 20px; text-align: center">
+                            #{bundle['file.fromDropbox.heading']}
+                        </p>
+                        <img src="/resources/images/#{bundle['file.fromDropbox.icon']}"
+                             alt="#{bundle['file.fromDropbox.heading']}"
+                             style="width:200px; display: block; margin-left: auto; margin-right: auto;"/>
+                        <p style="text-align: center">#{bundle['file.fromDropbox.tip']}</p>
+                        <p:commandButton
+                                id="dropboxContinue"
+                                value="#{bundle['file.fromDropbox.continue']}"
+                                style="display: block; margin: 0 auto;"
+                                onclick="document.getElementById('datasetForm:dropboxCancel').style.display = 'block'; document.getElementById('dropboxUploadDiv').style.display = 'block'; this.style.display = 'none'; document.getElementById('standardUploadBlock').style.display = 'none'; document.getElementById('rsyncUploadBlock').style.display = 'none';"
+                        />
+
+                        <div id="dropboxUploadDiv" style="display: none; width: 90%; margin: 0 auto; text-align: center;">
+                            <ui:fragment>
+                                <div class="panel-body">
+                                    <h:inputText id="dropBoxSelectionInput" style="display:none" value="#{EditDatafilesPage.dropBoxSelection}"/>
+                                    <p:commandButton  id="dropBoxButton" actionListener="#{EditDatafilesPage.handleDropBoxUpload}" update="filesTable,dropBoxUploadMessage" style="display:none;" />
+                                    <p:commandButton value="#{bundle['file.fromDropbox.heading']}" onclick="openDropboxChooser();" icon="dropin-btn-status" />
+                                    <p class="help-block" style="margin-top: 20px;">#{bundle['file.fromDropbox.instructions']}</p>
+                                </div>
+                                <p:message for="dropBoxButton" id="dropBoxUploadMessage" display="text" />
+                            </ui:fragment>
+                        </div>
+                    </div>
+                    <p:commandButton
+                            id="dropboxCancel"
+                            value="#{bundle['file.fromDropbox.cancel']}"
+                            style="display: none; margin: 0 auto; margin-bottom: 10px;"
+                            actionListener="#{EditDatafilesPage.dataset.setRsyncScript('')}"
+                            onclick="document.getElementById('datasetForm:dropboxContinue').style.display = 'block'; document.getElementById('dropboxUploadDiv').style.display = 'none'; this.style.display = 'none'; document.getElementById('standardUploadBlock').style.display = 'block'; document.getElementById('rsyncUploadBlock').style.display = 'block';"/>
+                </div>
+
+
+                <p:message for="fileUpload" id="uploadMessage" display="text" />
+
+
+
             </div>
         </div>
     </div>
@@ -470,88 +584,53 @@
     </p:dialog>
     <p:dialog id="editFileTagsPopup" styleClass="smallPopUp" header="#{bundle['file.editTags']}" widgetVar="editFileTagsPopup" modal="true">
         <p class="help-block"><span class="glyphicon glyphicon-info-sign"/> #{bundle['file.editTagsDialog.tip']}</p>
-
         <div class="form-horizontal" jsf:rendered="#{!(empty EditDatafilesPage.fileMetadataSelectedForTagsPopup)}">
-            <div class="form-group text-left">
-                <label for="selectedTagsListEFF" class="col-sm-4 control-label">
-                    #{bundle['file.editTagsDialog.selectedTags']}
-                </label>
-                <div class="col-sm-8">
-                    <p:outputPanel id="selectedTagsListEFF" style="padding-top:.5em;">
-                        <h:outputText value="#{bundle['file.editTagsDialog.selectedTags.none']}" rendered="#{(empty EditDatafilesPage.selectedTags) and (empty EditDatafilesPage.selectedTabFileTags)}" />
-
-                        <ui:repeat value="#{EditDatafilesPage.selectedTags}" var="tags" rendered="#{!empty EditDatafilesPage.selectedTags}">
-                            <h:outputText value="#{tags}" styleClass="label label-default" style="margin-right:.5em;display:inline-block;"/>
-                        </ui:repeat>
-                        <ui:repeat value="#{EditDatafilesPage.selectedTabFileTags}" var="tags" rendered="#{!empty EditDatafilesPage.selectedTabFileTags}">
-                            <h:outputText value="#{tags}" styleClass="label label-info" style="margin-right:.5em;display:inline-block;"/>
-                        </ui:repeat>
-                    </p:outputPanel>
-                </div>
-            </div>
-            <div class="form-group text-left">
-                <label for="fileTagsMenu" class="col-sm-4 control-label">
+            <div class="form-group">
+                <label for="fileTagsMenu" class="col-sm-3 control-label">
                     #{bundle['file.editTagsDialog.select']}
                 </label>
                 <div class="col-sm-8">
                     <p:selectCheckboxMenu id="fileTagsMenu" styleClass="form-control"
-                                          value="#{EditDatafilesPage.selectedTags}" label="#{bundle.select}">
-                        <f:selectItems value="#{EditDatafilesPage.categoriesByName}"/>
-                        <p:ajax event="toggleSelect" listener="#{EditDatafilesPage.handleSelection}" update="selectedTagsListEFF" />
-                        <p:ajax event="change" listener="#{EditDatafilesPage.handleSelection}" update="selectedTagsListEFF" />
+                                          value="#{EditDatafilesPage.fileMetadataSelectedForTagsPopup.categoriesByName}" label="#{bundle.select}">
+                        <f:selectItems value="#{EditDatafilesPage.fileMetadataSelectedForTagsPopup.datasetVersion.dataset.categoriesByName}"/>
                     </p:selectCheckboxMenu>
                     <p:message for="fileTagsMenu" display="text" />
                 </div>
             </div>
-            <div class="form-group text-left">
-                <label for="fileTagAddNew" class="col-sm-4 control-label">
+            <div class="form-group">
+                <label for="fileTagAddNew" class="col-sm-3 control-label">
                     #{bundle['file.editTagsDialog.add']}
                 </label>
                 <div class="col-sm-8">
-                    <div class="row form-inline">
-                        <div class="col-sm-12">
-                            <p class="help-block">#{bundle['file.editTagsDialog.add.tip']}</p>
-                            <p:inputText id="fileTagAddNew" styleClass="form-control"
-                                         type="text" value="#{EditDatafilesPage.newCategoryName}"
-                                         placeholder="#{bundle['file.editTagsDialog.newName']}"
-                                         onkeypress="if (event.keyCode == 13) {
-                                                     return false;
-                                                 }" />
-                            <p:commandLink styleClass="btn btn-default" style="margin-left:.5em;" value="#{bundle.apply}" action="#{EditDatafilesPage.saveNewCategory}" update="selectedTagsListEFF, fileTagAddNew, fileTagsMenu"/>
-                            <p:message for="fileTagAddNew" display="text" />
-                        </div>
-                    </div>
+                    <p:inputText id="fileTagAddNew" styleClass="form-control"
+                                 type="text" value="#{EditDatafilesPage.newCategoryName}"
+                                 placeholder="#{bundle['file.editTagsDialog.newName']}"
+                                 onkeypress="if (event.keyCode == 13) {
+                                             return false;
+                                         }" />
+                    <p:message for="fileTagAddNew" display="text" />
                 </div>
             </div>
-            <div class="form-group text-left" jsf:rendered="#{EditDatafilesPage.fileMetadataSelectedForTagsPopup.dataFile.tabularData}">
-                <label for="tabularDataTags" class="col-sm-4 control-label">
-                    #{bundle['file.tabularDataTags']}
+            <div class="form-group" jsf:rendered="#{EditDatafilesPage.fileMetadataSelectedForTagsPopup.dataFile.tabularData}">
+                <label for="tabularDataTags" class="col-sm-3 control-label">
+                    <span data-toggle="tooltip" data-placement="auto right" class="tooltiplabel text-info" data-original-title="#{bundle['file.tabularDataTags.title']}">
+                        #{bundle['file.tabularDataTags']}
+                    </span>
                 </label>
                 <div class="col-sm-8">
                     <p class="help-block">#{bundle['file.tabularDataTags.tip']}</p>
                     <p:selectCheckboxMenu id="tabularDataTags" styleClass="form-control"
-                                          value="#{EditDatafilesPage.selectedTabFileTags}" label="#{bundle.select}"
+                                          value="#{EditDatafilesPage.selectedTags}" label="#{bundle.select}"
                                           filter="false">
                         <f:selectItems value="#{EditDatafilesPage.tabFileTags}" />
-                        <p:ajax event="toggleSelect" listener="#{EditDatafilesPage.handleSelection}" update="selectedTagsListEFF" />
-                        <p:ajax event="change" listener="#{EditDatafilesPage.handleSelection}" update="selectedTagsListEFF" />
                     </p:selectCheckboxMenu>
                     <p:message for="tabularDataTags" display="text" />
                 </div>
             </div>
-            <!-- <div class="form-group text-left"> REMOVED DELETE CHECKBOX FOR NOW
-                <label class="col-sm-4 control-label">
-                    # {bundle['dataset.removeUnusedFileTags.label']}
-                </label>
-                <div class="col-sm-8">
-                    <p class="help-block"># {bundle['dataset.removeUnusedFileTags.tip']}</p>
-                    <p:selectBooleanCheckbox id="removeUnused" itemLabel="# {bundle['dataset.removeUnusedFileTags.check']}" value="# {EditDatafilesPage.removeUnusedTags}" widgetVar="removeUnused"/>
-                </div>
-            </div> -->
         </div>
         <div class="button-block">
-            <p:commandButton styleClass="btn btn-default" id="editFileTagsPopupSaveButton" value="#{bundle.saveChanges}" oncomplete="PF('editFileTagsPopup').hide()" update=":datasetForm:filesTable" actionListener="#{EditDatafilesPage.saveFileTagsAndCategories()}"/>
-            <p:commandButton styleClass="btn btn-default" id="editFileTagsPopupCancelButton" value="#{bundle.cancel}" onclick="PF('editFileTagsPopup').hide();PF('blockFileForm').hide();"  update=":datasetForm:filesTable" actionListener="#{EditDatafilesPage.clearFileMetadataSelectedForTagsPopup()}"/>
+            <p:commandButton id="editFileTagsPopupSaveButton" value="#{bundle.saveChanges}" oncomplete="PF('editFileTagsPopup').hide()" update=":datasetForm:filesTable" actionListener="#{EditDatafilesPage.saveFileTagsAndCategories()}"/>
+            <p:commandButton id="editFileTagsPopupCancelButton" value="#{bundle.cancel}" onclick="PF('editFileTagsPopup').hide();PF('blockFileForm').hide();" actionListener="#{EditDatafilesPage.clearFileMetadataSelectedForTagsPopup()}"/>
         </div>
     </p:dialog>
     <script type="text/javascript" src="/resources/js/dropins.js" id="dropboxjs" data-app-key="#{EditDatafilesPage.dropBoxKey}"/>
