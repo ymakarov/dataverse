@@ -97,15 +97,6 @@ public class JsonParser {
             theme.setDataverse(dv);
         }
 
-        dv.setDataverseType(Dataverse.DataverseType.UNCATEGORIZED); // default
-        if (jobj.containsKey("dataverseType")) {
-            for (Dataverse.DataverseType dvtype : Dataverse.DataverseType.values()) {
-                if (dvtype.name().equals(jobj.getString("dataverseType"))) {
-                    dv.setDataverseType(dvtype);
-                }
-            }
-        }
-
         if (jobj.containsKey("fileUploadMechanismsEnabled")) {
             JsonArray mechs = jobj.getJsonArray("fileUploadMechanismsEnabled");
             Set<String> mechsToPersist = new TreeSet<>();
@@ -118,9 +109,18 @@ public class JsonParser {
             }
         }
 
+        dv.setDataverseType(Dataverse.DataverseType.UNCATEGORIZED); // default
+        if (jobj.containsKey("dataverseType")) {
+            for (Dataverse.DataverseType dvtype : Dataverse.DataverseType.values()) {
+                if (dvtype.name().equals(jobj.getString("dataverseType"))) {
+                    dv.setDataverseType(dvtype);
+                }
+            }
+        }
+
         /*  We decided that subject is not user set, but gotten from the subject of the dataverse's
             datasets - leavig this code in for now, in case we need to go back to it at some point
-        
+
         if (jobj.containsKey("dataverseSubjects")) {
             List<ControlledVocabularyValue> dvSubjectList = new LinkedList<>();
             DatasetFieldType subjectType = datasetFieldSvc.findByName(DatasetFieldConstant.subject);
@@ -401,7 +401,7 @@ public class JsonParser {
             md5 = "unknown";
         }
 
-        // TODO: 
+        // TODO:
         // unf (if available)... etc.?
 
         dataFile.setContentType(contentType);
@@ -416,7 +416,7 @@ public class JsonParser {
      * putting the invalid data in "otherGeographicCoverage" in a new compound value.
      *
      * @param ex - contains the invalid values to be processed
-     * @return a compound DatasetField that contains the newly created values, in addition to 
+     * @return a compound DatasetField that contains the newly created values, in addition to
      * the original valid values.
      * @throws JsonParseException
      */
@@ -504,8 +504,8 @@ public class JsonParser {
     }
 
     /**
-     * Special processing of keywords and subjects.  All keywords and subjects will be input 
-     * from foreign formats (DDI, dcterms, etc) as keywords.  
+     * Special processing of keywords and subjects.  All keywords and subjects will be input
+     * from foreign formats (DDI, dcterms, etc) as keywords.
      * As part of the parsing, we will move keywords that match subject controlled vocabulary values
      * into the subjects datasetField.
      * @param fields - the parsed datasetFields
@@ -665,7 +665,7 @@ public class JsonParser {
                 if (cvv == null) {
                     throw new ControlledVocabularyException("Value '" + strValue + "' does not exist in type '" + cvvType.getName() + "'", cvvType, strValue);
                 }
-                // Only add value to the list if it is not a duplicate 
+                // Only add value to the list if it is not a duplicate
                 if (strValue.equals("Other")) {
                     System.out.println("vals = "+vals+", contains: "+vals.contains(cvv));
                 }
