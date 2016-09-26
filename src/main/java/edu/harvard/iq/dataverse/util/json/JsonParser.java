@@ -116,7 +116,9 @@ public class JsonParser {
         dv.setDataverseType(Dataverse.DataverseType.UNCATEGORIZED); // default
         if (jobj.containsKey("dataverseType")) {
             for (Dataverse.DataverseType dvtype : Dataverse.DataverseType.values()) {
-                if (dvtype.name().equalsIgnoreCase(jobj.getString("dataverseType"))) { dv.setDataverseType(dvtype); }
+                if (dvtype.name().equals(jobj.getString("dataverseType"))) {
+                    dv.setDataverseType(dvtype);
+                }
             }
         }
 
