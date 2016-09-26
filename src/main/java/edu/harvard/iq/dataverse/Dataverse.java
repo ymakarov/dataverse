@@ -32,7 +32,6 @@ import javax.validation.constraints.Pattern;
 import javax.validation.constraints.Size;
 import org.hibernate.validator.constraints.NotBlank;
 import org.hibernate.validator.constraints.NotEmpty;
-import org.hibernate.validator.constraints.URL;
 
 /**
  *
@@ -715,27 +714,6 @@ public class Dataverse extends DvObjectContainer {
     }
 
     /**
-     * @todo implement in https://github.com/IQSS/dataverse/issues/551
-     */
-    public String getDepositTermsOfUse() {
-        return "Dataverse Deposit Terms of Use will be implemented in https://github.com/IQSS/dataverse/issues/551";
-    }
-    
-    @Override
-    public String getDisplayName() {
-        return getName() + " Dataverse";
-    }
-    
-    @Override
-    public boolean isPermissionRoot() {
-        return permissionRoot;
-    }
-
-    public void setPermissionRoot(boolean permissionRoot) {
-        this.permissionRoot = permissionRoot;
-    }
-
-    /**
      * Persisted as a colon delimited set of Strings based on the
      * Dataset.FileUploadMechanism (i.e. "RSYNC:STANDARD" using TreeSet to keep
      * the list sorted. "STANDARD" is returned if null. No inheritance.
@@ -762,6 +740,36 @@ public class Dataverse extends DvObjectContainer {
 
     public void setFileUploadMechanisms(String fileUploadMechanisms) {
         this.fileUploadMechanisms = fileUploadMechanisms;
+    }
+
+    /**
+     * @todo implement in https://github.com/IQSS/dataverse/issues/551
+     */
+    public String getDepositTermsOfUse() {
+        return "Dataverse Deposit Terms of Use will be implemented in https://github.com/IQSS/dataverse/issues/551";
+    }
+    
+    @Override
+    public String getDisplayName() {
+        return getName() + " Dataverse";
+    }
+    
+    @Override
+    public boolean isPermissionRoot() {
+        return permissionRoot;
+    }
+
+    public void setPermissionRoot(boolean permissionRoot) {
+        this.permissionRoot = permissionRoot;
+    }
+
+    @Override
+    public boolean isAncestorOf( DvObject other ) {
+        while ( other != null ) {
+            if ( equals(other) ) return true;
+            other = other.getOwner();
+        }
+        return false;
     }
 
 }
