@@ -193,7 +193,6 @@ public class JsonPrinter {
 
     public static JsonObjectBuilder json(Dataverse dv) {
 
-
         /** @todo refactor this fileUploadMechanisms stuff into its own method */
         JsonArrayBuilder fileUploadMechanismsEnabledArray = Json.createArrayBuilder();
         /** @todo Each element in the array should be an object with a description taken from the bundle. */
@@ -210,9 +209,9 @@ public class JsonPrinter {
                 .add("name", dv.getName())
                 .add("affiliation", dv.getAffiliation())
                 .add("dataverseContacts", json(dv.getDataverseContacts()))
-                .add("permissionRoot", dv.isPermissionRoot())
                 .add("dataverseType", dv.getDataverseType().name())
                 .add("fileUploadMechanismsEnabled", fileUploadMechanismsEnabledArray)
+                .add("permissionRoot", dv.isPermissionRoot())
                 .add("description", dv.getDescription());
         if (dv.getOwner() != null) {
             bld.add("ownerId", dv.getOwner().getId());
