@@ -12,6 +12,7 @@ import edu.harvard.iq.dataverse.DatasetVersion;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DataverseContact;
 import edu.harvard.iq.dataverse.DataverseFacet;
+import edu.harvard.iq.dataverse.DataverseTheme;
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
 import edu.harvard.iq.dataverse.authorization.providers.builtin.BuiltinUser;
 import edu.harvard.iq.dataverse.FileMetadata;
@@ -224,6 +225,36 @@ public class JsonPrinter {
         }
         if (dv.getDataverseTheme() != null) {
             bld.add("theme", json(dv.getDataverseTheme()));
+        }
+
+        return bld;
+    }
+
+    public static JsonObjectBuilder json(DataverseTheme theme) {
+        JsonObjectBuilder bld = jsonObjectBuilder()
+                .add("backgroundColor", theme.getBackgroundColor())
+                .add("linkColor", theme.getLinkColor())
+                .add("linkUrl", theme.getLinkUrl())
+                .add("logo", theme.getLogo())
+                .add("logoBackgroundColor", theme.getLogoBackgroundColor())
+                .add("tagline", theme.getTagline())
+                .add("textColor", theme.getTextColor())
+                ;
+
+        if (theme.getLogoAlignment() == DataverseTheme.Alignment.LEFT) {
+            bld.add("logoAlignment", "left");
+        }
+        if (theme.getLogoAlignment() == DataverseTheme.Alignment.RIGHT) {
+            bld.add("logoAlignment", "right");
+        }
+        if (theme.getLogoAlignment() == DataverseTheme.Alignment.CENTER) {
+            bld.add("logoAlignment", "center");
+        }
+        if (theme.getLogoFormat() == DataverseTheme.ImageFormat.RECTANGLE) {
+            bld.add("logoFormat", "rectangle");
+        }
+        if (theme.getLogoFormat() == DataverseTheme.ImageFormat.SQUARE) {
+            bld.add("logoFormat", "square");
         }
 
         return bld;
