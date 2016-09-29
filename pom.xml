@@ -239,6 +239,18 @@
             <artifactId>Rserve</artifactId>
             <version>0.6-1</version>
         </dependency>
+        <!-- beanio -->
+        <dependency>
+            <groupId>org.beanio</groupId>
+            <artifactId>beanio</artifactId>
+            <version>2.1.0</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>4.0</version>
+        </dependency>
         <!-- Apache POI - used by ingest to parse MS Excel xslx files -->
         <dependency>
             <groupId>org.apache.poi</groupId>
