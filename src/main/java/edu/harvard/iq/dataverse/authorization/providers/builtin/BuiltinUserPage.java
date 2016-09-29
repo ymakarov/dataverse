@@ -11,7 +11,6 @@ import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.DatasetVersionServiceBean;
 import edu.harvard.iq.dataverse.Dataverse;
-import edu.harvard.iq.dataverse.DataverseHeaderFragment;
 import edu.harvard.iq.dataverse.DataverseServiceBean;
 import edu.harvard.iq.dataverse.DataverseSession;
 import edu.harvard.iq.dataverse.DvObject;
@@ -20,7 +19,6 @@ import edu.harvard.iq.dataverse.PermissionsWrapper;
 import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.SettingsWrapper;
 import edu.harvard.iq.dataverse.UserNotification;
-import static edu.harvard.iq.dataverse.UserNotification.Type.CREATEDV;
 import edu.harvard.iq.dataverse.UserNotificationServiceBean;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.UserRecordIdentifier;
@@ -617,6 +615,19 @@ public class BuiltinUserPage implements java.io.Serializable {
 
                 case CREATEACC:
                     userNotification.setTheObject(userNotification.getUser());
+
+                case CHECKSUMFAIL:
+                    userNotification.setTheObject(datasetService.find(userNotification.getObjectId()));
+                    break;
+
+                case FILESYSTEMIMPORT:
+                    userNotification.setTheObject(datasetVersionService.find(userNotification.getObjectId()));
+                    break;
+
+                case CHECKSUMIMPORT:
+                    userNotification.setTheObject(datasetVersionService.find(userNotification.getObjectId()));
+                    break;
+
             }
 
             userNotification.setDisplayAsRead(userNotification.isReadNotification());
