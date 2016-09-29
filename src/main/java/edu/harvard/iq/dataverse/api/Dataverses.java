@@ -50,7 +50,9 @@ import org.apache.commons.lang.StringUtils;
 
 import static edu.harvard.iq.dataverse.util.json.JsonPrinter.brief;
 import java.io.StringReader;
+import java.sql.Timestamp;
 import java.util.Collections;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.TreeSet;
@@ -224,6 +226,10 @@ public class Dataverses extends AbstractApiBean {
                         ds.setAuthority(datasetAuthority);
                         ds.setProtocol(datasetProtocol);
                         ds.setIdentifier(datasetIdentifier);
+                        // setGlobalIdCreateTime to anything ("now") avoid
+                        // "This dataset may not be published because it has not been registered.
+                        // Please contact Dataverse Support for assistance."
+                        ds.setGlobalIdCreateTime(new Timestamp(new Date().getTime()));
                     } else {
                         return errorResponse(Status.BAD_REQUEST,
                                 "A dataset with the identifier " + globalId + " already exists.");
