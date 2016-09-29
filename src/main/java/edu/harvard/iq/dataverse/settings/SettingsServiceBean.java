@@ -35,6 +35,10 @@ public class SettingsServiceBean {
     public enum Key {
         MinutesUntilConfirmEmailTokenExpires,
         /**
+         * For example, https://datacapture.example.org
+         */
+        DataCaptureModuleUrl,
+        /**
          * Override Solr highlighting "fragsize"
          * https://wiki.apache.org/solr/HighlightingParameters#hl.fragsize
          */

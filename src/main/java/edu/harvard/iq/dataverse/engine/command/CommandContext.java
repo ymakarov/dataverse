@@ -16,6 +16,7 @@ import edu.harvard.iq.dataverse.DvObjectServiceBean;
 import edu.harvard.iq.dataverse.FeaturedDataverseServiceBean;
 import edu.harvard.iq.dataverse.GuestbookResponseServiceBean;
 import edu.harvard.iq.dataverse.GuestbookServiceBean;
+import edu.harvard.iq.dataverse.datacapturemodule.DataCaptureModuleServiceBean;
 import edu.harvard.iq.dataverse.search.IndexServiceBean;
 import edu.harvard.iq.dataverse.PermissionServiceBean;
 import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
@@ -111,4 +112,6 @@ public interface CommandContext {
     public SystemConfig systemConfig();
 
     public PrivateUrlServiceBean privateUrl();
+
+    public DataCaptureModuleServiceBean dataCaptureModule();
 }
