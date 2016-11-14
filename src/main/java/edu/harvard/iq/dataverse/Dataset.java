@@ -37,21 +37,29 @@ import org.hibernate.validator.constraints.NotBlank;
 )
 @Entity
 @Table(indexes = {
-    @Index(columnList = "guestbook_id"),
-    @Index(columnList = "thumbnailfile_id")},
+        @Index(columnList = "guestbook_id"),
+        @Index(columnList = "thumbnailfile_id")},
         uniqueConstraints = @UniqueConstraint(columnNames = {"authority,protocol,identifier,doiseparator"}))
 public class Dataset extends DvObjectContainer {
 
-//    public static final String REDIRECT_URL = "/dataset.xhtml?persistentId=";
+    //    public static final String REDIRECT_URL = "/dataset.xhtml?persistentId=";
     public static final String TARGET_URL = "/citation?persistentId=";
     private static final long serialVersionUID = 1L;
 
     @OneToMany(mappedBy = "owner", cascade = CascadeType.MERGE)
     private List<DataFile> files = new ArrayList();
 
+    public enum FileUploadMechanism { GUI, SWORD, DROPBOX, RSYNC, GLOBUS, ASPERA };
+
     private String protocol;
     private String authority;
     private String doiSeparator;
+
+    @Column(columnDefinition = "TEXT", nullable = true)
+    private String dcmType;
+
+    @Column(columnDefinition = "TEXT", nullable = true)
+    private String dcmValue;
 
     @Temporal(value = TemporalType.TIMESTAMP)
     private Date globalIdCreateTime;
@@ -73,7 +81,7 @@ public class Dataset extends DvObjectContainer {
     @OneToOne(cascade = {CascadeType.MERGE, CascadeType.PERSIST})
     @JoinColumn(name = "guestbook_id", unique = false, nullable = true, insertable = true, updatable = true)
     private Guestbook guestbook;
-    
+
     @OneToMany(mappedBy="dataset", cascade={CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST})
     private List<DatasetLinkingDataverse> datasetLinkingDataverses;
 
@@ -88,18 +96,18 @@ public class Dataset extends DvObjectContainer {
     private boolean fileAccessRequest;
     @OneToMany(mappedBy = "dataset", orphanRemoval = true, cascade = {CascadeType.REMOVE, CascadeType.MERGE, CascadeType.PERSIST})
     private List<DataFileCategory> dataFileCategories = null;
-    
+
     @ManyToOne
     @JoinColumn(name = "citationDateDatasetFieldType_id")
     private DatasetFieldType citationDateDatasetFieldType;
-    
+
     public DatasetFieldType getCitationDateDatasetFieldType() {
         return citationDateDatasetFieldType;
     }
 
     public void setCitationDateDatasetFieldType(DatasetFieldType citationDateDatasetFieldType) {
         this.citationDateDatasetFieldType = citationDateDatasetFieldType;
-    }    
+    }
 
     public Dataset() {
         //this.versions = new ArrayList();
@@ -159,7 +167,7 @@ public class Dataset extends DvObjectContainer {
     public void setLastExportTime(Date lastExportTime) {
         this.lastExportTime = lastExportTime;
     }
-    
+
     public Guestbook getGuestbook() {
         return guestbook;
     }
@@ -180,7 +188,7 @@ public class Dataset extends DvObjectContainer {
         return new GlobalId(this).toURL().toString();
     }
 
-    public String getGlobalId() {       
+    public String getGlobalId() {
         return new GlobalId(this).toString();
     }
 
@@ -257,15 +265,15 @@ public class Dataset extends DvObjectContainer {
             dsv.updateDefaultValuesFromTemplate(template);
         } else {
             latestVersion = getLatestVersionForCopy();
-            
+
             if (latestVersion.getUNF() != null){
                 dsv.setUNF(latestVersion.getUNF());
             }
-            
+
             if (latestVersion.getDatasetFields() != null && !latestVersion.getDatasetFields().isEmpty()) {
                 dsv.setDatasetFields(dsv.copyDatasetFields(latestVersion.getDatasetFields()));
             }
-            
+
             if (latestVersion.getTermsOfUseAndAccess()!= null){
                 dsv.setTermsOfUseAndAccess(latestVersion.getTermsOfUseAndAccess().copyTermsOfUseAndAccess());
             } else {
@@ -323,10 +331,10 @@ public class Dataset extends DvObjectContainer {
         }
     }
 
- public DatasetVersion getCreateVersion() {
+    public DatasetVersion getCreateVersion() {
         DatasetVersion dsv = new DatasetVersion();
         dsv.setVersionState(DatasetVersion.VersionState.DRAFT);
-        dsv.setDataset(this);        
+        dsv.setDataset(this);
         dsv.initDefaultValues();
         this.setVersions(new ArrayList());
         getVersions().add(0, dsv);
@@ -522,7 +530,7 @@ public class Dataset extends DvObjectContainer {
 
     public String getPublicationDateFormattedYYYYMMDD() {
         if (getPublicationDate() != null){
-                   return new SimpleDateFormat("yyyy-MM-dd").format(getPublicationDate()); 
+            return new SimpleDateFormat("yyyy-MM-dd").format(getPublicationDate());
         }
         return null;
     }
@@ -546,20 +554,20 @@ public class Dataset extends DvObjectContainer {
     public void setHarvestedFrom(HarvestingClient harvestingClientConfig) {
         this.harvestedFrom = harvestingClientConfig;
     }
-    
-    
+
+
     public boolean isHarvested() {
         return this.harvestedFrom != null;
     }
 
     private String harvestIdentifier;
-     
+
     public String getHarvestIdentifier() {
-	return harvestIdentifier;
+        return harvestIdentifier;
     }
 
     public void setHarvestIdentifier(String harvestIdentifier) {
-	this.harvestIdentifier = harvestIdentifier;
+        this.harvestIdentifier = harvestIdentifier;
     }
 
     public String getRemoteArchiveURL() {
@@ -659,9 +667,25 @@ public class Dataset extends DvObjectContainer {
     protected boolean isPermissionRoot() {
         return false;
     }
-    
+
     @Override
     public boolean isAncestorOf( DvObject other ) {
         return equals(other) || equals(other.getOwner());
+    }
+
+    public String getDcmType() {
+        return dcmType;
+    }
+
+    public void setDcmType(String dcmType) {
+        this.dcmType = dcmType;
+    }
+
+    public String getDcmValue() {
+        return dcmValue;
+    }
+
+    public void setDcmValue(String dcmValue) {
+        this.dcmValue = dcmValue;
     }
 }

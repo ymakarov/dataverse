@@ -24,6 +24,7 @@ import edu.harvard.iq.dataverse.TemplateServiceBean;
 import edu.harvard.iq.dataverse.UserNotificationServiceBean;
 import edu.harvard.iq.dataverse.authorization.AuthenticationServiceBean;
 import edu.harvard.iq.dataverse.authorization.groups.impl.explicit.ExplicitGroupServiceBean;
+import edu.harvard.iq.dataverse.datacapturemodule.DataCaptureModuleServiceBean;
 import edu.harvard.iq.dataverse.engine.DataverseEngine;
 import edu.harvard.iq.dataverse.ingest.IngestServiceBean;
 import edu.harvard.iq.dataverse.privateurl.PrivateUrlServiceBean;
@@ -36,7 +37,7 @@ import javax.persistence.EntityManager;
 /**
  * An interface for accessing Dataverse's resources, user info etc. Used by the
  * {@link Command} implementations to perform their intended actions.
- * 
+ *
  * @author michael
  */
 public interface CommandContext {
@@ -67,7 +68,7 @@ public interface CommandContext {
     public SolrIndexServiceBean solrIndex();
 
     public SearchServiceBean search();
-    
+
     public IngestServiceBean ingest();
 
     public PermissionServiceBean permissions();
@@ -111,4 +112,6 @@ public interface CommandContext {
     public SystemConfig systemConfig();
 
     public PrivateUrlServiceBean privateUrl();
+
+    public DataCaptureModuleServiceBean dataCaptureModule();
 }

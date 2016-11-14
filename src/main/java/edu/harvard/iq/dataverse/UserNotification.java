@@ -25,11 +25,11 @@ import javax.persistence.Transient;
 
 public class UserNotification implements Serializable {
     public enum Type {
-        ASSIGNROLE, REVOKEROLE, CREATEDV, CREATEDS, CREATEACC, MAPLAYERUPDATED, SUBMITTEDDS, RETURNEDDS, PUBLISHEDDS, REQUESTFILEACCESS, GRANTFILEACCESS, REJECTFILEACCESS
+        ASSIGNROLE, REVOKEROLE, CREATEDV, CREATEDS, CREATEACC, MAPLAYERUPDATED, SUBMITTEDDS, RETURNEDDS, PUBLISHEDDS, REQUESTFILEACCESS, GRANTFILEACCESS, REJECTFILEACCESS, FILESYSTEMIMPORT, CHECKSUMIMPORT, CHECKSUMFAIL
     };
-    
+
     private static final long serialVersionUID = 1L;
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -39,7 +39,7 @@ public class UserNotification implements Serializable {
     private AuthenticatedUser user;
     private Timestamp sendDate;
     private boolean readNotification;
-    
+
     @Enumerated
     @Column( nullable = false )
     private Type type;
@@ -47,10 +47,10 @@ public class UserNotification implements Serializable {
 
     @Transient
     private boolean displayAsRead;
-    
-    @Transient 
+
+    @Transient
     String roleString;
-    
+
     private boolean emailed;
 
     public Long getId() {
@@ -92,7 +92,7 @@ public class UserNotification implements Serializable {
     public void setType(Type type) {
         this.type = type;
     }
-    
+
     public Long getObjectId() {
         return objectId;
     }
@@ -100,8 +100,8 @@ public class UserNotification implements Serializable {
     public void setObjectId(Long objectId) {
         this.objectId = objectId;
     }
-    
-    @Transient 
+
+    @Transient
     private Object theObject;
 
     public Object getTheObject() {
@@ -111,8 +111,8 @@ public class UserNotification implements Serializable {
     public void setTheObject(Object theObject) {
         this.theObject = theObject;
     }
-    
-        
+
+
     public boolean isDisplayAsRead() {
         return displayAsRead;
     }
@@ -127,8 +127,8 @@ public class UserNotification implements Serializable {
 
     public void setEmailed(boolean emailed) {
         this.emailed = emailed;
-    }    
-    
+    }
+
     public String getRoleString() {
         return roleString;
     }

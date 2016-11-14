@@ -23,9 +23,9 @@ import javax.persistence.PersistenceContext;
 @Stateless
 @Named
 public class SettingsServiceBean {
-    
+
     private static final Logger logger = Logger.getLogger(SettingsServiceBean.class.getCanonicalName());
-    
+
     /**
      * Some convenient keys for the settings. Note that the setting's 
      * name is really a {@code String}, but it's good to have the compiler look
@@ -33,6 +33,7 @@ public class SettingsServiceBean {
      * So there.
      */
     public enum Key {
+        DataCaptureModuleUrl,
         FooterCopyright,
         FileFixityChecksumAlgorithm,
         MinutesUntilConfirmEmailTokenExpires,
@@ -41,11 +42,11 @@ public class SettingsServiceBean {
          * https://wiki.apache.org/solr/HighlightingParameters#hl.fragsize
          */
         SearchHighlightFragmentSize,
-       /**
-        * Domain name specific code for Google Analytics
-        *//**
-        * Domain name specific code for Google Analytics
-        */
+        /**
+         * Domain name specific code for Google Analytics
+         *//**
+         * Domain name specific code for Google Analytics
+         */
         GoogleAnalyticsCode,
 
         /**
@@ -62,7 +63,7 @@ public class SettingsServiceBean {
          * Search API. See also https://github.com/IQSS/dataverse/issues/1299
          */
         SearchApiNonPublicAllowed,
-        
+
         /**
          * Experimental: Use Solr to power the file listing on the dataset page.
          */
@@ -72,19 +73,19 @@ public class SettingsServiceBean {
          * API endpoints that are not accessible. Comma separated list.
          */
         BlockedApiEndpoints,
-        
+
         /**
          * A key that, with the right {@link ApiBlockingFilter.BlockPolicy},
          * allows calling blocked APIs.
          */
         BlockedApiKey,
-        
-        
+
+
         /**
          * How to treat blocked APIs. One of drop, localhost-only, unblock-key
          */
         BlockedApiPolicy,
-        
+
         /**
          * For development only (see dev guide for details). Backed by an enum
          * of possible account types.
@@ -167,7 +168,7 @@ public class SettingsServiceBean {
         /* full text of status message, to appear in popup */
         StatusMessageText,
         /* return email address for system emails such as notifications */
-        SystemEmail, 
+        SystemEmail,
         /* whether file landing page is available
         for 4.2 development */
         ShowFileLandingPage,
@@ -180,41 +181,41 @@ public class SettingsServiceBean {
         for example: :TabularIngestSizeLimit:RData */
         TabularIngestSizeLimit,
         /**
-        Whether to allow user to create GeoConnect Maps
-        This boolean effects whether the user sees the map button on 
-        the dataset page and if the ingest will create a shape file
-        Default is false
-        */
+         Whether to allow user to create GeoConnect Maps
+         This boolean effects whether the user sees the map button on 
+         the dataset page and if the ingest will create a shape file
+         Default is false
+         */
         GeoconnectCreateEditMaps,
         /**
-        Whether to allow a user to view existing maps
-        This boolean effects whether a user may see the 
-        Explore World Map Button
-        Default is false;
-        */
+         Whether to allow a user to view existing maps
+         This boolean effects whether a user may see the 
+         Explore World Map Button
+         Default is false;
+         */
         GeoconnectViewMaps,
         /**
-        For DEVELOPMENT ONLY. Generate SQL statements for populating
-        MapLayerMetadata objects when Geoconnect is not available.
-        
-        When files have related MapLayerMetadata objects, the "Explore button
-        will be available to users.
-        */
+         For DEVELOPMENT ONLY. Generate SQL statements for populating
+         MapLayerMetadata objects when Geoconnect is not available.
+
+         When files have related MapLayerMetadata objects, the "Explore button
+         will be available to users.
+         */
         GeoconnectDebug,
 
         /**
-        Whether to allow a user to view tabular files
-        using the TwoRavens application
-        This boolean effects whether a user may see the 
-        Explore Button that links to TwoRavens
-        Default is false;
-        */
+         Whether to allow a user to view tabular files
+         using the TwoRavens application
+         This boolean effects whether a user may see the 
+         Explore Button that links to TwoRavens
+         Default is false;
+         */
         TwoRavensTabularView,
-                
+
 
         /**
          The message added to a popup upon dataset publish
-         * 
+         *
          */
         DatasetPublishPopupCustomText,
         /*
@@ -225,26 +226,26 @@ public class SettingsServiceBean {
         Whether Harvesting (OAI) service is enabled
         */
         OAIServerEnabled;
-        
+
         @Override
         public String toString() {
             return ":" + name();
         }
     }
-    
+
     @PersistenceContext
     EntityManager em;
-    
+
     @EJB
     ActionLogServiceBean actionLogSvc;
-    
+
     /**
      * Values that are considered as "true".
-     * @see #isTrue(java.lang.String, boolean) 
+     * @see #isTrue(java.lang.String, boolean)
      */
     private static final Set<String> TRUE_VALUES = Collections.unmodifiableSet(
             new TreeSet<>( Arrays.asList("1","yes", "true","allow")));
-    
+
     /**
      * Basic functionality - get the name, return the setting, or {@code null}.
      * @param name of the setting
@@ -254,7 +255,7 @@ public class SettingsServiceBean {
         Setting s = em.find( Setting.class, name );
         return (s!=null) ? s.getContent() : null;
     }
-    
+
     /**
      * Same as {@link #get(java.lang.String)}, but with static checking.
      * @param key Enum value of the name.
@@ -263,18 +264,18 @@ public class SettingsServiceBean {
     public String getValueForKey( Key key ) {
         return get(key.toString());
     }
-    
-    
+
+
     /**
      * Attempt to convert the value to an integer
      *  - Applicable for keys such as MaxFileUploadSizeInBytes
-     * 
+     *
      * On failure (key not found or string not convertible to a long), returns null
      * @param key
-     * @return 
+     * @return
      */
-       public Long getValueForKeyAsLong(Key key){
-        
+    public Long getValueForKeyAsLong(Key key){
+
         String val = this.getValueForKey(key);
 
         if (val == null){
@@ -288,15 +289,15 @@ public class SettingsServiceBean {
             logger.log(Level.WARNING, "Incorrect setting.  Could not convert \"{0}\" from setting {1} to long.", new Object[]{val, key.toString()});
             return null;
         }
-        
+
     }
-    
-    
+
+
     /**
      * Return the value stored, or the default value, in case no setting by that
      * name exists. The main difference between this method and the other {@code get()}s
      * is that is never returns null (unless {@code defaultValue} is {@code null}.
-     * 
+     *
      * @param name Name of the setting.
      * @param defaultValue The value to return if no setting is found in the DB.
      * @return Either the stored value, or the default value.
@@ -305,23 +306,23 @@ public class SettingsServiceBean {
         String val = get(name);
         return (val!=null) ? val : defaultValue;
     }
-    
+
     public String getValueForKey( Key key, String defaultValue ) {
         return get( key.toString(), defaultValue );
     }
-     
+
     public Setting set( String name, String content ) {
         Setting s = new Setting( name, content );
         s = em.merge(s);
         actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Setting, "set")
-                            .setInfo(name + ": " + content));
+                .setInfo(name + ": " + content));
         return s;
     }
-    
+
     public Setting setValueForKey( Key key, String content ) {
         return set( key.toString(), content );
     }
-    
+
     /**
      * The correct way to decide whether a string value in the
      * settings table should be considered as {@code true}.
@@ -333,26 +334,26 @@ public class SettingsServiceBean {
         String val = get(name);
         return ( val==null ) ? defaultValue : TRUE_VALUES.contains(val.trim().toLowerCase() );
     }
-    
+
     public boolean isTrueForKey( Key key, boolean defaultValue ) {
         return isTrue( key.toString(), defaultValue );
     }
-            
+
     public void deleteValueForKey( Key name ) {
         delete( name.toString() );
     }
-    
+
     public void delete( String name ) {
         actionLogSvc.log( new ActionLogRecord(ActionLogRecord.ActionType.Setting, "delete")
-                            .setInfo(name));
+                .setInfo(name));
         em.createNamedQuery("Setting.deleteByName")
                 .setParameter("name", name)
                 .executeUpdate();
     }
-    
+
     public Set<Setting> listAll() {
         return new HashSet<>(em.createNamedQuery("Setting.findAll", Setting.class).getResultList());
     }
-    
-    
+
+
 }

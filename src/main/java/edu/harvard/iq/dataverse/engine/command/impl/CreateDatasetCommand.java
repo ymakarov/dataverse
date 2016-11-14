@@ -38,7 +38,7 @@ import javax.validation.ConstraintViolation;
  */
 @RequiredPermissions(Permission.AddDataset)
 public class CreateDatasetCommand extends AbstractCommand<Dataset> {
-    
+
     private static final Logger logger = Logger.getLogger(CreateDatasetCommand.class.getCanonicalName());
 
     private final Dataset theDataset;
@@ -62,7 +62,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         this.importType=null;
         this.template=null;
     }
-    
+
     public CreateDatasetCommand(Dataset theDataset, DataverseRequest aRequest, boolean registrationRequired, ImportUtil.ImportType importType) {
         super(aRequest, theDataset.getOwner());
         this.theDataset = theDataset;
@@ -70,7 +70,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         this.importType=importType;
         this.template=null;
     }
-    
+
     public CreateDatasetCommand(Dataset theDataset, DataverseRequest aRequest, boolean registrationRequired, ImportUtil.ImportType importType, Template template) {
         super(aRequest, theDataset.getOwner());
         this.theDataset = theDataset;
@@ -78,15 +78,15 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         this.importType=importType;
         this.template=template;
     }
-    
+
     @Override
     public Dataset execute(CommandContext ctxt) throws CommandException {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd-hh.mm.ss");
-       
+
         if ( (importType != ImportType.MIGRATION && importType != ImportType.HARVEST) && !ctxt.datasets().isUniqueIdentifier(theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()) ) {
             throw new IllegalCommandException(String.format("Dataset with identifier '%s', protocol '%s' and authority '%s' already exists",
-                                                             theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority()),
-                                                this);
+                    theDataset.getIdentifier(), theDataset.getProtocol(), theDataset.getAuthority()),
+                    this);
         }
         // If we are importing with the API, then we don't want to create an editable version, 
         // just save the version is already in theDataset.
@@ -104,11 +104,11 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
             }
             throw new IllegalCommandException(validationFailedString, this);
         }
-                
+
         theDataset.setCreator((AuthenticatedUser) getRequest().getUser());
-        
+
         theDataset.setCreateDate(new Timestamp(new Date().getTime()));
-        
+
         Iterator<DatasetField> dsfIt = dsv.getDatasetFields().iterator();
         while (dsfIt.hasNext()) {
             if (dsfIt.next().removeBlankDatasetFieldValues()) {
@@ -135,7 +135,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
         if (theDataset.getProtocol()==null) theDataset.setProtocol(protocol);
         if (theDataset.getAuthority()==null) theDataset.setAuthority(authority);
         if (theDataset.getDoiSeparator()==null) theDataset.setDoiSeparator(doiSeparator);
-       
+
         if (theDataset.getIdentifier()==null) {
             theDataset.setIdentifier(ctxt.datasets().generateIdentifierSequence(theDataset.getProtocol(), theDataset.getAuthority(), theDataset.getDoiSeparator()));
         }
@@ -151,7 +151,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
                     try{
                         doiRetString = ctxt.doiDataCite().createIdentifier(theDataset);
                     } catch (Exception e){
-                         logger.log(Level.WARNING, "Exception while creating Identifier:" + e.getMessage(), e);
+                        logger.log(Level.WARNING, "Exception while creating Identifier:" + e.getMessage(), e);
                     }
                 }
 
@@ -163,26 +163,26 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
             }
 
         } else // If harvest or migrate, and this is a released dataset, we don't need to register,
-        // so set the globalIdCreateTime to now
-        if (theDataset.getLatestVersion().getVersionState().equals(VersionState.RELEASED)) {
-            theDataset.setGlobalIdCreateTime(new Date());
-        }
-        
+            // so set the globalIdCreateTime to now
+            if (theDataset.getLatestVersion().getVersionState().equals(VersionState.RELEASED)) {
+                theDataset.setGlobalIdCreateTime(new Date());
+            }
+
         if (registrationRequired && theDataset.getGlobalIdCreateTime() == null) {
             throw new IllegalCommandException("Dataset could not be created.  Registration failed", this);
-               }
-        logger.log(Level.FINE, "after doi {0}", formatter.format(new Date().getTime()));          
+        }
+        logger.log(Level.FINE, "after doi {0}", formatter.format(new Date().getTime()));
         Dataset savedDataset = ctxt.em().merge(theDataset);
-         logger.log(Level.FINE, "after db update {0}", formatter.format(new Date().getTime()));       
+        logger.log(Level.FINE, "after db update {0}", formatter.format(new Date().getTime()));
         // set the role to be default contributor role for its dataverse
         if (importType==null || importType.equals(ImportType.NEW)) {
             String privateUrlToken = null;
             ctxt.roles().save(new RoleAssignment(savedDataset.getOwner().getDefaultContributorRole(), getRequest().getUser(), savedDataset, privateUrlToken));
-         }
-        
+        }
+
         savedDataset.setPermissionModificationTime(new Timestamp(new Date().getTime()));
         savedDataset = ctxt.em().merge(savedDataset);
-        
+
         if(template != null){
             ctxt.templates().incrementUsageCount(template.getId());
         }
@@ -193,7 +193,7 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
              */
             boolean doNormalSolrDocCleanUp = true;
             ctxt.index().indexDataset(savedDataset, doNormalSolrDocCleanUp);
-        
+
         } catch ( Exception e ) { // RuntimeException e ) {
             logger.log(Level.WARNING, "Exception while indexing:" + e.getMessage()); //, e);
             /**
@@ -211,27 +211,47 @@ public class CreateDatasetCommand extends AbstractCommand<Dataset> {
              * -- L.A. 4.5
              */
             throw new CommandException("Dataset could not be created. Indexing failed", this);
-            
+
         }
-        logger.log(Level.FINE, "after index {0}", formatter.format(new Date().getTime()));      
-        
+        logger.log(Level.FINE, "after index {0}", formatter.format(new Date().getTime()));
+
+        for (DatasetField datasetField : savedDataset.getLatestVersion().getDatasetFields()) {
+            /**
+             * @todo What should the trigger be for kicking off the
+             * RequestRsyncScriptCommand? For now we're looking for the presence
+             * of the "dataType" field, which is way too course.
+             *
+             * Does an argument get passed to the CreateDatasetCommand? What's
+             * the trigger? Something configured at the parent dataverse? Is the
+             * user forced to use rsync?
+             */
+            if ("dataType".equals(datasetField.getDatasetFieldType().getName())) {
+                try {
+                    ctxt.engine().submit(new RequestRsyncScriptCommand(getRequest(), savedDataset));
+                } catch (CommandException | RuntimeException ex) {
+                    logger.info("Attempt to request rsync script failed: " + ex.getLocalizedMessage());
+                }
+            }
+        }
+
+
         // if we are not migrating, assign the user to this version
-        if (importType==null || importType.equals(ImportType.NEW)) {  
-            DatasetVersionUser datasetVersionDataverseUser = new DatasetVersionUser();     
+        if (importType==null || importType.equals(ImportType.NEW)) {
+            DatasetVersionUser datasetVersionDataverseUser = new DatasetVersionUser();
             String id =  getRequest().getUser().getIdentifier();
             id = id.startsWith("@") ? id.substring(1) : id;
             AuthenticatedUser au = ctxt.authentication().getAuthenticatedUser(id);
             datasetVersionDataverseUser.setAuthenticatedUser(au);
             datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());
-            datasetVersionDataverseUser.setLastUpdateDate(createDate); 
+            datasetVersionDataverseUser.setLastUpdateDate(createDate);
             if (savedDataset.getLatestVersion().getId() == null){
                 logger.warning("CreateDatasetCommand: savedDataset version id is null");
             } else {
-                datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());  
-            }       
-            ctxt.em().merge(datasetVersionDataverseUser); 
+                datasetVersionDataverseUser.setDatasetVersion(savedDataset.getLatestVersion());
+            }
+            ctxt.em().merge(datasetVersionDataverseUser);
         }
-           logger.log(Level.FINE,"after create version user "  + formatter.format(new Date().getTime()));       
+        logger.log(Level.FINE,"after create version user "  + formatter.format(new Date().getTime()));
         return savedDataset;
     }
 

@@ -107,25 +107,25 @@ public class JsonPrinter {
                 .add("emailLastConfirmed", authenticatedUser.getEmailConfirmed())
                 .add("authenticationProviderId", authenticatedUser.getAuthenticatedUserLookup().getAuthenticationProviderId());
     }
-    
+
     public static JsonObjectBuilder json( RoleAssignment ra ) {
-		return jsonObjectBuilder()
-				.add("id", ra.getId())
-				.add("assignee", ra.getAssigneeIdentifier() )
-				.add("roleId", ra.getRole().getId() )
-				.add("_roleAlias", ra.getRole().getAlias())
-				.add("privateUrlToken", ra.getPrivateUrlToken())
-				.add("definitionPointId", ra.getDefinitionPoint().getId() );
-	}
-	
-	public static JsonArrayBuilder json( Set<Permission> permissions ) {
-		JsonArrayBuilder bld = Json.createArrayBuilder();
-		for ( Permission p : permissions ) {
-			bld.add( p.name() );
-		}
-		return bld;
-	}
-    
+        return jsonObjectBuilder()
+                .add("id", ra.getId())
+                .add("assignee", ra.getAssigneeIdentifier() )
+                .add("roleId", ra.getRole().getId() )
+                .add("_roleAlias", ra.getRole().getAlias())
+                .add("privateUrlToken", ra.getPrivateUrlToken())
+                .add("definitionPointId", ra.getDefinitionPoint().getId() );
+    }
+
+    public static JsonArrayBuilder json( Set<Permission> permissions ) {
+        JsonArrayBuilder bld = Json.createArrayBuilder();
+        for ( Permission p : permissions ) {
+            bld.add( p.name() );
+        }
+        return bld;
+    }
+
     public static JsonObjectBuilder json( RoleAssigneeDisplayInfo d ) {
         return jsonObjectBuilder()
                 .add("title", d.getTitle())
@@ -134,14 +134,14 @@ public class JsonPrinter {
     }
 
     public static JsonObjectBuilder json(IpGroup grp) {
-         // collect single addresses
+        // collect single addresses
         List<String> singles = grp.getRanges().stream().filter( IpAddressRange::isSingleAddress )
-                                .map( IpAddressRange::getBottom )
-                                .map( IpAddress::toString ).collect(toList());
+                .map( IpAddressRange::getBottom )
+                .map( IpAddress::toString ).collect(toList());
         // collect "real" ranges
         List<List<String>> ranges = grp.getRanges().stream().filter( rng -> !rng.isSingleAddress() )
-                                .map( rng -> Arrays.asList(rng.getBottom().toString(), rng.getTop().toString()) )
-                                .collect(toList());
+                .map( rng -> Arrays.asList(rng.getBottom().toString(), rng.getTop().toString()) )
+                .collect(toList());
 
         JsonObjectBuilder bld = jsonObjectBuilder()
                 .add("alias", grp.getPersistedGroupAlias() )
@@ -149,17 +149,17 @@ public class JsonPrinter {
                 .add("id", grp.getId() )
                 .add("name", grp.getDisplayName() )
                 .add("description", grp.getDescription() );
-       
+
         if ( ! singles.isEmpty() ) {
             bld.add("addresses", asJsonArray(singles) );
         }
-        
+
         if ( ! ranges.isEmpty() ) {
             JsonArrayBuilder rangesBld = Json.createArrayBuilder();
             ranges.forEach( r -> rangesBld.add( Json.createArrayBuilder().add(r.get(0)).add(r.get(1))) );
             bld.add("ranges", rangesBld );
         }
-        
+
         return bld;
     }
 
@@ -196,6 +196,17 @@ public class JsonPrinter {
     }
 
     public static JsonObjectBuilder json(Dataverse dv) {
+
+        /** @todo refactor this fileUploadMechanisms stuff into its own method */
+        JsonArrayBuilder fileUploadMechanismsEnabledArray = Json.createArrayBuilder();
+        /** @todo Each element in the array should be an object with a description taken from the bundle. */
+        String fileUploadMechanismsEnabledString = dv.getFileUploadMechanisms();
+        if (fileUploadMechanismsEnabledString != null) {
+            for (String mech : fileUploadMechanismsEnabledString.split(":")) {
+                fileUploadMechanismsEnabledArray.add(mech);
+            }
+        }
+
         JsonObjectBuilder bld = jsonObjectBuilder()
                 .add("id", dv.getId())
                 .add("alias", dv.getAlias())
@@ -203,6 +214,7 @@ public class JsonPrinter {
                 .add("affiliation", dv.getAffiliation())
                 .add("dataverseContacts", json(dv.getDataverseContacts()))
                 .add("permissionRoot", dv.isPermissionRoot())
+                .add("fileUploadMechanismsEnabled", fileUploadMechanismsEnabledArray)
                 .add("description", dv.getDescription())
                 .add("dataverseType", dv.getDataverseType().name());
         if (dv.getOwner() != null) {
@@ -228,7 +240,7 @@ public class JsonPrinter {
                         .add("contactEmail", dc.getContactEmail())
                 ).collect( toJsonArray() );
     }
-    
+
     public static JsonObjectBuilder json( DataverseTheme theme ) {
         final NullSafeJsonBuilder baseObject = jsonObjectBuilder()
                 .add("id", theme.getId() )
@@ -308,7 +320,7 @@ public class JsonPrinter {
 
         return bld;
     }
-    
+
     private static String getRootDataverseNameforCitation(Dataset dataset) {
         Dataverse root = dataset.getOwner();
         while (root.getOwner() != null) {
@@ -321,7 +333,7 @@ public class JsonPrinter {
             return "";
         }
     }
-    
+
     private static String getLicenseInfo(DatasetVersion dsv) {
         if (dsv.getTermsOfUseAndAccess().getLicense() != null && dsv.getTermsOfUseAndAccess().getLicense().equals(TermsOfUseAndAccess.License.CC0)) {
             return "CC0 Waiver";
@@ -484,7 +496,7 @@ public class JsonPrinter {
     public static JsonObjectBuilder json(DataFile df) {
         return json(df, null);
     }
-    
+
     public static JsonObjectBuilder json(DataFile df, FileMetadata fileMetadata) {
         // File names are no longer stored in the DataFile entity; 
         // (they are instead in the FileMetadata (as "labels") - this way 
@@ -495,7 +507,7 @@ public class JsonPrinter {
         // *correct* file name - i.e., that it comes from the right version. 
         // (TODO...? L.A. 4.5, Aug 7 2016)
         String fileName = null;
-        
+
         if (fileMetadata != null) {
             fileName = fileMetadata.getLabel();
         } else if (df.getFileMetadata() != null) {
@@ -503,7 +515,7 @@ public class JsonPrinter {
             // version *you want*! (L.A.)
             fileName = df.getFileMetadata().getLabel();
         }
-        
+
         return jsonObjectBuilder()
                 .add("id", df.getId())
                 .add("filename", fileName)
@@ -591,12 +603,12 @@ public class JsonPrinter {
 
     public static JsonObjectBuilder json(AuthenticationProviderRow aRow) {
         return jsonObjectBuilder()
-                        .add("id", aRow.getId())
-                        .add("factoryAlias", aRow.getFactoryAlias() )
-                        .add("title", aRow.getTitle())
-                        .add("subtitle",aRow.getSubtitle())
-                        .add("factoryData", aRow.getFactoryData())
-                        .add("enabled", aRow.isEnabled())
+                .add("id", aRow.getId())
+                .add("factoryAlias", aRow.getFactoryAlias() )
+                .add("title", aRow.getTitle())
+                .add("subtitle",aRow.getSubtitle())
+                .add("factoryData", aRow.getFactoryData())
+                .add("enabled", aRow.isEnabled())
                 ;
     }
 
@@ -610,24 +622,24 @@ public class JsonPrinter {
 
     public static JsonObjectBuilder json( ExplicitGroup eg ) {
         JsonArrayBuilder ras = Json.createArrayBuilder();
-            for (String u : eg.getContainedRoleAssgineeIdentifiers()) {
-                ras.add(u);
-            }
-            return jsonObjectBuilder()
-                    .add("identifier", eg.getIdentifier())
-                    .add("groupAliasInOwner", eg.getGroupAliasInOwner())
-                    .add("owner", eg.getOwner().getId())
-                    .add("description", eg.getDescription())
-                    .add("displayName", eg.getDisplayName())
-                    .add("containedRoleAssignees", ras);
+        for (String u : eg.getContainedRoleAssgineeIdentifiers()) {
+            ras.add(u);
+        }
+        return jsonObjectBuilder()
+                .add("identifier", eg.getIdentifier())
+                .add("groupAliasInOwner", eg.getGroupAliasInOwner())
+                .add("owner", eg.getOwner().getId())
+                .add("description", eg.getDescription())
+                .add("displayName", eg.getDisplayName())
+                .add("containedRoleAssignees", ras);
     }
-    
+
     public static JsonObjectBuilder json( DataverseFacet aFacet ) {
         return jsonObjectBuilder()
-                    .add("id", String.valueOf(aFacet.getId())) // TODO should just be id I think
-                    .add("name", aFacet.getDatasetFieldType().getDisplayName());
+                .add("id", String.valueOf(aFacet.getId())) // TODO should just be id I think
+                .add("name", aFacet.getDatasetFieldType().getDisplayName());
     }
-        
+
     public static Collector<String, JsonArrayBuilder, JsonArrayBuilder> stringsToJsonArray() {
         return new Collector<String, JsonArrayBuilder, JsonArrayBuilder>() {
 
@@ -687,9 +699,9 @@ public class JsonPrinter {
             @Override
             public Function<ArrayList<JsonObjectBuilder>, JsonArrayBuilder> finisher() {
                 return (l) -> {
-                  JsonArrayBuilder bld = Json.createArrayBuilder();
-                  l.forEach( bld::add );
-                  return bld;
+                    JsonArrayBuilder bld = Json.createArrayBuilder();
+                    l.forEach( bld::add );
+                    return bld;
                 };
             }
 

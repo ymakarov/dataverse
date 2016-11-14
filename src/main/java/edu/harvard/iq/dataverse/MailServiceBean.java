@@ -54,7 +54,7 @@ public class MailServiceBean implements java.io.Serializable {
     @EJB
     DatasetServiceBean datasetService;
     @EJB
-    DatasetVersionServiceBean versionService; 
+    DatasetVersionServiceBean versionService;
     @EJB
     SystemConfig systemConfig;
     @EJB
@@ -65,12 +65,12 @@ public class MailServiceBean implements java.io.Serializable {
     GroupServiceBean groupService;
     @EJB
     ConfirmEmailServiceBean confirmEmailService;
-    
+
     private static final Logger logger = Logger.getLogger(MailServiceBean.class.getCanonicalName());
-    
+
     private static final String EMAIL_PATTERN = "^[_A-Za-z0-9-\\+]+(\\.[_A-Za-z0-9-]+)*@"
-    + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
-    
+            + "[A-Za-z0-9-]+(\\.[A-Za-z0-9]+)*(\\.[A-Za-z]{2,})$";
+
     /**
      * Creates a new instance of MailServiceBean
      */
@@ -103,7 +103,7 @@ public class MailServiceBean implements java.io.Serializable {
     public boolean sendSystemEmail(String to, String subject, String messageText) {
         boolean sent = false;
         try {
-             Message msg = new MimeMessage(session);
+            Message msg = new MimeMessage(session);
 
             InternetAddress systemAddress = getSystemAddress();
             if (systemAddress != null) {
@@ -131,10 +131,10 @@ public class MailServiceBean implements java.io.Serializable {
         }
         return sent;
     }
-    
+
     private InternetAddress getSystemAddress() {
-       String systemEmail =  settingsService.getValueForKey(Key.SystemEmail);
-       return MailUtil.parseSystemAddress(systemEmail);
+        String systemEmail =  settingsService.getValueForKey(Key.SystemEmail);
+        return MailUtil.parseSystemAddress(systemEmail);
     }
 
     //@Resource(name="mail/notifyMailSession")
@@ -175,29 +175,29 @@ public class MailServiceBean implements java.io.Serializable {
             me.printStackTrace(System.out);
         }
     }
-    
-    public Boolean sendNotificationEmail(UserNotification notification){        
+
+    public Boolean sendNotificationEmail(UserNotification notification){
         boolean retval = false;
         String emailAddress = getUserEmailAddress(notification);
         if (emailAddress != null){
-           Object objectOfNotification =  getObjectOfNotification(notification);
-           if (objectOfNotification != null){
-               String messageText = getMessageTextBasedOnNotification(notification, objectOfNotification);
-               String subjectText = getSubjectTextBasedOnNotification(notification);              
-               if (!(messageText.isEmpty() || subjectText.isEmpty())){
-                    retval = sendSystemEmail(emailAddress, subjectText, messageText); 
-               } else {
-                   logger.warning("Skipping " + notification.getType() +  " notification, because couldn't get valid message");
-               }
-           } else { 
-               logger.warning("Skipping " + notification.getType() +  " notification, because no valid Object was found");
-           }           
+            Object objectOfNotification =  getObjectOfNotification(notification);
+            if (objectOfNotification != null){
+                String messageText = getMessageTextBasedOnNotification(notification, objectOfNotification);
+                String subjectText = getSubjectTextBasedOnNotification(notification);
+                if (!(messageText.isEmpty() || subjectText.isEmpty())){
+                    retval = sendSystemEmail(emailAddress, subjectText, messageText);
+                } else {
+                    logger.warning("Skipping " + notification.getType() +  " notification, because couldn't get valid message");
+                }
+            } else {
+                logger.warning("Skipping " + notification.getType() +  " notification, because no valid Object was found");
+            }
         } else {
             logger.warning("Skipping " + notification.getType() +  " notification, because email address is null");
         }
         return retval;
     }
-        
+
     private String getSubjectTextBasedOnNotification(UserNotification userNotification) {
         switch (userNotification.getType()) {
             case ASSIGNROLE:
@@ -224,23 +224,25 @@ public class MailServiceBean implements java.io.Serializable {
                 return ResourceBundle.getBundle("Bundle").getString("notification.email.returned.dataset.subject");
             case CREATEACC:
                 return ResourceBundle.getBundle("Bundle").getString("notification.email.create.account.subject");
+            case CHECKSUMFAIL:
+                return ResourceBundle.getBundle("Bundle").getString("notification.email.checksumfail.subject");
         }
         return "";
     }
-    
+
     private String getDatasetManageFileAccessLink(DataFile datafile){
         return  systemConfig.getDataverseSiteUrl() + "/permissions-manage-files.xhtml?id=" + datafile.getOwner().getId();
-    } 
-    
-    private String getDatasetLink(Dataset dataset){        
+    }
+
+    private String getDatasetLink(Dataset dataset){
         return  systemConfig.getDataverseSiteUrl() + "/dataset.xhtml?persistentId=" + dataset.getGlobalId();
-    } 
-    
-    private String getDatasetDraftLink(Dataset dataset){        
-        return  systemConfig.getDataverseSiteUrl() + "/dataset.xhtml?persistentId=" + dataset.getGlobalId() + "&version=DRAFT" + "&faces-redirect=true"; 
-    } 
-    
-    private String getDataverseLink(Dataverse dataverse){       
+    }
+
+    private String getDatasetDraftLink(Dataset dataset){
+        return  systemConfig.getDataverseSiteUrl() + "/dataset.xhtml?persistentId=" + dataset.getGlobalId() + "&version=DRAFT" + "&faces-redirect=true";
+    }
+
+    private String getDataverseLink(Dataverse dataverse){
         return  systemConfig.getDataverseSiteUrl() + "/dataverse/" + dataverse.getAlias();
     }
 
@@ -302,8 +304,8 @@ public class MailServiceBean implements java.io.Serializable {
         return "";
     }
 
-    private String getMessageTextBasedOnNotification(UserNotification userNotification, Object targetObject){       
-        
+    private String getMessageTextBasedOnNotification(UserNotification userNotification, Object targetObject){
+
         String messageText = ResourceBundle.getBundle("Bundle").getString("notification.email.greeting");
         DatasetVersion version = null;
         Dataset dataset = null;
@@ -327,15 +329,15 @@ public class MailServiceBean implements java.io.Serializable {
                 messageText += MessageFormat.format(pattern, paramArrayAssignRole);
                 if (joinedRoleNames.contains("File Downloader")){
                     if (dvObjTypeStr.equals("dataset")){
-                         pattern = ResourceBundle.getBundle("Bundle").getString("notification.access.granted.fileDownloader.additionalDataset");
-                         String[]  paramArrayAssignRoleDS = {" "};
+                        pattern = ResourceBundle.getBundle("Bundle").getString("notification.access.granted.fileDownloader.additionalDataset");
+                        String[]  paramArrayAssignRoleDS = {" "};
                         messageText += MessageFormat.format(pattern, paramArrayAssignRoleDS);
                     }
                     if (dvObjTypeStr.equals("dataverse")){
                         pattern = ResourceBundle.getBundle("Bundle").getString("notification.access.granted.fileDownloader.additionalDataverse");
-                         String[]  paramArrayAssignRoleDV = {" "};
+                        String[]  paramArrayAssignRoleDV = {" "};
                         messageText += MessageFormat.format(pattern, paramArrayAssignRoleDV);
-                    }                   
+                    }
                 }
                 return messageText;
             case REVOKEROLE:
@@ -402,26 +404,26 @@ public class MailServiceBean implements java.io.Serializable {
                 pattern = ResourceBundle.getBundle("Bundle").getString("notification.email.worldMap.added");
                 String[] paramArrayMapLayer = {version.getDataset().getDisplayName(), getDatasetLink(version.getDataset())};
                 messageText += MessageFormat.format(pattern, paramArrayMapLayer);
-                return messageText;                   
+                return messageText;
             case SUBMITTEDDS:
                 version =  (DatasetVersion) targetObject;
                 pattern = ResourceBundle.getBundle("Bundle").getString("notification.email.wasSubmittedForReview");
-                String[] paramArraySubmittedDataset = {version.getDataset().getDisplayName(), getDatasetDraftLink(version.getDataset()), 
-                    version.getDataset().getOwner().getDisplayName(),  getDataverseLink(version.getDataset().getOwner())};
+                String[] paramArraySubmittedDataset = {version.getDataset().getDisplayName(), getDatasetDraftLink(version.getDataset()),
+                        version.getDataset().getOwner().getDisplayName(),  getDataverseLink(version.getDataset().getOwner())};
                 messageText += MessageFormat.format(pattern, paramArraySubmittedDataset);
                 return messageText;
             case PUBLISHEDDS:
                 version =  (DatasetVersion) targetObject;
                 pattern = ResourceBundle.getBundle("Bundle").getString("notification.email.wasPublished");
-                String[] paramArrayPublishedDataset = {version.getDataset().getDisplayName(), getDatasetLink(version.getDataset()), 
-                    version.getDataset().getOwner().getDisplayName(),  getDataverseLink(version.getDataset().getOwner())};
+                String[] paramArrayPublishedDataset = {version.getDataset().getDisplayName(), getDatasetLink(version.getDataset()),
+                        version.getDataset().getOwner().getDisplayName(),  getDataverseLink(version.getDataset().getOwner())};
                 messageText += MessageFormat.format(pattern, paramArrayPublishedDataset);
                 return messageText;
             case RETURNEDDS:
                 version =  (DatasetVersion) targetObject;
                 pattern = ResourceBundle.getBundle("Bundle").getString("notification.email.wasReturnedByReviewer");
-                String[] paramArrayReturnedDataset = {version.getDataset().getDisplayName(), getDatasetDraftLink(version.getDataset()), 
-                    version.getDataset().getOwner().getDisplayName(),  getDataverseLink(version.getDataset().getOwner())};
+                String[] paramArrayReturnedDataset = {version.getDataset().getDisplayName(), getDatasetDraftLink(version.getDataset()),
+                        version.getDataset().getOwner().getDisplayName(),  getDataverseLink(version.getDataset().getOwner())};
                 messageText += MessageFormat.format(pattern, paramArrayReturnedDataset);
                 return messageText;
             case CREATEACC:
@@ -433,11 +435,17 @@ public class MailServiceBean implements java.io.Serializable {
                 accountCreatedMessage += optionalConfirmEmailAddon;
                 logger.info("accountCreatedMessage: " + accountCreatedMessage);
                 return messageText += accountCreatedMessage;
+            case CHECKSUMFAIL:
+                dataset = (Dataset) targetObject;
+                String checksumFailMessage = BundleUtil.getStringFromBundle("notification.checksumfail", Arrays.asList(
+                        dataset.getGlobalId()
+                ));
+                return messageText += checksumFailMessage;
         }
-        
+
         return "";
     }
-    
+
     private Object getObjectOfNotification (UserNotification userNotification){
         switch (userNotification.getType()) {
             case ASSIGNROLE:
@@ -463,13 +471,15 @@ public class MailServiceBean implements java.io.Serializable {
                 return versionService.find(userNotification.getObjectId());
             case CREATEACC:
                 return userNotification.getUser();
+            case CHECKSUMFAIL:
+                return datasetService.find(userNotification.getObjectId());
         }
         return null;
     }
-    
 
-    
-    
+
+
+
     private String getUserEmailAddress(UserNotification notification) {
         if (notification != null) {
             if (notification.getUser() != null) {
@@ -481,9 +491,9 @@ public class MailServiceBean implements java.io.Serializable {
                 }
             }
         }
-        
+
         logger.fine("no email address");
-        return null; 
+        return null;
     }
 
 }
