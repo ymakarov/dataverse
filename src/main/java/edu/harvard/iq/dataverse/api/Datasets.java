@@ -700,8 +700,6 @@ public class Datasets extends AbstractApiBean {
     @Path("dataCaptureModule/checksumValidation")
     public Response receiveChecksumValidationResults(JsonObject result) {
 
-        LOGGER.log(Level.INFO, "receiveChecksumValidationResults API called...");
-
         String passed = "validation passed";
         String failed = "validation failed";
 
@@ -709,16 +707,26 @@ public class Datasets extends AbstractApiBean {
             AuthenticatedUser depositingUser;
 
             // only superusers should run this
-            User superUser = findUserOrDie();
-            if (!superUser.isSuperuser()) {
-                LOGGER.log(Level.SEVERE, "Not a superuser");
+            User apiTokenUser;
+            try {
+                apiTokenUser = findUserOrDie();
+                if (!apiTokenUser.isSuperuser()) {
+                    LOGGER.log(Level.SEVERE, "Not a superuser: " + httpRequest.getHeader("X-Dataverse-key"));
+                    return error(Response.Status.FORBIDDEN, "Not a superuser");
+                }
+            } catch (WrappedResponse wr) {
+                LOGGER.log(Level.SEVERE, "Message from findUserOrDie(): {0}", wr.getMessage());
+                return error(Response.Status.FORBIDDEN, "Not a superuser");
+            }
+            if (apiTokenUser == null) {
+                LOGGER.log(Level.SEVERE, "No user found matching key: " + httpRequest.getHeader("X-Dataverse-key"));
                 return error(Response.Status.FORBIDDEN, "Not a superuser");
             }
 
             String status = result.getString("status");
             String userid = result.getString("userId").replace("@", "");
             String datasetIdentifier = result.getString("datasetIdentifier");
-            int datasetid = Integer.parseInt(result.getString("datasetId"));
+            int datasetid = result.getInt("datasetId");
 
             if (StringUtils.isEmpty(status)) {
                 LOGGER.log(Level.SEVERE,
