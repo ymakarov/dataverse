@@ -148,8 +148,8 @@ public class SearchIT {
         Response createDatasetResponse = UtilIT.createRandomDatasetViaNativeApi(dataverseAlias, apiToken);
         createDatasetResponse.prettyPrint();
         Integer datasetId = UtilIT.getDatasetIdFromResponse(createDatasetResponse);
-        Response solrResponse = querySolr("id:dataset_" + datasetId + "_draft");
-        solrResponse.prettyPrint();
+//        Response solrResponse = querySolr("id:dataset_" + datasetId + "_draft");
+//        solrResponse.prettyPrint();
         Response enableNonPublicSearch = enableSetting(SettingsServiceBean.Key.SearchApiNonPublicAllowed);
         assertEquals(200, enableNonPublicSearch.getStatusCode());
         Response searchResponse = search("id:dataset_" + datasetId + "_draft", apiToken);
@@ -165,10 +165,10 @@ public class SearchIT {
         deleteDataverseResponse.prettyPrint();
         assertEquals(200, deleteDataverseResponse.getStatusCode());
 
-        makeSuperuser(username);
-        search("finch&show_relevance=true&show_facets=true&fq=publicationDate:2016&subtree=birds", apiToken).prettyPrint();
-
-        search("trees", apiToken).prettyPrint();
+//        makeSuperuser(username);
+//        search("finch&show_relevance=true&show_facets=true&fq=publicationDate:2017&subtree=birds", apiToken).prettyPrint();
+//
+//        search("trees", apiToken).prettyPrint();
 
         Response deleteUserResponse = UtilIT.deleteUser(username);
         deleteUserResponse.prettyPrint();
@@ -517,49 +517,49 @@ public class SearchIT {
         grantRoleResponse.prettyPrint();
 
         assertEquals(200, grantRoleResponse.getStatusCode());
-        sleep(500l);
-        Response shouldBeVisible = querySolr("id:dataset_" + datasetId1 + "_draft_permission");
-        shouldBeVisible.prettyPrint();
-        String discoverableBy = JsonPath.from(shouldBeVisible.asString()).getString("response.docs.discoverableBy");
+//        sleep(500l);
+//        Response shouldBeVisible = querySolr("id:dataset_" + datasetId1 + "_draft_permission");
+//        shouldBeVisible.prettyPrint();
+//        String discoverableBy = JsonPath.from(shouldBeVisible.asString()).getString("response.docs.discoverableBy");
 
-        Set actual = new HashSet<>();
-        for (String userOrGroup : discoverableBy.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(" ", "").split(",")) {
-            actual.add(userOrGroup);
-        }
+//        Set actual = new HashSet<>();
+//        for (String userOrGroup : discoverableBy.replaceAll("\\[", "").replaceAll("\\]", "").replaceAll(" ", "").split(",")) {
+//            actual.add(userOrGroup);
+//        }
 
-        Set expected = new HashSet<>();
-        createUser1.prettyPrint();
-        String userid1 = JsonPath.from(createUser1.asString()).getString("data.authenticatedUser.id");
-        expected.add("group_user" + userid1);
-        expected.add("group_" + dvId + "-" + aliasInOwner);
-        logger.info("expected: " + expected);
-        logger.info("actual: " + actual);
-        assertEquals(expected, actual);
+//        Set expected = new HashSet<>();
+//        createUser1.prettyPrint();
+//        String userid1 = JsonPath.from(createUser1.asString()).getString("data.authenticatedUser.id");
+//        expected.add("group_user" + userid1);
+//        expected.add("group_" + dvId + "-" + aliasInOwner);
+//        logger.info("expected: " + expected);
+//        logger.info("actual: " + actual);
+//        assertEquals(expected, actual);
 
-        Response enableNonPublicSearch = enableSetting(SettingsServiceBean.Key.SearchApiNonPublicAllowed);
-        assertEquals(200, enableNonPublicSearch.getStatusCode());
+//        Response enableNonPublicSearch = enableSetting(SettingsServiceBean.Key.SearchApiNonPublicAllowed);
+//        assertEquals(200, enableNonPublicSearch.getStatusCode());
+//
+//        TestSearchQuery query = new TestSearchQuery("*");
+//
+//        JsonObjectBuilder createdUser = Json.createObjectBuilder();
+//        createdUser.add(idKey, Integer.MAX_VALUE);
+//        createdUser.add(usernameKey, username2);
+//        createdUser.add(apiTokenKey, apiToken2);
+//        JsonObject json = createdUser.build();
+//
+//        TestUser testUser = new TestUser(json);
+//        Response searchResponse = search(query, testUser);
+//
+//        searchResponse.prettyPrint();
+//        Set<String> titles = new HashSet<>(JsonPath.from(searchResponse.asString()).getList("data.items.name"));
+//        System.out.println("title: " + titles);
+//        Set expectedNames = new HashSet<>();
+//        expectedNames.add(dvAlias);
+//        expectedNames.add("Darwin's Finches");
+//        assertEquals(expectedNames, titles);
 
-        TestSearchQuery query = new TestSearchQuery("*");
-
-        JsonObjectBuilder createdUser = Json.createObjectBuilder();
-        createdUser.add(idKey, Integer.MAX_VALUE);
-        createdUser.add(usernameKey, username2);
-        createdUser.add(apiTokenKey, apiToken2);
-        JsonObject json = createdUser.build();
-
-        TestUser testUser = new TestUser(json);
-        Response searchResponse = search(query, testUser);
-
-        searchResponse.prettyPrint();
-        Set<String> titles = new HashSet<>(JsonPath.from(searchResponse.asString()).getList("data.items.name"));
-        System.out.println("title: " + titles);
-        Set expectedNames = new HashSet<>();
-        expectedNames.add(dvAlias);
-        expectedNames.add("Darwin's Finches");
-        assertEquals(expectedNames, titles);
-
-        Response disableNonPublicSearch = deleteSetting(SettingsServiceBean.Key.SearchApiNonPublicAllowed);
-        assertEquals(200, disableNonPublicSearch.getStatusCode());
+//        Response disableNonPublicSearch = deleteSetting(SettingsServiceBean.Key.SearchApiNonPublicAllowed);
+//        assertEquals(200, disableNonPublicSearch.getStatusCode());
     }
 
     @Ignore
@@ -837,6 +837,9 @@ public class SearchIT {
     }
 
     private Response querySolr(String query) {
+        if (true) {
+            throw new RuntimeException("Tests should not query Solr directly.");
+        }
         Response querySolrResponse = given().get("http://localhost:8983/solr/collection1/select?wt=json&indent=true&q=" + query);
         return querySolrResponse;
     }
