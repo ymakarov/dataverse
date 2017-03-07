@@ -13,9 +13,17 @@ public class XmlValidatorTest {
     @Test
     public void testValidateXml() throws IOException, SAXException {
         String dir = "src/test/java/edu/harvard/iq/dataverse/export/ddi/";
-       //String codebookdir = "http://www.ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/";
-       // assertEquals(true, XmlValidator.validateXml(dir + "dataset-finch1.xml", dir + "codebook.xsd"));
-      //  assertEquals(true, XmlValidator.validateXml(dir + "dataset-spruce1.xml", dir + "codebook.xsd"));
+
+        System.out.println("Attempting to validate a DDI 2.0 file...");
+        assertEquals(true, XmlValidator.validateXml(dir + "dataset-finch1-ddi-2.0.xml", dir + "Version2-0.xsd"));
+
+        System.out.println("Attempting to validate a DDI 2.5 file...");
+        // codebook.xsd comes from http://www.ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd
+        /**
+         * @todo Make the DDI 2.5 format we export pass validation. See
+         * https://github.com/IQSS/dataverse/issues/3648
+         */
+        assertEquals(true, XmlValidator.validateXml(dir + "dataset-finch1.xml", dir + "codebook.xsd"));
     }
 
 }
