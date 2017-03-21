@@ -22,6 +22,7 @@ import edu.harvard.iq.dataverse.datasetutility.DataFileTagException;
 import edu.harvard.iq.dataverse.datasetutility.NoFilesException;
 import edu.harvard.iq.dataverse.datasetutility.OptionalFileParams;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
+import edu.harvard.iq.dataverse.fileutility.FileCoreAttributeChecker;
 import edu.harvard.iq.dataverse.ingest.IngestServiceBean;
 import edu.harvard.iq.dataverse.util.SystemConfig;
 import java.io.InputStream;
@@ -31,6 +32,7 @@ import java.util.logging.Logger;
 import javax.ejb.EJB;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -217,6 +219,65 @@ public class Files extends AbstractApiBean {
     } // end: replaceFileInDataset
 
 
+    @GET
+    @Path("{id}/verify-core")
+    public Response verifyCoreAttributes(@PathParam("id") Long fileId){
+        
+         // -------------------------------------
+        // (1) Get the user from the API key
+        // -------------------------------------
+        /*User authUser;
+        try {
+            authUser = this.findUserOrDie();
+        } catch (AbstractApiBean.WrappedResponse ex) {
+            return error(Response.Status.FORBIDDEN, 
+                    ResourceBundle.getBundle("Bundle").getString("file.addreplace.error.auth")
+                    );
+        }
+        */
+        //!! Check file permissions here....
+        
+        FileCoreAttributeChecker checker = new FileCoreAttributeChecker(this.fileService, fileId);
+        if (checker.hasError()){
+            return error(Response.Status.OK, checker.getErrorMessage());
+        }
+        /*if (!checker.doCurrentAttributesMatch()){
+            return error(Response.Status.OK, "Attributes don't match");
+        }*/
+        return ok(checker.getFileInfo());
+        
+    } // end verifyCoreAttributes
+    
+    
+    @GET
+    @Path("{id}/update-core")
+    public Response updateCoreAttributes(@PathParam("id") Long fileId){
+        
+         // -------------------------------------
+        // (1) Get the user from the API key
+        // -------------------------------------
+        /*User authUser;
+        try {
+            authUser = this.findUserOrDie();
+        } catch (AbstractApiBean.WrappedResponse ex) {
+            return error(Response.Status.FORBIDDEN, 
+                    ResourceBundle.getBundle("Bundle").getString("file.addreplace.error.auth")
+                    );
+        }
+        */
+        //!! Check file permissions here....
+        
+        FileCoreAttributeChecker checker = new FileCoreAttributeChecker(this.fileService, fileId);
+        if (checker.hasError()){
+            return error(Response.Status.OK, checker.getErrorMessage());
+        }
+        if (!checker.doCurrentAttributesMatch()){
+            checker.updateDataFileObject();
+            return ok("Attributes updated!");
+        }
+        return error(Response.Status.OK, "No update needed");
+        
+    } // end verifyCoreAttributes
 
 }
 
