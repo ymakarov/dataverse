@@ -2,15 +2,15 @@
 
 use DBI;
 
+# EDIT the configuration values below to                                                                                        
+# match your system:
 my $datadir = "/opt/dvn/data/IQSS/DVN/data";
-
-# EDIT the configuration values below to                                                                                         
-# work with your database:                                                                                                       
+# database access: 
 my $port = 5432;
 my $host = "XXXX";
 my $username = "dvnapp";
 my $password = "xxx";
-my $database = "dvndb";
+my $database = "dvndb"; 
 
 
 my %DATAVERSE_MAP; 

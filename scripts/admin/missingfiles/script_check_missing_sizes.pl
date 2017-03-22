@@ -2,10 +2,10 @@
 
 use DBI;
 
-my $datadir = "/opt/dvn/data/IQSS/DVN/data";
-
 # EDIT the configuration values below to 
-# work with your database:
+# match your system: 
+my $datadir = "/opt/dvn/data/IQSS/DVN/data";
+# database access:
 my $port = 5432;
 my $host = "XXXX"; 
 my $username = "dvnapp";
@@ -17,7 +17,7 @@ my $dbh = DBI->connect("DBI:Pg:dbname=$database;host=$host;port=$port",$username
 my $sth; 
 
 
-my $query = qq{SELECT ds.authority, ds.identifier, df.filesystemname, df.id FROM dataset ds, dvobject fo, datafile df WHERE df.id = fo.id AND fo.owner_id = ds.id AND ds.harvestingclient_id IS null AND df.filesize = 0 ORDER by df.id};
+my $query = qq{SELECT ds.authority, ds.identifier, df.filesystemname, df.id FROM dataset ds, dvobject fo, datafile df WHERE df.id = fo.id AND fo.owner_id = ds.id AND ds.harvestingclient_id IS null AND (df.filesize = 0 OR df.filesize IS null) ORDER by df.id};
 
 $sth = $dbh->prepare($query); 
 $sth->execute();
