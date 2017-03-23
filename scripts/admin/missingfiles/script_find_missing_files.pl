@@ -10,23 +10,30 @@ my $port = 5432;
 my $host = "XXXX";
 my $username = "dvnapp";
 my $password = "xxx";
-my $database = "dvndb"; 
+my $database = "dvndb";
 
+
+my $verbose = 0; 
+
+while (my $opt = shift @ARGV) 
+{
+    $verbose = 1 if ($opt =~/^\-+v/); 
+}
+    
 
 my %DATAVERSE_MAP; 
 
 my $dbh = DBI->connect("DBI:Pg:dbname=$database;host=$host;port=$port",$username,$password); 
 my $sth; 
 
-my $query = qq{SELECT ds.authority, ds.identifier, df.filesystemname, df.id, dd.owner_id, fo.createdate, ds.protocol FROM dataset ds, dvobject dd, dvobject fo, datafile df WHERE df.id = fo.id AND fo.owner_id = ds.id AND dd.id = ds.id AND ds.harvestingclient_id IS null ORDER by df.id};
+my $query = qq{SELECT ds.authority, ds.identifier, df.filesystemname, df.id, dd.owner_id, fo.createdate, ds.protocol, df.filesize, df.checksumvalue FROM dataset ds, dvobject dd, dvobject fo, datafile df WHERE df.id = fo.id AND fo.owner_id = ds.id AND dd.id = ds.id AND ds.harvestingclient_id IS null ORDER by df.id};
 
 $sth = $dbh->prepare($query); 
 $sth->execute();
 
 
-# this is the header for our tab-separated output file: 
-
-print "FILESYSTEMPATH\tCREATE DATE\tDATASET ID\tDATAVERSE NAME\tCONTACT EMAIL(S)\n";
+print "FILE ID\tFILESYSTEMPATH\t" if $verbose; 
+print "FILE NAME\tCREATE DATE\tSIZE\tMD5\tDATASET ID\tDATAVERSE NAME\tCONTACT EMAIL(S)\n";
 
 while ( @_ = $sth->fetchrow() )
 {
@@ -37,25 +44,24 @@ while ( @_ = $sth->fetchrow() )
     my $dataverseid = $_[4];
     my $createdate = $_[5];
     my $protocol = $_[6];
+    my $filesize = $_[7];
+    my $md5 = $_[8]; 
 
-    if ($filesystemname) {
-	my $filepath = $datadir . "/" . $authority . "/" . $identifier . "/" . $filesystemname;
+    my $filepath = $datadir . "/" . $authority . "/" . $identifier . "/" . $filesystemname;
 
-	unless ( -f $filepath )
-	{
-	    my $globalid = $protocol . ":" . $authority . "/" . $identifier; 
-	    my $dataverseinfo = &find_dataverse_info($dataverseid); 
-
-	    print $filepath . "\t" . $createdate . "\t" . $globalid . "\t" . $dataverseinfo . "\n";
-	}
-    }
-    else 
+    unless ($filesystemname && -f $filepath )
     {
-	print STDERR "datafile (id = $datafileid) is missing the filesystemname!\n";
-    }
+	my $globalid = $protocol . ":" . $authority . "/" . $identifier; 
 
+	my $dataverseinfo = &find_dataverse_info($dataverseid); 
+	my $filelabel = &get_filelabel($datafileid);
+
+	print $datafileid . "\t" . $filepath . "\t" if $verbose; 
+	print $filelabel . "\t" . $createdate . "\t" . $filesize . "\t" . $md5 . "\t" . $globalid . "\t" . $dataverseinfo . "\n";
+    }
 }
 $sth->finish; 
+
 $dbh->disconnect; 
 
 exit 0; 
@@ -98,3 +104,25 @@ sub find_dataverse_info {
 
     return $DATAVERSE_MAP{$dataverseid};
 }
+
+sub get_filelabel {
+    my $datafileid = $_[0]; 
+
+    my $q2 = qq{SELECT label FROM filemetadata WHERE datafile_id=$datafileid ORDER BY id DESC LIMIT 1};
+
+    my $sth2 = $dbh->prepare($q2); 
+    $sth2->execute();
+    my $filelabel;
+    if (@_ = $sth2->fetchrow())
+    {
+	$filelabel =  $_[0];
+    } 
+    else 
+    {
+	print STDERR "no filemetadatas for file id $datafileid.\n";
+	$filelabel = undef; 
+    }
+    
+    $sth2->finish; 
+    return $filelabel;
+} 
