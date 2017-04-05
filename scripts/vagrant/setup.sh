@@ -28,9 +28,9 @@ GLASSFISH_USER=glassfish
 echo "Ensuring Unix user '$GLASSFISH_USER' exists"
 useradd $GLASSFISH_USER || :
 DOWNLOAD_DIR='/dataverse/downloads'
-GLASSFISH_ZIP="$DOWNLOAD_DIR/glassfish-4.1.zip"
+GLASSFISH_ZIP="$DOWNLOAD_DIR/glassfish-4.1.2.zip"
 SOLR_TGZ="$DOWNLOAD_DIR/solr-4.6.0.tgz"
-WELD_PATCH="$DOWNLOAD_DIR/weld-osgi-bundle-2.2.10.Final-glassfish4.jar"
+#WELD_PATCH="$DOWNLOAD_DIR/weld-osgi-bundle-2.2.10.Final-glassfish4.jar"
 if [ ! -f $GLASSFISH_ZIP ] || [ ! -f $SOLR_TGZ ]; then
     echo "Couldn't find $GLASSFISH_ZIP or $SOLR_TGZ! Running download script...."
     cd $DOWNLOAD_DIR && ./download.sh && cd
@@ -42,8 +42,8 @@ if [ ! -d $GLASSFISH_ROOT ]; then
   echo "Copying $GLASSFISH_ZIP to $GLASSFISH_USER_HOME and unzipping"
   su $GLASSFISH_USER -s /bin/sh -c "cp $GLASSFISH_ZIP $GLASSFISH_USER_HOME"
   su $GLASSFISH_USER -s /bin/sh -c "cd $GLASSFISH_USER_HOME && unzip -q $GLASSFISH_ZIP"
-  su $GLASSFISH_USER -s /bin/sh -c "mv $GLASSFISH_ROOT/glassfish/modules/weld-osgi-bundle.jar /tmp"
-  su $GLASSFISH_USER -s /bin/sh -c "cp $WELD_PATCH $GLASSFISH_ROOT/glassfish/modules"
+  #su $GLASSFISH_USER -s /bin/sh -c "mv $GLASSFISH_ROOT/glassfish/modules/weld-osgi-bundle.jar /tmp"
+  #su $GLASSFISH_USER -s /bin/sh -c "cp $WELD_PATCH $GLASSFISH_ROOT/glassfish/modules"
 else
   echo "$GLASSFISH_ROOT already exists"
 fi
