@@ -250,12 +250,6 @@ public class CSVFileReaderTest {
                 Double[] columnVector = TabularSubsetGenerator.subsetDoubleVector(generatedTabInputStream, i, generatedDataTable.getCaseQuantity().intValue());
                 
                 assertArrayEquals(floatVectors[vectorCount++], columnVector);
-
-                //System.out.print("double["+i+"] = {");
-                //for (int j = 0; j < expectedNumberOfCases; j++) {
-                //    System.out.print(columnVector[j]+", ");
-                //}
-                //System.out.println("};");
             } else {
                 fail("Column "+i+" was not properly processed as \"continuous\"");
             }
@@ -277,7 +271,6 @@ public class CSVFileReaderTest {
         vectorCount = 0; 
         
         for (int i : integerColumns) {
-        //for (int i = 0; i < expectedNumberOfVariables; i++) {
             System.out.println("Verifying integer column "+i);
             if (generatedDataTable.getDataVariables().get(i).isIntervalDiscrete()
                     && generatedDataTable.getDataVariables().get(i).isTypeNumeric()) {
@@ -290,12 +283,6 @@ public class CSVFileReaderTest {
                 }
                 
                 Long[] columnVector = TabularSubsetGenerator.subsetLongVector(generatedTabInputStream, i, generatedDataTable.getCaseQuantity().intValue());
-                
-                //System.out.print("long["+i+"] = {");
-                //for (int j = 0; j < expectedNumberOfCases; j++) {
-                //    System.out.print(columnVector[j]+"L, ");
-                //}
-                //System.out.println("};");
                 
                 assertArrayEquals(longVectors[vectorCount++], columnVector);
             } else {
@@ -316,7 +303,6 @@ public class CSVFileReaderTest {
         vectorCount = 0; 
         
         for (int i : stringColumns) {
-        //for (int i = 0; i < expectedNumberOfVariables; i++) {
             System.out.println("Verifying character column "+i);
             if (generatedDataTable.getDataVariables().get(i).isTypeCharacter()) {
                 
@@ -329,19 +315,11 @@ public class CSVFileReaderTest {
                 
                 String[] columnVector = TabularSubsetGenerator.subsetStringVector(generatedTabInputStream, i, generatedDataTable.getCaseQuantity().intValue());
                 
-                //System.out.print("String["+i+"] = {");
-                //for (int j = 0; j < expectedNumberOfCases; j++) {
-                //    System.out.print("\""+columnVector[j]+"\", ");
-                //}
-                //System.out.println("};");
-                
                 assertArrayEquals(stringVectors[vectorCount++], columnVector);
             } else {
                 fail("Column "+i+" was not properly processed as a character vector");
             }
         }
-        
-        assertTrue(true);
     }
 
     /*
