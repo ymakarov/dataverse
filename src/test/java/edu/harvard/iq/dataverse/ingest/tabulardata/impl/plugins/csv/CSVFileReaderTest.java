@@ -91,6 +91,7 @@ public class CSVFileReaderTest {
         
         String[] expectedVariableFormats = {null, null, "yyyy-MM-dd HH:mm:ss",  "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd", null, null, null, null, null};
         
+        Long expectedNumberOfCases = 7L; // aka the number of lines in the TAB file produced by the ingest plugin
         
         DataTable result = null;
         try (BufferedInputStream stream = new BufferedInputStream(
@@ -113,6 +114,18 @@ public class CSVFileReaderTest {
         }
         
         assertEquals(result.getVarQuantity(), new Long(expectedVariableTypes.length));
+        
+        
+        if (!expectedNumberOfCases.equals(result.getCaseQuantity())) {
+            logger.info("number of observations expected: "+expectedNumberOfCases);
+            logger.info("number of observations produced: "+result.getCaseQuantity());
+        }
+        
+        assertEquals(expectedNumberOfCases, result.getCaseQuantity());
+        
+        // OK, let's go through the individual variables: 
+        
+        
         
         for (int i = 0; i < result.getVarQuantity(); i++) {
             
