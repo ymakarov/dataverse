@@ -64,8 +64,8 @@ public class CSVFileReaderTest {
 
     }
 
-    @Test
-    public void testHardRead() {
+    /*@Test
+     public void testHardRead() {
         String testFile = "src/test/java/edu/harvard/iq/dataverse/ingest/tabulardata/impl/plugins/csv/posts_all.csv";
         String expFile = "src/test/java/edu/harvard/iq/dataverse/ingest/tabulardata/impl/plugins/csv/posts_all.tab";
         BufferedReader result = null;
@@ -100,7 +100,7 @@ public class CSVFileReaderTest {
             line++;
         }
 
-    }
+    }*/
 
     /**
      * Tests CSVFileReader with a CSV with one more column than header. Tests
