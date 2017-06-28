@@ -164,16 +164,13 @@ public class CSVFileReaderTest {
 
         assertEquals(generatedDataTable.getVarQuantity(), new Long(generatedDataTable.getDataVariables().size()));
 
-
         assertEquals(generatedDataTable.getVarQuantity(), expectedNumberOfVariables);
-
 
         assertEquals(expectedNumberOfCases, generatedDataTable.getCaseQuantity());
 
         // And now let's try and subset the individual vectors
 
         // First, the "continuous" vectors (we should be able to read these as Double[]):
-
         Set<Integer> floatColumns = new HashSet<>(Arrays.asList(2,9,10,11));
 
         Double[][] floatVectors = {
@@ -206,7 +203,6 @@ public class CSVFileReaderTest {
         }
 
         // Discrete Numerics (aka, integers):
-
         Set<Integer> integerColumns = new HashSet<>(Arrays.asList(1,4,6,7,8,12));
 
         Long[][] longVectors = {
@@ -239,7 +235,6 @@ public class CSVFileReaderTest {
         }
 
         // And finally, Strings:
-
         Set<Integer> stringColumns = new HashSet<>(Arrays.asList(0,3,5));
 
         String[][] stringVectors = {
