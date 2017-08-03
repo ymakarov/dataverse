@@ -127,4 +127,10 @@ public class MarkupCheckerTest {
         
     }
 
+    @Test
+    public void testLineBreakTag() {
+        assertEquals("&lt; br &gt;&lt; /br &gt;", MarkupChecker.sanitizeBasicHTML("< br >< /br >"));
+        assertEquals("<br>\n" + "<br>", MarkupChecker.sanitizeBasicHTML("<br></br>"));
+    }
+
 }
