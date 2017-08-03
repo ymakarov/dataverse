@@ -98,7 +98,8 @@ public class FilesIT {
         Integer datasetId = createDatasetGetId(dataverseAlias, apiToken);
        
         
-        String pathToFile = "src/main/webapp/resources/images/favicondataverse.png";
+//        String pathToFile = "src/main/webapp/resources/images/favicondataverse.png";
+        String pathToFile = "/Users/pdurbin/Downloads/test.pdf";
 
         JsonObjectBuilder json = Json.createObjectBuilder()
                 .add("description", "my description")
