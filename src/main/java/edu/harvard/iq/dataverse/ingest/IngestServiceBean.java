@@ -34,8 +34,11 @@ import edu.harvard.iq.dataverse.DatasetFieldType;
 import edu.harvard.iq.dataverse.DatasetFieldValue;
 import edu.harvard.iq.dataverse.DatasetFieldCompoundValue;
 import edu.harvard.iq.dataverse.DatasetVersion;
+import edu.harvard.iq.dataverse.DataverseRequestServiceBean;
+import edu.harvard.iq.dataverse.EjbDataverseEngine;
 import edu.harvard.iq.dataverse.FileMetadata;
 import edu.harvard.iq.dataverse.MetadataBlock;
+import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.dataaccess.DataAccess;
 import edu.harvard.iq.dataverse.dataaccess.StorageIO;
@@ -47,6 +50,9 @@ import edu.harvard.iq.dataverse.datasetutility.FileExceedsMaxSizeException;
 import edu.harvard.iq.dataverse.datasetutility.FileSizeChecker;
 import edu.harvard.iq.dataverse.datavariable.SummaryStatistic;
 import edu.harvard.iq.dataverse.datavariable.DataVariable;
+import edu.harvard.iq.dataverse.engine.command.Command;
+import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
+import edu.harvard.iq.dataverse.engine.command.impl.ListRoleAssignments;
 import edu.harvard.iq.dataverse.ingest.metadataextraction.FileMetadataExtractor;
 import edu.harvard.iq.dataverse.ingest.metadataextraction.FileMetadataIngest;
 import edu.harvard.iq.dataverse.ingest.metadataextraction.impl.plugins.fits.FITSFileMetadataExtractor;
@@ -114,6 +120,7 @@ import javax.jms.QueueSession;
 import javax.jms.Message;
 import javax.faces.bean.ManagedBean;
 import javax.faces.application.FacesMessage;
+import javax.inject.Inject;
 import javax.persistence.Query;
 
 /**
@@ -138,6 +145,10 @@ public class IngestServiceBean {
     DataFileServiceBean fileService; 
     @EJB
     SystemConfig systemConfig;
+    @EJB
+    EjbDataverseEngine commandEngine;
+    @Inject
+    DataverseRequestServiceBean dvRequestService;
 
     @Resource(mappedName = "jms/DataverseIngest")
     Queue queue;
@@ -274,6 +285,14 @@ public class IngestServiceBean {
                     boolean localFile = false;
                     boolean savedSuccess = false; 
                     StorageIO<DataFile> dataAccess = null;
+                    List<RoleAssignment> roles = null;
+                    try {
+                        Command cmd = new ListRoleAssignments(dvRequestService.getDataverseRequest(), dataFile.getOwner());
+                        roles = (List<RoleAssignment>) commandEngine.submit(cmd);
+                    } catch (CommandException ex) {
+                        
+                    }
+                    logger.info("roles = " + roles);
                     
                     try {
 

@@ -575,10 +575,9 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
 
         if (!this.swiftContainer.exists()) {
             if (writeAccess) {
-                // dataContainer.create();
                  try {
                      //creates a public data container
-                     this.swiftContainer.makePublic();
+                    this.swiftContainer.create();
                  }
                  catch (Exception e){
                      //e.printStackTrace();
@@ -590,9 +589,12 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
                 throw new IOException("SwiftAccessIO: container " + swiftContainerName + " does not exist.");
             }
         }
-
+        
         fileObject = this.swiftContainer.getObject(swiftFileName);
-
+        
+        testSetContainerRights();
+        
+        
         // If this is the main, primary datafile object (i.e., not an auxiliary 
         // object for a primary file), we also set the file download url here: 
         if (auxItemTag == null && dvObject instanceof DataFile) {
@@ -612,6 +614,23 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
  
     }
 
+    private void testSetContainerRights() {
+        String defaultWriteRights = "";
+        this.swiftContainer.setContainerRights(defaultWriteRights, "f74cb18a96c64901b6993df11ed270b8:42");
+        logger.info("read permissions1:" + this.swiftContainer.getContainerReadPermission());
+
+        this.swiftContainer.setContainerRights(defaultWriteRights, ".rlistings");
+        logger.info("read permissions2:" + this.swiftContainer.getContainerReadPermission());
+        
+        this.swiftContainer.setContainerRights(defaultWriteRights, ".r:*");
+        logger.info("read permissions3:" + this.swiftContainer.getContainerReadPermission());
+
+    }
+    
+    private void testGetUser(){ 
+        this.getDataFile().getFileAccessRequesters();
+    }
+    
     private InputStream openSwiftFileAsInputStream() throws IOException {
         swiftFileObject = initializeSwiftFileObject(false);
         this.setSize(swiftFileObject.getContentLength());
