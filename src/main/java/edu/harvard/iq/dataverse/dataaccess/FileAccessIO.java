@@ -39,6 +39,8 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DvObject;
+import edu.harvard.iq.dataverse.authorization.DataverseRole;
+import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.datavariable.DataVariable;
 import java.io.FileNotFoundException;
 import java.nio.channels.Channel;
@@ -571,6 +573,11 @@ public class FileAccessIO<T extends DvObject> extends StorageIO<T> {
             in=Files.newInputStream(path);
         }
         return in;
+    }
+
+    @Override
+    public void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role) throws IOException{
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
 }

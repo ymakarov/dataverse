@@ -25,6 +25,8 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DvObject;
+import edu.harvard.iq.dataverse.authorization.DataverseRole;
+import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.datavariable.DataVariable;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -541,5 +543,10 @@ public class S3AccessIO<T extends DvObject> extends StorageIO<T> {
         } else {
             throw new IOException("S2AccessIO: This operation is only supported for Datasets and DataFiles.");
         }
+    }
+
+    @Override
+    public void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role) throws IOException {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }

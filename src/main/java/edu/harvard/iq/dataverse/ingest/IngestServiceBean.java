@@ -298,7 +298,6 @@ public class IngestServiceBean {
 
                         logger.fine("Attempting to create a new storageIO object for " + storageId);
                         dataAccess = DataAccess.createNewStorageIO(dataFile, storageId);
-                        
                         if (dataAccess.isLocalFile()) {
                             localFile = true; 
                         }

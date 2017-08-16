@@ -6,6 +6,8 @@
 package edu.harvard.iq.dataverse.dataaccess;
 
 import edu.harvard.iq.dataverse.DataFile;
+import edu.harvard.iq.dataverse.authorization.DataverseRole;
+import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -152,6 +154,11 @@ public class InputStreamIO extends StorageIO<DataFile> {
     @Override
     public InputStream getAuxFileAsInputStream(String auxItemTag) {
         throw new UnsupportedOperationException("InputStreamIO: this method is not supported in this DataAccess driver."); 
+    }
+
+    @Override
+    public void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role) throws IOException {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
   

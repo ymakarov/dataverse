@@ -25,6 +25,9 @@ import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.DvObject;
+import edu.harvard.iq.dataverse.RoleAssignment;
+import edu.harvard.iq.dataverse.authorization.DataverseRole;
+import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.datavariable.DataVariable;
 
 import java.io.IOException;
@@ -142,6 +145,8 @@ public abstract class StorageIO<T extends DvObject> {
     public abstract void deleteAuxObject(String auxItemTag) throws IOException; 
     
     public abstract void deleteAllAuxObjects() throws IOException;
+    
+    public abstract void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role) throws IOException;
 
     private DataAccessRequest req;
     private InputStream in;
