@@ -642,6 +642,10 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
         this.swiftContainer.setContainerRights(defaultWriteRights, tenantId + ":" + userId);
         logger.info("read permissions:" + this.swiftContainer.getContainerReadPermission());
     }
+    
+    private String getContainerRights() {
+        return this.swiftContainer.getContainerReadPermission();
+    }
 
     @Override
     public void updateDatasetPermissions(RoleAssignee user, DataverseRole role) throws IOException {
@@ -651,8 +655,10 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
         String swiftEndPointTenantId = p.getProperty("swift.tenant_id." + "endpoint1");
         logger.info("user: " + user + "role: " + role);
         logger.info("user info: " + user.getDisplayInfo());
-        // if file downloader... i.e. id #2
-        if (role.getId() == 2) {
+        // if admin, file downloader, contributor, curator, or member
+        //... i.e. id #1, #2, #6, #7, or #8
+        if (role.getId() == 1 || role.getId() == 2 || role.getId() == 6 || role.getId() == 7 || role.getId() == 8) {
+            logger.info("Current container rights: " + getContainerRights());
             setContainerRights(swiftEndPointTenantId, user.getIdentifier());
         }
     }
