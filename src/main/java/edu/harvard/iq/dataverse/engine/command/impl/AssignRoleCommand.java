@@ -5,7 +5,6 @@ package edu.harvard.iq.dataverse.engine.command.impl;
 
 import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
-import edu.harvard.iq.dataverse.DatasetLinkingDataverse;
 import edu.harvard.iq.dataverse.Dataverse;
 import edu.harvard.iq.dataverse.authorization.DataverseRole;
 import edu.harvard.iq.dataverse.DvObject;
@@ -69,7 +68,8 @@ public class AssignRoleCommand extends AbstractCommand<RoleAssignment> {
         }
         if (defPoint.isInstanceofDataverse()){
             logger.info("dataverse!");
-            
+            List<Dataset> dvContents = ctxt.datasets().findByOwnerId(defPoint.getId());
+            logger.info("dataverse contents: " + dvContents);
         }
             //TODO: we have to deal with dataverses
             //but we dont want to restrict a dataverse to be only in swift/s3/file
