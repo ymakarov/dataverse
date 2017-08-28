@@ -84,8 +84,6 @@ public class S3AccessIO<T extends DvObject> extends StorageIO<T> {
     private AmazonS3 s3 = null;
     private String bucketName = System.getProperty("dataverse.files.s3-bucket-name");
     private String key;
-    private String s3FileName;
-    private String storageIdentifier;
 
     @Override
     public void open(DataAccessOption... options) throws IOException {
@@ -108,19 +106,20 @@ public class S3AccessIO<T extends DvObject> extends StorageIO<T> {
         }
 
         if (dvObject instanceof DataFile) {
+            String storageIdentifier = dvObject.getStorageIdentifier();
 
             DataFile dataFile = this.getDataFile();
-            key = this.getDataFile().getOwner().getAuthority() + "/" + this.getDataFile().getOwner().getIdentifier();
+            key = dataFile.getOwner().getAuthority() + "/" + this.getDataFile().getOwner().getIdentifier();
 
             if (req != null && req.getParameter("noVarHeader") != null) {
                 this.setNoVarHeader(true);
             }
 
-            if (dataFile.getStorageIdentifier() == null || "".equals(dataFile.getStorageIdentifier())) {
+            if (storageIdentifier == null || "".equals(storageIdentifier)) {
                 throw new FileNotFoundException("Data Access: No local storage identifier defined for this datafile.");
             }
+
             if (isReadAccess) {
-                storageIdentifier = dvObject.getStorageIdentifier();
                 if (storageIdentifier.startsWith("s3://")) {
                     bucketName = storageIdentifier.substring(storageIdentifier.indexOf(":") + 3, storageIdentifier.lastIndexOf(":"));
                     key += "/" + storageIdentifier.substring(storageIdentifier.lastIndexOf(":") + 1);
@@ -151,7 +150,6 @@ public class S3AccessIO<T extends DvObject> extends StorageIO<T> {
                 }
 
             } else if (isWriteAccess) {
-                storageIdentifier = dvObject.getStorageIdentifier();
                 if (storageIdentifier.startsWith("s3://")) {
                     key += "/" + storageIdentifier.substring(storageIdentifier.lastIndexOf(":") + 1);
                 } else {
@@ -264,6 +262,7 @@ public class S3AccessIO<T extends DvObject> extends StorageIO<T> {
 
     @Override
     public void delete() throws IOException {
+        open();
         if (key == null) {
             throw new IOException("Failed to delete the object because the key was null");
         }
@@ -469,15 +468,20 @@ public class S3AccessIO<T extends DvObject> extends StorageIO<T> {
             String destinationKey = item.getKey();
             keys.add(new KeyVersion(destinationKey));
         }
+        //Check if the list of auxiliary files for a data file is empty
+        if (keys.isEmpty()) {
+            logger.fine("S3AccessIO: No auxiliary objects to delete.");
+            return;
+        }
         multiObjectDeleteRequest.setKeys(keys);
 
-        logger.info("Trying to delete auxiliary files...");
-        try {
-            s3.deleteObjects(multiObjectDeleteRequest);
-        } catch (MultiObjectDeleteException e) {
-            logger.warning("S3AccessIO: Unable to delete auxilary objects" + e.getMessage());
-            throw new IOException("S3AccessIO: Failed to delete one or more auxiliary objects.");
-        }
+        logger.fine("Trying to delete auxiliary files...");
+            try {
+                s3.deleteObjects(multiObjectDeleteRequest);
+            } catch (MultiObjectDeleteException e) {
+                logger.warning("S3AccessIO: Unable to delete auxilary objects" + e.getMessage());
+                throw new IOException("S3AccessIO: Failed to delete one or more auxiliary objects.");
+            }
     }
 
     //TODO: Do we need this?

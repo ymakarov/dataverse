@@ -64,8 +64,6 @@ public class ExportService {
         ExportService.settingsService = settingsService;
         if (service == null) {
             service = new ExportService();
-        } else {
-            service.loader.reload();
         }
         return service;
     }
@@ -230,15 +228,6 @@ public class ExportService {
     // in a file in the dataset directory / container based on its DOI:
     private void cacheExport(DatasetVersion version, String format, JsonObject datasetAsJson, Exporter exporter) throws ExportException {
         try {
-//            if (version.getDataset().getFileSystemDirectory() != null && !Files.exists(version.getDataset().getFileSystemDirectory())) {
-//                /* Note that "createDirectories()" must be used - not 
-//                     * "createDirectory()", to make sure all the parent 
-//                     * directories that may not yet exist are created as well. 
-//                 */
-//
-//                Files.createDirectories(version.getDataset().getFileSystemDirectory());
-//            }
-
             // With some storage drivers, we can open a WritableChannel, or OutputStream 
             // to directly write the generated metadata export that we want to cache; 
             // Some drivers (like Swift) do not support that, and will give us an
@@ -274,11 +263,11 @@ public class ExportService {
                     exporter.exportDataset(version, datasetAsJson, outputStream);
                     outputStream.flush();
                     outputStream.close();
-
-                    System.out.println("Saving path as aux for temp file in: " + Paths.get(tempFile.getAbsolutePath()));
+                    
+                    logger.fine("Saving path as aux for temp file in: " + Paths.get(tempFile.getAbsolutePath()));
                     storageIO.savePathAsAux(Paths.get(tempFile.getAbsolutePath()), "export_" + format + ".cached");
                     boolean tempFileDeleted = tempFile.delete();
-                    logger.info("tempFileDeleted: " + tempFileDeleted);
+                    logger.fine("tempFileDeleted: " + tempFileDeleted);
                 }
 
             } catch (IOException ioex) {
