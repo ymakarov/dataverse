@@ -636,30 +636,51 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
 
     }
 
-    private void setContainerRights(String tenantId, String userId) {
+    private void assignContainerRights(String tenantId, String userId) {
         logger.info("tenantId: " + tenantId + "userId: " + userId);
+        // todo: get current container rights and append to them 
+        String currentContainerRights = getContainerRights();
+        
         String defaultWriteRights = "";
         this.swiftContainer.setContainerRights(defaultWriteRights, tenantId + ":" + userId);
+        
         logger.info("read permissions:" + this.swiftContainer.getContainerReadPermission());
     }
     
+    private void revokeContainerRights(String tenantId, String userId) {
+        // todo: parse current container rights, find tenant, remove and put back together
+        // or think of a better way to do this
+    }
+    
     private String getContainerRights() {
+        //todo: get the container rights for real
+        // JOSS
         return this.swiftContainer.getContainerReadPermission();
     }
 
     @Override
-    public void updateDatasetPermissions(RoleAssignee user, DataverseRole role) throws IOException {
+    public void updateDatasetPermissions(RoleAssignee user, DataverseRole role, String action) throws IOException {
         swiftFileObject = initializeSwiftFileObject(false);
+        
+        //get properties in order to get the tenant id
         Properties p = getSwiftProperties();
-        //TODO: get endpoint properly
-        String swiftEndPointTenantId = p.getProperty("swift.tenant_id." + "endpoint1");
+        String storageIdentifier = dvObject.getStorageIdentifier();
+        String endpoint = storageIdentifier.substring(8).split(":", 3)[0];
+        String swiftEndPointTenantId = p.getProperty("swift.tenant_id." + endpoint);
+        
+        
         logger.info("user: " + user + "role: " + role);
         logger.info("user info: " + user.getDisplayInfo());
-        // if admin, file downloader, contributor, curator, or member
-        //... i.e. id #1, #2, #6, #7, or #8
-        if (role.getId() == 1 || role.getId() == 2 || role.getId() == 6 || role.getId() == 7 || role.getId() == 8) {
-            logger.info("Current container rights: " + getContainerRights());
-            setContainerRights(swiftEndPointTenantId, user.getIdentifier());
+        
+        
+        if (action ==  "assignRole") {
+            // if admin, file downloader, contributor, curator, or member
+            //... i.e. id #1, #2, #6, #7, or #8
+            if (role.getId() == 1 || role.getId() == 2 || role.getId() == 6 || role.getId() == 7 || role.getId() == 8) {
+                assignContainerRights(swiftEndPointTenantId, user.getIdentifier());
+            }
+        } else if (action == "revokeRole") {
+            revokeContainerRights(swiftEndPointTenantId, user.getIdentifier());
         }
     }
 

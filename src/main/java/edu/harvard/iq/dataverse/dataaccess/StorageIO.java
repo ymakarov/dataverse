@@ -146,7 +146,7 @@ public abstract class StorageIO<T extends DvObject> {
     
     public abstract void deleteAllAuxObjects() throws IOException;
     
-    public abstract void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role) throws IOException;
+    public abstract void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role, String action) throws IOException;
 
     private DataAccessRequest req;
     private InputStream in;

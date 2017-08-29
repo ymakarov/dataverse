@@ -3,6 +3,7 @@
  */
 package edu.harvard.iq.dataverse.engine.command.impl;
 
+import edu.emory.mathcs.backport.java.util.Arrays;
 import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.Dataverse;
@@ -19,6 +20,7 @@ import edu.harvard.iq.dataverse.engine.command.CommandContext;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -55,26 +57,7 @@ public class AssignRoleCommand extends AbstractCommand<RoleAssignment> {
 
     @Override
     public RoleAssignment execute(CommandContext ctxt) throws CommandException {
-        if (defPoint.getStorageIdentifier() != null) {
-            if (defPoint.isInstanceofDataset() && defPoint.getStorageIdentifier().startsWith("swift://")) {
-                StorageIO<Dataset> dataAccess = null;
-                try {
-                   dataAccess = DataAccess.getStorageIO((Dataset)defPoint);
-                   dataAccess.updateDatasetPermissions(grantee, role);
-                } catch (IOException ex) {
-                    logger.info("Failed to update dataset permissions: " + ex.getMessage());
-                }
-            }
-        }
-        if (defPoint.isInstanceofDataverse()){
-            logger.info("dataverse!");
-            List<Dataset> dvContents = ctxt.datasets().findByOwnerId(defPoint.getId());
-            logger.info("dataverse contents: " + dvContents);
-        }
-            //TODO: we have to deal with dataverses
-            //but we dont want to restrict a dataverse to be only in swift/s3/file
-            //i.e. they don't have a storage id 
-        
+        ctxt.engine().submit(new UpdateSwiftACLRoleCommand(this.getRequest(), defPoint, grantee, role, "assignRole"));
         // TODO make sure the role is defined on the dataverse.
         RoleAssignment roleAssignment = new RoleAssignment(role, grantee, defPoint, privateUrlToken);
         return ctxt.roles().save(roleAssignment);

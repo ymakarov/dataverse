@@ -157,7 +157,7 @@ public class InputStreamIO extends StorageIO<DataFile> {
     }
 
     @Override
-    public void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role) throws IOException {
+    public void updateDatasetPermissions(RoleAssignee roleAssignee, DataverseRole role, String action) throws IOException {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
