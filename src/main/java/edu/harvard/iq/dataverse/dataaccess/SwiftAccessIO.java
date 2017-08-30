@@ -591,6 +591,7 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
                 try {
                     //creates a private data container
                     this.swiftContainer.create();
+                    //this.swiftContainer.makePublic();
                 } catch (Exception e) {
                     //e.printStackTrace();
                     logger.warning("Caught exception " + e.getClass() + " while creating a swift container (it's likely not fatal!)");
@@ -640,11 +641,20 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
         logger.info("tenantId: " + tenantId + "userId: " + userId);
 
         String defaultWriteRights = "";
+        logger.info("current read permissions: "+ getContainerRights());
+
         //todo: set container rights for real
         // JOSS 
-        this.swiftContainer.setContainerRights(defaultWriteRights, getContainerRights() + "," + tenantId + ":" + userId);
-        
-        logger.info("read permissions:" + this.swiftContainer.getContainerReadPermission());
+        // perhaps https://github.com/zhangsw/joss/commit/e2bb29fd1a30f5e20d5628914aa49dea96a8787b
+        // from https://github.com/javaswift/joss/issues/107 is the fix to the issue
+        try {
+           //this.swiftContainer.setContainerRights(defaultWriteRights, getContainerRights() + "," + tenantId + ":" + userId);
+           this.swiftContainer.setContainerRights(defaultWriteRights, ".r:*");
+        } catch(Exception ex) {
+            logger.info(ex.getMessage());
+        }
+        logger.info("read permissions:" + getContainerRights());
+
     }
     
     private void revokeContainerRights(String tenantId, String userId) {
@@ -654,7 +664,7 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
         // for revoking a specific user's role
         String[] currentContainerRights = getContainerRights().split(",");
         for (String role : currentContainerRights) {
-            if (role.indexOf(":") != -1) {
+            if (role.contains(":")) {
                 //this means that we are working with a user in the format
                 // tenantId:userId
                 if (tenantId.equals(role.substring(0, role.indexOf(":"))) && userId.equals(role.substring(role.indexOf(":")))) {
@@ -667,7 +677,7 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
         
         String defaultWriteRights = ""; 
         this.swiftContainer.setContainerRights(defaultWriteRights, newContainerRights.toString());
-
+        
     }
     
     private String getContainerRights() {

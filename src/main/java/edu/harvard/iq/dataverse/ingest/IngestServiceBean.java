@@ -42,7 +42,6 @@ import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.authorization.users.AuthenticatedUser;
 import edu.harvard.iq.dataverse.dataaccess.DataAccess;
 import edu.harvard.iq.dataverse.dataaccess.StorageIO;
-import edu.harvard.iq.dataverse.dataaccess.FileAccessIO;
 import edu.harvard.iq.dataverse.dataaccess.ImageThumbConverter;
 import edu.harvard.iq.dataverse.dataaccess.TabularSubsetGenerator;
 import edu.harvard.iq.dataverse.dataaccess.UnsupportedDataAccessOperationException;
@@ -145,10 +144,6 @@ public class IngestServiceBean {
     DataFileServiceBean fileService; 
     @EJB
     SystemConfig systemConfig;
-    @EJB
-    EjbDataverseEngine commandEngine;
-    @Inject
-    DataverseRequestServiceBean dvRequestService;
 
     @Resource(mappedName = "jms/DataverseIngest")
     Queue queue;
@@ -265,14 +260,6 @@ public class IngestServiceBean {
                     boolean localFile = false;
                     boolean savedSuccess = false; 
                     StorageIO<DataFile> dataAccess = null;
-                    List<RoleAssignment> roles = null;
-                    try {
-                        Command cmd = new ListRoleAssignments(dvRequestService.getDataverseRequest(), dataFile.getOwner());
-                        roles = (List<RoleAssignment>) commandEngine.submit(cmd);
-                    } catch (CommandException ex) {
-                        
-                    }
-                    logger.info("roles = " + roles);
                     
                     try {
 
