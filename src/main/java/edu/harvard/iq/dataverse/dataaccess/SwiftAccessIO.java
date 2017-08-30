@@ -638,18 +638,36 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
 
     private void assignContainerRights(String tenantId, String userId) {
         logger.info("tenantId: " + tenantId + "userId: " + userId);
-        // todo: get current container rights and append to them 
-        String currentContainerRights = getContainerRights();
-        
+
         String defaultWriteRights = "";
-        this.swiftContainer.setContainerRights(defaultWriteRights, tenantId + ":" + userId);
+        //todo: set container rights for real
+        // JOSS 
+        this.swiftContainer.setContainerRights(defaultWriteRights, getContainerRights() + "," + tenantId + ":" + userId);
         
         logger.info("read permissions:" + this.swiftContainer.getContainerReadPermission());
     }
     
     private void revokeContainerRights(String tenantId, String userId) {
-        // todo: parse current container rights, find tenant, remove and put back together
-        // or think of a better way to do this
+        StringBuilder newContainerRights = new StringBuilder();
+        // TODO: what about revoking an entire set of users (like authenticated users)? 
+        
+        // for revoking a specific user's role
+        String[] currentContainerRights = getContainerRights().split(",");
+        for (String role : currentContainerRights) {
+            if (role.indexOf(":") != -1) {
+                //this means that we are working with a user in the format
+                // tenantId:userId
+                if (tenantId.equals(role.substring(0, role.indexOf(":"))) && userId.equals(role.substring(role.indexOf(":")))) {
+                    // we want to remove this user so we dont append them to the list
+                    continue;
+                } 
+            }
+            newContainerRights.append(role);
+        }
+        
+        String defaultWriteRights = ""; 
+        this.swiftContainer.setContainerRights(defaultWriteRights, newContainerRights.toString());
+
     }
     
     private String getContainerRights() {
