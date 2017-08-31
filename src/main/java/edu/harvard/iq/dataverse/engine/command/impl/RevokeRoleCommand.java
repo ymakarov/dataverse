@@ -2,9 +2,9 @@ package edu.harvard.iq.dataverse.engine.command.impl;
 
 import edu.harvard.iq.dataverse.DataFile;
 import edu.harvard.iq.dataverse.Dataverse;
+import static edu.harvard.iq.dataverse.IdServiceBean.logger;
 import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.authorization.Permission;
-import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.AbstractVoidCommand;
 import edu.harvard.iq.dataverse.engine.command.CommandContext;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
@@ -30,7 +30,14 @@ public class RevokeRoleCommand extends AbstractVoidCommand {
 	
 	@Override
 	protected void executeImpl(CommandContext ctxt) throws CommandException {
+            logger.info("revoking role...");
+            logger.info("dataset:" + toBeRevoked.getDefinitionPoint());
+            logger.info("dataset id:" + toBeRevoked.getDefinitionPoint().getId());
+
+            logger.info("id: " + ctxt.roleAssignees().getRoleAssignee(toBeRevoked.getAssigneeIdentifier()));
+            
             ctxt.roles().revoke(toBeRevoked);
+            ctxt.engine().submit(new UpdateSwiftACLRoleCommand(this.getRequest(), toBeRevoked.getDefinitionPoint(), ctxt.roleAssignees().getRoleAssignee(toBeRevoked.getAssigneeIdentifier()), toBeRevoked.getRole(), "revokeRole"));
 	}
         
     @Override

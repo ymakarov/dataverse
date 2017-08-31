@@ -3,6 +3,8 @@ package edu.harvard.iq.dataverse.engine.command.impl;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.DataverseRoleServiceBean;
 import edu.harvard.iq.dataverse.DvObject;
+import static edu.harvard.iq.dataverse.IdServiceBean.logger;
+import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
 import edu.harvard.iq.dataverse.RoleAssignment;
 import edu.harvard.iq.dataverse.authorization.RoleAssignee;
 import edu.harvard.iq.dataverse.authorization.users.PrivateUrlUser;
@@ -11,6 +13,7 @@ import edu.harvard.iq.dataverse.engine.TestDataverseEngine;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.privateurl.PrivateUrl;
 import edu.harvard.iq.dataverse.privateurl.PrivateUrlServiceBean;
+import edu.harvard.iq.dataverse.privateurl.PrivateUrlUtil;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -69,6 +72,20 @@ public class DeletePrivateUrlCommandTest {
 
                 };
             }
+            
+            @Override
+            public RoleAssigneeServiceBean roleAssignees() {
+                return new RoleAssigneeServiceBean() {
+                    @Override
+                    public RoleAssignee getRoleAssignee(String identifier) {
+                        String validIdentifier = PrivateUrlUser.PREFIX + 42;
+                        RoleAssignee roleAssignee = PrivateUrlUtil.identifier2roleAssignee(validIdentifier);
+                        return roleAssignee;
+                    }
+
+                    
+                };
+            }
 
         });
     }
@@ -90,11 +107,13 @@ public class DeletePrivateUrlCommandTest {
     public void testSuccessfulDelete() {
         dataset = new Dataset();
         dataset.setId(hasPrivateUrlToDelete);
+        dataset.setStorageIdentifier("test");
         String actual = null;
         try {
             testEngine.submit(new DeletePrivateUrlCommand(null, dataset));
         } catch (CommandException ex) {
             actual = ex.getMessage();
+            logger.info(ex.getMessage());
         }
         assertNull(actual);
         /**

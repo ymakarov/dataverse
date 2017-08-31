@@ -642,11 +642,8 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
 
         String defaultWriteRights = "";
         logger.info("current read permissions: "+ getContainerRights());
-
-        //todo: set container rights for real
-        // JOSS 
-        // perhaps https://github.com/zhangsw/joss/commit/e2bb29fd1a30f5e20d5628914aa49dea96a8787b
-        // from https://github.com/javaswift/joss/issues/107 is the fix to the issue
+        //TODO: figure out what the id is 
+        //when we merge users with incommon
         try {
            //this.swiftContainer.setContainerRights(defaultWriteRights, getContainerRights() + "," + tenantId + ":" + userId);
            this.swiftContainer.setContainerRights(defaultWriteRights, ".r:*");
@@ -660,7 +657,7 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
     private void revokeContainerRights(String tenantId, String userId) {
         StringBuilder newContainerRights = new StringBuilder();
         // TODO: what about revoking an entire set of users (like authenticated users)? 
-        
+        logger.info("in revokeContainerRights");
         // for revoking a specific user's role
         String[] currentContainerRights = getContainerRights().split(",");
         for (String role : currentContainerRights) {
@@ -673,6 +670,7 @@ public class SwiftAccessIO<T extends DvObject> extends StorageIO<T> {
                 } 
             }
             newContainerRights.append(role);
+            logger.info("newContainerRights: " + newContainerRights);
         }
         
         String defaultWriteRights = ""; 

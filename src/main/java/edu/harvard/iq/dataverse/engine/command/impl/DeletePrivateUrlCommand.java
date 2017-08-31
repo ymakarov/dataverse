@@ -39,6 +39,7 @@ public class DeletePrivateUrlCommand extends AbstractVoidCommand {
         PrivateUrlUser privateUrlUser = new PrivateUrlUser(dataset.getId());
         List<RoleAssignment> roleAssignments = ctxt.roles().directRoleAssignments(privateUrlUser, dataset);
         for (RoleAssignment roleAssignment : roleAssignments) {
+            roleAssignment.setDefinitionPoint(dataset);
             ctxt.engine().submit(new RevokeRoleCommand(roleAssignment, getRequest()));
         }
     }
