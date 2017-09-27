@@ -1,0 +1,14 @@
+{
+    "name": "Announcing workflow - Slack",
+    "steps": [
+        {
+            "provider":"edu.harvard.iq.dataverse.publicationannouncer.AnnouncerWorkflowStepSPI",
+            "stepType":"slack",
+            "parameters": {
+                "username":"publication_workflow",
+                "channel":"#webhook_test",
+                "url":"https://hooks.slack.com/services/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"
+            }
+        }
+    ]
+}

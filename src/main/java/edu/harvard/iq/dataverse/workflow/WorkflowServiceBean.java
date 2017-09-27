@@ -91,7 +91,7 @@ public class WorkflowServiceBean {
      */
     @Asynchronous
     public void start(Workflow wf, ServerWorkflowContext ctxt) throws CommandException {
-        ctxt = refresh(ctxt);
+//        ctxt = refresh(ctxt);
         lockDataset(ctxt);
         forward(wf, ctxt);
     }
@@ -138,7 +138,7 @@ public class WorkflowServiceBean {
 
     @Asynchronous
     private void rollback(Workflow wf, ServerWorkflowContext ctxt, Failure failure, int lastCompletedStepIdx) {
-        ctxt = refresh(ctxt);
+//        ctxt = refresh(ctxt);
         final List<WorkflowStepData> steps = wf.getSteps();
         
         for ( int stepIdx = lastCompletedStepIdx; stepIdx >= 0; --stepIdx ) {
@@ -355,10 +355,10 @@ public class WorkflowServiceBean {
         return provider.getStep(wsd.getStepType(), wsd.getStepParameters());
     }
     
-    private ServerWorkflowContext refresh( ServerWorkflowContext ctxt ) {
-        return new ServerWorkflowContext( ctxt.getRequest(), 
-                       datasets.find( ctxt.getDataset().getId() ), ctxt.getNextVersionNumber(), 
-                       ctxt.getNextMinorVersionNumber(), ctxt.getTriggerType(), ctxt.getDoiProvider() );
-    }
+//    private ServerWorkflowContext refresh( ServerWorkflowContext ctxt ) {
+//        return new ServerWorkflowContext( ctxt.getRequest(), 
+//                       datasets.find( ctxt.getDataset().getId() ), ctxt.getNextVersionNumber(), 
+//                       ctxt.getNextMinorVersionNumber(), ctxt.getTriggerType(), ctxt.getDoiProvider() );
+//    }
 
 }
