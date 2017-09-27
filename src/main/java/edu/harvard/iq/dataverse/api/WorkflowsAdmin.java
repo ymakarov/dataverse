@@ -11,8 +11,10 @@ import edu.harvard.iq.dataverse.workflow.WorkflowServiceBean;
 import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext.TriggerType;
 import java.util.Arrays;
 import java.util.Optional;
+import static java.util.stream.Collectors.joining;
 import javax.ejb.EJB;
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
@@ -183,6 +185,14 @@ public class WorkflowsAdmin extends AbstractApiBean {
     public Response deleteIpWhitelist() {
         settingsSvc.delete(IP_WHITELIST_KEY);
         return ok( "Restored whitelist to default (127.0.0.1;::1)" );
+    }
+    
+    @Path("stepProviders")
+    @GET
+    public Response getStepProviders() {
+        JsonArrayBuilder arrb = Json.createArrayBuilder();
+        workflows.getStepProviders().forEach(arrb::add);
+        return ok(arrb);
     }
     
 }

@@ -1,5 +1,6 @@
 package edu.harvard.iq.dataverse.workflow;
 
+import edu.emory.mathcs.backport.java.util.Collections;
 import edu.harvard.iq.dataverse.DatasetLock;
 import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.EjbDataverseEngine;
@@ -20,6 +21,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceConfigurationError;
+import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.ejb.Asynchronous;
@@ -63,18 +67,18 @@ public class WorkflowServiceBean {
         providers.put(":internal", new InternalWorkflowStepSP());
 
         logger.log(Level.INFO, "Searching for workflow step providers...");
-//        ServiceLoader<WorkflowStepSPI> loader = ServiceLoader.load(WorkflowStepSPI.class);
-//        try {
-//            for ( WorkflowStepSPI wss : loader ) {
-//                logger.log(Level.INFO, "Found WorkflowStepProvider: {0}", wss.getClass().getCanonicalName());
-//                providers.put( wss.getClass().getCanonicalName(), wss );
-//            }
-//            logger.log(Level.INFO, "Searching for Workflow Step Providers done.");
-//        } catch (NoClassDefFoundError ncdfe) {
-//            logger.log(Level.WARNING, "Class not found: " + ncdfe.getMessage(), ncdfe);
-//        } catch (ServiceConfigurationError serviceError) {
-//            logger.log(Level.WARNING, "Service Error loading workflow step providers: " + serviceError.getMessage(), serviceError);
-//        }
+        ServiceLoader<WorkflowStepSPI> loader = ServiceLoader.load(WorkflowStepSPI.class);
+        try {
+            for ( WorkflowStepSPI wss : loader ) {
+                logger.log(Level.INFO, "Found WorkflowStepProvider: {0}", wss.getClass().getCanonicalName());
+                providers.put( wss.getClass().getCanonicalName(), wss );
+            }
+            logger.log(Level.INFO, "Searching for Workflow Step Providers done.");
+        } catch (NoClassDefFoundError ncdfe) {
+            logger.log(Level.WARNING, "Class not found: " + ncdfe.getMessage(), ncdfe);
+        } catch (ServiceConfigurationError serviceError) {
+            logger.log(Level.WARNING, "Service Error loading workflow step providers: " + serviceError.getMessage(), serviceError);
+        }
         
     }
     
@@ -334,6 +338,10 @@ public class WorkflowServiceBean {
         }
     }
 
+    public Set<String> getStepProviders() {
+        return Collections.unmodifiableSet(providers.keySet());
+    }
+    
     private String workflowSettingKey(WorkflowContext.TriggerType type) {
         return WORKFLOW_ID_KEY+type.name();
     }
