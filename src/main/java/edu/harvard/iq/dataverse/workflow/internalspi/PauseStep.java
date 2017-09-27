@@ -1,10 +1,10 @@
 package edu.harvard.iq.dataverse.workflow.internalspi;
 
-import edu.harvard.iq.dataverse.workflow.WorkflowContext;
-import edu.harvard.iq.dataverse.workflow.step.Failure;
-import edu.harvard.iq.dataverse.workflow.step.Pending;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStep;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStepResult;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Failure;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Pending;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStep;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStepResult;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;

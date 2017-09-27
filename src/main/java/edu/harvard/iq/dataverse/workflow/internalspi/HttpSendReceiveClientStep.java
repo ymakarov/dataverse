@@ -1,12 +1,12 @@
 package edu.harvard.iq.dataverse.workflow.internalspi;
 
-import edu.harvard.iq.dataverse.workflow.WorkflowContext;
-import edu.harvard.iq.dataverse.workflow.WorkflowContext.TriggerType;
-import edu.harvard.iq.dataverse.workflow.step.Failure;
-import edu.harvard.iq.dataverse.workflow.step.Pending;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStep;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStepResult;
-import static edu.harvard.iq.dataverse.workflow.step.WorkflowStepResult.OK;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Failure;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Pending;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext.TriggerType;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStep;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStepResult;
+import static edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStepResult.OK;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -107,14 +107,14 @@ public class HttpSendReceiveClientStep implements WorkflowStep {
         
         Map<String,String> templateParams = new HashMap<>();
         templateParams.put( "invocationId", ctxt.getInvocationId() );
-        templateParams.put( "dataset.id", Long.toString(ctxt.getDataset().getId()) );
-        templateParams.put( "dataset.identifier", ctxt.getDataset().getIdentifier() );
-        templateParams.put( "dataset.globalId", ctxt.getDataset().getGlobalId() );
-        templateParams.put( "dataset.displayName", ctxt.getDataset().getDisplayName() );
-        templateParams.put( "dataset.citation", ctxt.getDataset().getCitation() );
+        templateParams.put( "dataset.id", ctxt.getDatasetVersionData().getDatasetId() );
+        templateParams.put( "dataset.identifier", ctxt.getDatasetVersionData().getIdentifier() );
+        templateParams.put( "dataset.globalId", ctxt.getDatasetVersionData().getGlobalId() );
+        templateParams.put( "dataset.displayName", ctxt.getDatasetVersionData().getDisplayName() );
+        templateParams.put( "dataset.citation", ctxt.getDatasetVersionData().getCitation() );
         templateParams.put( "minorVersion", Long.toString(ctxt.getNextMinorVersionNumber()) );
         templateParams.put( "majorVersion", Long.toString(ctxt.getNextVersionNumber()) );
-        templateParams.put( "releaseStatus", (ctxt.getType()==TriggerType.PostPublishDataset) ? "done":"in-progress" );
+        templateParams.put( "releaseStatus", (ctxt.getTriggerType()==TriggerType.PostPublishDataset) ? "done":"in-progress" );
         
         m.addRequestHeader("Content-Type", params.getOrDefault("contentType", "text/plain"));
         

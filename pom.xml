@@ -11,8 +11,8 @@
 
     <properties>
         <endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
-	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-	<additionalparam>-Xdoclint:none</additionalparam>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <additionalparam>-Xdoclint:none</additionalparam>
         <aws.version>1.11.172</aws.version>
     </properties>
 
@@ -55,8 +55,8 @@
     </repositories>
   
     <!--            Due to our old version of glassfish and its version of jackson,
-                we are pointing to an aws sdk with unique references to needed libraries.
-                If we update glassfish, we should return to the normal sdk as well. -->  
+    we are pointing to an aws sdk with unique references to needed libraries.
+    If we update glassfish, we should return to the normal sdk as well. -->  
     <dependencies>
         <dependency>
             <groupId>com.amazonaws</groupId>
@@ -346,7 +346,7 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.7.7</version>
-	</dependency>
+        </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
@@ -383,7 +383,7 @@
             <artifactId>commons-codec</artifactId>
             <version>1.9</version>
         </dependency>
-	<!-- JavaSwift/JOSS: for accessing OpenStack cloud storage -->
+        <!-- JavaSwift/JOSS: for accessing OpenStack cloud storage -->
         <dependency>
             <groupId>org.javaswift</groupId>
             <artifactId>joss</artifactId>
@@ -415,27 +415,27 @@
             <artifactId>scribejava-apis</artifactId>
             <version>3.1.0</version>
         </dependency>
-	<!-- EXPERIMENTAL: -->
-	<!-- lyncode xoai OAI-PMH implementation: -->
-	<!-- unfortunately, their 4.10 version -->
-	<!-- is still buggy. As an experiment, I'm using -->
-	<!-- a patched version I built locally. -->
-	<!-- (pull requests pending - L.A. -->
-	<dependency>
-	  <groupId>com.lyncode</groupId>
-	  <artifactId>xoai-common</artifactId>
-	  <version>4.1.0-header-patch</version>
-	</dependency>
-	<dependency>
-	  <groupId>com.lyncode</groupId>
-	  <artifactId>xoai-data-provider</artifactId>
-	  <version>4.1.0-header-patch</version>
-	</dependency>
+        <!-- EXPERIMENTAL: -->
+        <!-- lyncode xoai OAI-PMH implementation: -->
+        <!-- unfortunately, their 4.10 version -->
+        <!-- is still buggy. As an experiment, I'm using -->
+        <!-- a patched version I built locally. -->
+        <!-- (pull requests pending - L.A. -->
         <dependency>
-	  <groupId>com.lyncode</groupId>
-	  <artifactId>xoai-service-provider</artifactId>
-	  <version>4.1.0-header-patch</version>
-	</dependency>
+            <groupId>com.lyncode</groupId>
+            <artifactId>xoai-common</artifactId>
+            <version>4.1.0-header-patch</version>
+        </dependency>
+        <dependency>
+            <groupId>com.lyncode</groupId>
+            <artifactId>xoai-data-provider</artifactId>
+            <version>4.1.0-header-patch</version>
+        </dependency>
+        <dependency>
+            <groupId>com.lyncode</groupId>
+            <artifactId>xoai-service-provider</artifactId>
+            <version>4.1.0-header-patch</version>
+        </dependency>
         <!-- Added for AutoService -->
         <dependency>
             <groupId>com.google.auto.service</groupId>
@@ -446,21 +446,29 @@
         </dependency>
         <!-- For API File Upload: 1 of 2 -->
         <dependency>
-           <groupId>org.glassfish.jersey.containers</groupId>
-           <artifactId>jersey-container-servlet</artifactId>
-           <version>2.23.2</version>
-       </dependency>
+            <groupId>org.glassfish.jersey.containers</groupId>
+            <artifactId>jersey-container-servlet</artifactId>
+            <version>2.23.2</version>
+        </dependency>
         <!-- For API File Upload: 2 of 2 -->
-       <dependency>
-           <groupId>org.glassfish.jersey.media</groupId>
-           <artifactId>jersey-media-multipart</artifactId>
-           <version>2.23.2</version>
-       </dependency>
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-multipart</artifactId>
+            <version>2.23.2</version>
+        </dependency>
         <dependency>
             <groupId>com.mashape.unirest</groupId>
             <artifactId>unirest-java</artifactId>
             <version>1.4.9</version>
         </dependency>
+        
+        <!-- Dynamic Plug-ins -->
+        <dependency>
+            <groupId>edu.harvard.iq</groupId>
+            <artifactId>DataverseWorkflowStepProviderLib</artifactId>
+            <version>0.5-DEV</version>
+        </dependency>
+        
     </dependencies>
 
     <build>
@@ -513,7 +521,7 @@
                 <artifactId>maven-war-plugin</artifactId>
                 <version>2.3</version>
                 <configuration>
-		    <attachClasses>true</attachClasses>
+                    <attachClasses>true</attachClasses>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
                     <archive>
                         <manifest>

@@ -1,4 +1,4 @@
-package edu.harvard.iq.dataverse.workflow.step;
+package edu.harvard.iq.dataverse.workflow.stepproviderlib;
 
 /**
  * Result returned when step execution fails.

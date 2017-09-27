@@ -1,9 +1,9 @@
 package edu.harvard.iq.dataverse.workflow.internalspi;
 
-import edu.harvard.iq.dataverse.workflow.WorkflowContext;
-import edu.harvard.iq.dataverse.workflow.step.Failure;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStep;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStepResult;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Failure;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStep;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStepResult;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -27,8 +27,8 @@ public class LoggingWorkflowStep implements WorkflowStep {
     public WorkflowStepResult run(WorkflowContext context) {
         logger.info("Logging step:");
         logger.log(Level.INFO, "Invocation id {0}", context.getInvocationId());
-        logger.log(Level.INFO, "Dataset id:{0}", context.getDataset().getId());
-        logger.log(Level.INFO, "Trigger Type {0}", context.getType());
+        logger.log(Level.INFO, "Dataset id:{0}", context.getDatasetVersionData().getDatasetId());
+        logger.log(Level.INFO, "Trigger Type {0}", context.getTriggerType());
         logger.log(Level.INFO, "Next version:{0}.{1} isMinor:{2}",
                     new Object[]{context.getNextVersionNumber(), context.getNextMinorVersionNumber(), context.isMinorRelease()});
         params.entrySet().forEach(kv->logger.log(Level.INFO, "{0} -> {1}", new Object[]{kv.getKey(), kv.getValue()}) );
@@ -39,7 +39,7 @@ public class LoggingWorkflowStep implements WorkflowStep {
 
     @Override
     public WorkflowStepResult resume(WorkflowContext context, Map<String, String> internalData, String externalData) {
-        throw new UnsupportedOperationException("Not supported yet."); // This class does not need to resume.
+        throw new UnsupportedOperationException("The logging step cannot resume"); 
     }
 
     @Override

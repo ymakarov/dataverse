@@ -1,7 +1,7 @@
 package edu.harvard.iq.dataverse.workflow.internalspi;
 
-import edu.harvard.iq.dataverse.workflow.WorkflowStepSPI;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStep;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStep;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStepSPI;
 import java.util.Map;
 
 /**

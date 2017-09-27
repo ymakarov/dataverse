@@ -5,17 +5,17 @@ import edu.harvard.iq.dataverse.DatasetServiceBean;
 import edu.harvard.iq.dataverse.EjbDataverseEngine;
 import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
 import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
-import edu.harvard.iq.dataverse.engine.command.impl.AddLockCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.FinalizeDatasetPublicationCommand;
 import edu.harvard.iq.dataverse.engine.command.impl.RemoveLockCommand;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
-import edu.harvard.iq.dataverse.workflow.WorkflowContext.TriggerType;
 import edu.harvard.iq.dataverse.workflow.internalspi.InternalWorkflowStepSP;
-import edu.harvard.iq.dataverse.workflow.step.Failure;
-import edu.harvard.iq.dataverse.workflow.step.Pending;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStep;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStepData;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStepResult;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Failure;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Pending;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext.TriggerType;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStep;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStepResult;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowStepSPI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +86,7 @@ public class WorkflowServiceBean {
      * @throws CommandException If the dataset could not be locked.
      */
     @Asynchronous
-    public void start(Workflow wf, WorkflowContext ctxt) throws CommandException {
+    public void start(Workflow wf, ServerWorkflowContext ctxt) throws CommandException {
         ctxt = refresh(ctxt);
         lockDataset(ctxt);
         forward(wf, ctxt);
@@ -111,7 +111,7 @@ public class WorkflowServiceBean {
     
     
     @Asynchronous
-    private void forward(Workflow wf, WorkflowContext ctxt) {
+    private void forward(Workflow wf, ServerWorkflowContext ctxt) {
         executeSteps(wf, ctxt, 0);
     }
     
@@ -120,7 +120,7 @@ public class WorkflowServiceBean {
         List<WorkflowStepData> stepsLeft = wf.getSteps().subList(pending.getPendingStepIdx(), wf.getSteps().size());
         
         WorkflowStep pendingStep = createStep(stepsLeft.get(0));
-        final WorkflowContext ctxt = pending.reCreateContext(roleAssignees);
+        final ServerWorkflowContext ctxt = pending.reCreateContext(roleAssignees);
 
         WorkflowStepResult res = pendingStep.resume(ctxt, pending.getLocalData(), body);
         if (res instanceof Failure) {
@@ -133,7 +133,7 @@ public class WorkflowServiceBean {
     }
 
     @Asynchronous
-    private void rollback(Workflow wf, WorkflowContext ctxt, Failure failure, int lastCompletedStepIdx) {
+    private void rollback(Workflow wf, ServerWorkflowContext ctxt, Failure failure, int lastCompletedStepIdx) {
         ctxt = refresh(ctxt);
         final List<WorkflowStepData> steps = wf.getSteps();
         
@@ -173,7 +173,7 @@ public class WorkflowServiceBean {
      * @param ctxt  Execution context to run the workflow in.  
      * @param initialStepIdx 0-based index of the first step to run.
      */
-    private void executeSteps(Workflow wf, WorkflowContext ctxt, int initialStepIdx ) {
+    private void executeSteps(Workflow wf, ServerWorkflowContext ctxt, int initialStepIdx ) {
         final List<WorkflowStepData> steps = wf.getSteps();
         
         for ( int stepIdx = initialStepIdx; stepIdx < steps.size(); stepIdx++ ) {
@@ -227,7 +227,7 @@ public class WorkflowServiceBean {
     }
     
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    void lockDataset( WorkflowContext ctxt ) throws CommandException {
+    void lockDataset( ServerWorkflowContext ctxt ) throws CommandException {
         final DatasetLock datasetLock = new DatasetLock(DatasetLock.Reason.Workflow, ctxt.getRequest().getAuthenticatedUser());
 //        engine.submit(new AddLockCommand(ctxt.getRequest(), ctxt.getDataset(), datasetLock));
         datasetLock.setDataset(ctxt.getDataset());
@@ -239,15 +239,15 @@ public class WorkflowServiceBean {
     //
     //////////////////////////////////////////////////////////////
     
-    private void pauseAndAwait(Workflow wf, WorkflowContext ctxt, Pending pendingRes, int idx) {
+    private void pauseAndAwait(Workflow wf, ServerWorkflowContext ctxt, Pending pendingRes, int idx) {
         PendingWorkflowInvocation pending = new PendingWorkflowInvocation(wf, ctxt, pendingRes);
         pending.setPendingStepIdx(idx);
         em.persist(pending);
     }
 
-    private void workflowCompleted(Workflow wf, WorkflowContext ctxt) {
+    private void workflowCompleted(Workflow wf, ServerWorkflowContext ctxt) {
         logger.log(Level.INFO, "Workflow {0} completed.", ctxt.getInvocationId());
-        if ( ctxt.getType() == TriggerType.PrePublishDataset ) {
+        if ( ctxt.getTriggerType() == TriggerType.PrePublishDataset ) {
             try {
                 engine.submit( new FinalizeDatasetPublicationCommand(ctxt.getDataset(), ctxt.getDoiProvider(), ctxt.getRequest()) );
                                 
@@ -347,10 +347,10 @@ public class WorkflowServiceBean {
         return provider.getStep(wsd.getStepType(), wsd.getStepParameters());
     }
     
-    private WorkflowContext refresh( WorkflowContext ctxt ) {
-        return new WorkflowContext( ctxt.getRequest(), 
+    private ServerWorkflowContext refresh( ServerWorkflowContext ctxt ) {
+        return new ServerWorkflowContext( ctxt.getRequest(), 
                        datasets.find( ctxt.getDataset().getId() ), ctxt.getNextVersionNumber(), 
-                       ctxt.getNextMinorVersionNumber(), ctxt.getType(), ctxt.getDoiProvider() );
+                       ctxt.getNextMinorVersionNumber(), ctxt.getTriggerType(), ctxt.getDoiProvider() );
     }
 
 }

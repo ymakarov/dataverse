@@ -3,7 +3,8 @@ package edu.harvard.iq.dataverse.engine.command.impl;
 import edu.harvard.iq.dataverse.Dataset;
 import edu.harvard.iq.dataverse.engine.command.AbstractCommand;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
-import edu.harvard.iq.dataverse.workflow.WorkflowContext;
+import edu.harvard.iq.dataverse.workflow.ServerWorkflowContext;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext;
 
 /**
  * Base class for commands involved in Dataset publication. Mostly needed for code reuse.
@@ -20,8 +21,8 @@ public abstract class AbstractPublishDatasetCommand<T> extends AbstractCommand<T
         theDataset = datasetIn;
     }
     
-    protected WorkflowContext buildContext( String doiProvider, WorkflowContext.TriggerType triggerType) {
-        return new WorkflowContext(getRequest(), theDataset, doiProvider, triggerType);
+    protected ServerWorkflowContext buildContext( String doiProvider, WorkflowContext.TriggerType triggerType) {
+        return new ServerWorkflowContext(getRequest(), theDataset, doiProvider, triggerType);
     }
     
 }

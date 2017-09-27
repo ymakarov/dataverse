@@ -1,4 +1,4 @@
-package edu.harvard.iq.dataverse.workflow.step;
+package edu.harvard.iq.dataverse.workflow;
 
 import edu.harvard.iq.dataverse.workflow.Workflow;
 import java.io.Serializable;

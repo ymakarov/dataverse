@@ -10,7 +10,7 @@ import edu.harvard.iq.dataverse.engine.command.exception.CommandException;
 import edu.harvard.iq.dataverse.engine.command.exception.IllegalCommandException;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import edu.harvard.iq.dataverse.workflow.Workflow;
-import edu.harvard.iq.dataverse.workflow.WorkflowContext.TriggerType;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext.TriggerType;
 import java.util.Optional;
 import static java.util.stream.Collectors.joining;
 

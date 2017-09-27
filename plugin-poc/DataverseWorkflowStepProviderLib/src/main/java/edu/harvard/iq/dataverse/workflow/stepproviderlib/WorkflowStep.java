@@ -1,6 +1,5 @@
-package edu.harvard.iq.dataverse.workflow.step;
+package edu.harvard.iq.dataverse.workflow.stepproviderlib;
 
-import edu.harvard.iq.dataverse.workflow.WorkflowContext;
 import java.util.Map;
 
 /**

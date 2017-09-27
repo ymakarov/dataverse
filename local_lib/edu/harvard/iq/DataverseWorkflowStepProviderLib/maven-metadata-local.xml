@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>edu.harvard.iq</groupId>
+  <artifactId>DataverseWorkflowStepProviderLib</artifactId>
+  <versioning>
+    <release>0.5-DEV</release>
+    <versions>
+      <version>0.5-DEV</version>
+    </versions>
+    <lastUpdated>20170927072054</lastUpdated>
+  </versioning>
+</metadata>

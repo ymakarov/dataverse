@@ -1,6 +1,5 @@
 package edu.harvard.iq.dataverse.workflow;
 
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStepData;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;

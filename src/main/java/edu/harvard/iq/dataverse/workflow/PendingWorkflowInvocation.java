@@ -5,7 +5,8 @@ import edu.harvard.iq.dataverse.RoleAssigneeServiceBean;
 import edu.harvard.iq.dataverse.authorization.groups.impl.ipaddress.ip.IpAddress;
 import edu.harvard.iq.dataverse.authorization.users.User;
 import edu.harvard.iq.dataverse.engine.command.DataverseRequest;
-import edu.harvard.iq.dataverse.workflow.step.Pending;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.Pending;
+import edu.harvard.iq.dataverse.workflow.stepproviderlib.WorkflowContext;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,7 +58,7 @@ public class PendingWorkflowInvocation implements Serializable {
         
     }
     
-    public PendingWorkflowInvocation(Workflow wf, WorkflowContext ctxt, Pending result) {
+    public PendingWorkflowInvocation(Workflow wf, ServerWorkflowContext ctxt, Pending result) {
         invocationId = ctxt.getInvocationId();
         workflow = wf;
         dataset = ctxt.getDataset();
@@ -67,16 +68,14 @@ public class PendingWorkflowInvocation implements Serializable {
         ipAddress = ctxt.getRequest().getSourceAddress().toString();
         localData = new HashMap<>(result.getData());
         doiProvider = ctxt.getDoiProvider();
-        typeOrdinal = ctxt.getType().ordinal();
+        typeOrdinal = ctxt.getTriggerType().ordinal();
     }
     
-    public WorkflowContext reCreateContext(RoleAssigneeServiceBean roleAssignees) {
+    public ServerWorkflowContext reCreateContext(RoleAssigneeServiceBean roleAssignees) {
         DataverseRequest aRequest = new DataverseRequest((User)roleAssignees.getRoleAssignee(userId), IpAddress.valueOf(ipAddress));
-        final WorkflowContext workflowContext = new WorkflowContext(aRequest, dataset, nextVersionNumber, 
+        return new ServerWorkflowContext(aRequest, dataset, nextVersionNumber, 
                 nextMinorVersionNumber, WorkflowContext.TriggerType.values()[typeOrdinal], 
-                doiProvider);
-        workflowContext.setInvocationId(invocationId);
-        return workflowContext;
+                doiProvider, invocationId);
     }
     
     public String getInvocationId() {

@@ -28,7 +28,7 @@ import edu.harvard.iq.dataverse.datasetutility.OptionalFileParams;
 import edu.harvard.iq.dataverse.harvest.client.HarvestingClient;
 import edu.harvard.iq.dataverse.settings.SettingsServiceBean;
 import edu.harvard.iq.dataverse.workflow.Workflow;
-import edu.harvard.iq.dataverse.workflow.step.WorkflowStepData;
+import edu.harvard.iq.dataverse.workflow.WorkflowStepData;
 import java.io.StringReader;
 import java.sql.Timestamp;
 import java.text.ParseException;
