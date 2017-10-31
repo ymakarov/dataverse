@@ -188,16 +188,16 @@ public class FileUtilTest {
         assertEquals(imageAsBase64expected, imageAsBase64actual);
     }*/
 
-//    @Test
-//    public void testDetermineFileType() {
-//        File file = new File("src/main/webapp/resources/images/cc0.png");
-//        try {
-//            assertEquals("image/png", FileUtil.determineFileType(file, "cc0.png"));
-//        } catch (IOException ex) {
-//            Logger.getLogger(FileUtilTest.class.getName()).log(Level.SEVERE, null, ex);
-//        }
-//
-//    }
+    @Test
+    public void testDetermineFileType() {
+        File file = new File("src/main/webapp/resources/images/cc0.png");
+        try {
+            assertEquals("image/png", FileUtil.determineFileType(file, "cc0.png"));
+        } catch (IOException ex) {
+            Logger.getLogger(FileUtilTest.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+    }
     
     // isThumbnailSuppported() has been moved from DataFileService to FileUtil:
     /**
