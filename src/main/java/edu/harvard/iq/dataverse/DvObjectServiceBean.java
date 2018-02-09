@@ -68,6 +68,8 @@ public class DvObjectServiceBean implements java.io.Serializable {
         DvObject dvObjectToModify = findDvObject(dvObject.getId());
         dvObjectToModify.setIndexTime(new Timestamp(new Date().getTime()));
         DvObject savedDvObject = em.merge(dvObjectToModify);
+        em.detach(dvObjectToModify);
+        em.detach(savedDvObject);
         return savedDvObject;
     }
 
