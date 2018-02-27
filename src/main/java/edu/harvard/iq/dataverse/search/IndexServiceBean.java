@@ -599,7 +599,7 @@ public class IndexServiceBean {
     }
 
     private IndexResponse indexDatasetPermissions(Dataset dataset) {
-        boolean disabledForDebugging = true;
+        boolean disabledForDebugging = false;
         if (disabledForDebugging) {
             /**
              * Performance problems indexing permissions in
