@@ -67,10 +67,12 @@ public class IndexAllServiceBean {
             dataverseIdsJson.add(id);
         }
         
+        // List<Dataset> datasets = datasetService.findAllOrSubset(numPartitions, partitionId, skipIndexed);
+        // Note: no support for "partitions" in this experimental branch. 
+        // The method below returns the ids of all the unindexed datasets.
         List<Long> datasetIds = datasetService.findAllUnindexed();
 
         JsonArrayBuilder datasetIdsJson = Json.createArrayBuilder();
-        //List<Dataset> datasets = datasetService.findAllOrSubset(numPartitions, partitionId, skipIndexed);
         for (Long id : datasetIds) {
             datasetIdsJson.add(id);
         }
@@ -116,7 +118,9 @@ public class IndexAllServiceBean {
             resultOfClearingIndexTimes = "Solr index was not cleared before indexing.";
         }
 
-        /*List<Dataverse> dataverses = dataverseService.findAllOrSubset(numPartitions, partitionId, skipIndexed);*/
+        // List<Dataverse> dataverses = dataverseService.findAllOrSubset(numPartitions, partitionId, skipIndexed);
+        // Note: no support for "partitions" in this experimental branch. 
+        // The method below returns the ids of all the unindexed dataverses.
         List<Long> dataverseIds = dataverseService.findAllUnindexed();
         int dataverseIndexCount = 0;
         int dataverseFailureCount = 0;
@@ -137,27 +141,23 @@ public class IndexAllServiceBean {
 
         int datasetIndexCount = 0;
         int datasetFailureCount = 0;
-        //List<Dataset> datasets = datasetService.findAllOrSubset(numPartitions, partitionId, skipIndexed);
+        // List<Dataset> datasets = datasetService.findAllOrSubset(numPartitions, partitionId, skipIndexed);
+        // Note: no support for "partitions" in this experimental branch. 
+        // The method below returns the ids of all the unindexed datasets.
         List<Long> datasetIds = datasetService.findAllUnindexed();
         for (Long id : datasetIds) {
             try {
                 datasetIndexCount++;
                 //Dataset dataset = datasetService.find(id);
-                ///Dataset dataset = em.find(Dataset.class, id);
-                //logger.info("indexing dataset " + datasetIndexCount + " of " + datasetIds.size() + " (id=" + id + ", persistentId=" + dataset.getGlobalId() + ")");
                 logger.info("indexing dataset " + datasetIndexCount + " of " + datasetIds.size() + " (id=" + id + ")");
                 //Future<String> result = indexService.indexDatasetInNewTransaction(dataset);
                 Future<String> result = indexService.indexDatasetInNewTransaction(id);
-                ///em.detach(dataset);
-                ///dataset = null;
             } catch (Exception e) {
                 //We want to keep running even after an exception so throw some more info into the log
                 datasetFailureCount++;
                 logger.info("FAILURE indexing dataset " + datasetIndexCount + " of " + datasetIds.size() + " (id=" + id + ") Exception info: " + e.getMessage());
             }
         }
-//        logger.info("advanced search fields: " + advancedSearchFields);
-//        logger.info("not advanced search fields: " + notAdvancedSearchFields);
         logger.info("done iterating through all datasets");
 
         long indexAllTimeEnd = System.currentTimeMillis();

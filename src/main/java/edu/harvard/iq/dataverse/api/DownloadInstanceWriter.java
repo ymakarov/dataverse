@@ -209,6 +209,9 @@ public class DownloadInstanceWriter implements MessageBodyWriter<DownloadInstanc
                 }
                 
                 InputStream instream = storageIO.getInputStream();
+                
+                Long threadId = Thread.currentThread().getId();
+                
                 if (instream != null) {
                     // headers:
                     
@@ -227,9 +230,11 @@ public class DownloadInstanceWriter implements MessageBodyWriter<DownloadInstanc
                     if ((contentSize = getContentSize(storageIO)) > 0) {
                         logger.fine("Content size (retrieved from the AccessObject): "+contentSize);
                         httpHeaders.add("Content-Length", contentSize); 
+                        logger.info("Data Access API [" + threadId + "]: BEGIN streaming file "+dataFile.getId()+" SIZE: "+contentSize);
                     } else {
                         //httpHeaders.add("Transfer-encoding", "chunked");
                         //useChunkedTransfer = true;
+                        logger.info("Data Access API [" + threadId + "]: BEGIN streaming file "+dataFile.getId()+" SIZE: UNKNOWN");
                     }
                     
                     // (the httpHeaders map must be modified *before* writing any
@@ -238,6 +243,7 @@ public class DownloadInstanceWriter implements MessageBodyWriter<DownloadInstanc
                     int bufsize;
                     byte [] bffr = new byte[4*8192];
                     byte [] chunkClose = "\r\n".getBytes();
+                    //int sizeIncrement = 0;
                     
                     // before writing out any bytes from the input stream, flush
                     // any extra content, such as the variable header for the 
@@ -248,6 +254,7 @@ public class DownloadInstanceWriter implements MessageBodyWriter<DownloadInstanc
                             if (useChunkedTransfer) {
                                 String chunkSizeLine = String.format("%x\r\n", storageIO.getVarHeader().getBytes().length);
                                 outstream.write(chunkSizeLine.getBytes());
+                                //sizeIncrement += storageIO.getVarHeader().getBytes().length;
                             }
                             outstream.write(storageIO.getVarHeader().getBytes());
                             if (useChunkedTransfer) {
@@ -262,6 +269,11 @@ public class DownloadInstanceWriter implements MessageBodyWriter<DownloadInstanc
                             outstream.write(chunkSizeLine.getBytes());
                         }
                         outstream.write(bffr, 0, bufsize);
+                        /*sizeIncrement+=bufsize;
+                        if (sizeIncrement > (100 * 1024 * 1024)) {
+                            logger.info("Data Access API [" + threadId + "]: "+sizeIncrement + " bytes streamed; file " + dataFile.getId()); 
+                            sizeIncrement -= (100 * 1024 * 1024);
+                        }*/
                         if (useChunkedTransfer) {
                             outstream.write(chunkClose);
                         }
@@ -294,6 +306,7 @@ public class DownloadInstanceWriter implements MessageBodyWriter<DownloadInstanc
                     
                     instream.close();
                     outstream.close(); 
+                    logger.info("Data Access API [" + threadId + "]: END streaming file "+dataFile.getId());
                     return;
                 }
             }
