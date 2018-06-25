@@ -16,6 +16,7 @@ cp doc/sphinx-guides/source/_static/util/pg8-createsequence-prep.sql conf/docker
 cp doc/sphinx-guides/source/_static/util/createsequence.sql conf/docker-aio/testdata/doc/sphinx-guides/source/_static/util/
 
 # not using dvinstall.zip for setupIT.bash; but still used in install.bash for normal ops
+# While iterating at the Docker level, you can comment out the `mvn` and `make` commands below, which take time.
 mvn clean
 ./scripts/installer/custom-build-number
 mvn package

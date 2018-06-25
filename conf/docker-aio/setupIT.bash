@@ -7,7 +7,8 @@ unzip dvinstall.zip
 cd /opt/dv/testdata
 ./scripts/deploy/phoenix.dataverse.org/prep
 ./db.sh
-./install # modified from phoenix
+# FIXME: Remove the line below after it is being run in `docker build`
+#./install # modified from phoenix
 /usr/local/glassfish4/glassfish/bin/asadmin deploy /opt/dv/dvinstall/dataverse.war
 ./post # modified from phoenix
 
