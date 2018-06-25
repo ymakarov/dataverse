@@ -8,6 +8,7 @@ use File::Copy;
 
 my $verbose;
 my $pg_only;
+my $gf_only;
 my $hostname;
 my $gfuser;
 my $gfdir;
@@ -21,6 +22,7 @@ my ($rez) = GetOptions(
     #"file=s"   => \$data,      # string
     "verbose"      => \$verbose,
     "pg_only"      => \$pg_only,
+    "gf_only"      => \$gf_only,
     "hostname=s"   => \$hostname,
     "gfuser=s"     => \$gfuser,
     "gfdir=s"      => \$gfdir,
@@ -698,6 +700,7 @@ if ( $psql_exec eq "" )
 }
 
 # 4. CONFIGURE POSTGRES:
+unless ($gf_only) {
 
 # 4a. BUT FIRST, CHECK IF WE CAN TALK TO POSTGRES AS THE ADMIN:
 
@@ -889,7 +892,7 @@ if ( system( $psql_exec . "/psql -h " . $CONFIG_DEFAULTS{'POSTGRES_SERVER'} . " 
     exit 1; 
 }
 
-
+}
 # 5. CONFIGURE GLASSFISH
 
 my $glassfish_dir = $CONFIG_DEFAULTS{'GLASSFISH_DIRECTORY'};
@@ -1100,6 +1103,8 @@ print "done!\n";
 
 # 6. DEPLOY THE APPLICATION:
 
+unless ($gf_only) {
+
 print "\nAttempting to deploy the application.\n";
 print "Command line: " . $glassfish_dir . "/bin/asadmin deploy " . $WARFILE_LOCATION . "\n";
 unless ((
@@ -1275,6 +1280,7 @@ print "  http://" . $CONFIG_DEFAULTS{'HOST_DNS_ADDRESS'} . ":8080\n\n\n";
 
 # (going to skip the Rserve check, for now)
 
+} ## end of unless($gf_only)
 exit 0;
 
 # 9. FINALLY, CHECK IF RSERVE IS RUNNING:
