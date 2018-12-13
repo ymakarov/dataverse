@@ -93,6 +93,7 @@ import edu.harvard.iq.dataverse.engine.command.impl.SubmitDatasetForReviewComman
 import edu.harvard.iq.dataverse.externaltools.ExternalTool;
 import edu.harvard.iq.dataverse.externaltools.ExternalToolServiceBean;
 import edu.harvard.iq.dataverse.export.SchemaDotOrgExporter;
+import edu.harvard.iq.dataverse.makedatacount.MakeDataCountEntry;
 import java.util.Collections;
 import javax.faces.component.UIInput;
 
@@ -107,6 +108,9 @@ import org.primefaces.component.tabview.TabView;
 import org.primefaces.event.CloseEvent;
 import org.primefaces.event.TabChangeEvent;
 import org.primefaces.event.data.PageEvent;
+
+import edu.harvard.iq.dataverse.makedatacount.MakeDataCountUtil;
+import javax.servlet.http.HttpServletRequest;
 
 /**
  *
@@ -1340,6 +1344,7 @@ public class DatasetPage implements java.io.Serializable {
     }     
     
     private String init(boolean initFull) {
+  
         //System.out.println("_YE_OLDE_QUERY_COUNTER_");  // for debug purposes
         this.maxFileUploadSizeInBytes = systemConfig.getMaxFileUploadSize();
         setDataverseSiteUrl(systemConfig.getDataverseSiteUrl());
@@ -1440,6 +1445,33 @@ public class DatasetPage implements java.io.Serializable {
             // init the citation
             displayCitation = dataset.getCitation(true, workingVersion);
             
+    //MAD: Should inject or something
+    //Also maybe put entry as a part of util, inner class
+    //MAD: A number of these workingVersion refs are wrapped on this page, maybe use those?
+    MakeDataCountEntry entry = new MakeDataCountEntry();
+    entry.setAuthors(workingVersion.getAuthorsStr());
+    entry.setClientIp(dvRequestService.getDataverseRequest().getSourceAddress().toString()); //MAD: May be bad
+    entry.setEventTime(new SimpleDateFormat("yyyy-MM-dd").format(new Timestamp(new Date().getTime()))); //MAD: Different format
+    //entry.setFilename();
+    entry.setIdentifier(workingVersion.getDataset().getIdentifier());
+    //entry.setOtherId();
+    entry.setPublicationDate(workingVersion.getPublicationDateAsString());
+    //entry.setPublicationYear(persistentId); //MAD: probably from the above
+    entry.setPublisher(workingVersion.getRootDataverseNameforCitation());
+    //entry.setPublisherId();
+    //entry.setRequestUrl(dvRequestService.getDataverseRequest());
+    //entry.setSessionCookieId();
+    //entry.setSize();
+    //entry.setTargetUrl();
+    entry.setTitle(workingVersion.getTitle());
+    //entry.setUesrCookieId();
+    //final HttpServletRequest request =(HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext()
+    entry.setUserAgent(((HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest()).getHeader("user-agent")); 
+    entry.setUserId(dvRequestService.getDataverseRequest().getUser().getIdentifier());
+    entry.setVersion(String.valueOf(workingVersion.getVersionNumber())); //MAD: May want to take this approach with other casts to avoid null
+    MakeDataCountUtil u = new MakeDataCountUtil();
+    u.logEntry(entry);
+
 
             if (initFull) {
                 // init the list of FileMetadatas
