@@ -37,24 +37,24 @@ public class MakeDataCountEntry {
 
     @Override
     public String toString() {
-        return  getEventTime() + "	" +
-                getClientIp() + "	" +
-                getSessionCookieId() + "	" +
-                getUserCookieId() + "	" +
-                getUserId() + "	" +
-                getRequestUrl() + "	" +
-                getIdentifier() + "	" +
-                getFilename() + "	" +
-                getSize() + "	" +
-                getUserAgent() + "	" +
-                getTitle() + "	" +
-                getPublisher() + "	" +
-                getPublisherId() + "	" +
-                getAuthors() + "	" +
-                getPublicationDate() + "	" +
-                getVersion() + "	" +
-                getOtherId() + "	" +
-                getTargetUrl() + "	" +
+        return  getEventTime() + "\t" +
+                getClientIp() + "\t" +
+                getSessionCookieId() + "\t" +
+                getUserCookieId() + "\t" +
+                getUserId() + "\t" +
+                getRequestUrl() + "\t" +
+                getIdentifier() + "\t" +
+                getFilename() + "\t" +
+                getSize() + "\t" +
+                getUserAgent() + "\t" +
+                getTitle() + "\t" +
+                getPublisher() + "\t" +
+                getPublisherId() + "\t" +
+                getAuthors() + "\t" +
+                getPublicationDate() + "\t" +
+                getVersion() + "\t" +
+                getOtherId() + "\t" +
+                getTargetUrl() + "\t" +
                 getPublicationYear() + "\n";
     }
     

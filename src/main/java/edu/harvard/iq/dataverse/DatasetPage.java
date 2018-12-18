@@ -110,6 +110,7 @@ import org.primefaces.event.TabChangeEvent;
 import org.primefaces.event.data.PageEvent;
 
 import edu.harvard.iq.dataverse.makedatacount.MakeDataCountUtil;
+import java.util.TimeZone;
 import javax.servlet.http.HttpServletRequest;
 
 /**
@@ -1449,20 +1450,21 @@ public class DatasetPage implements java.io.Serializable {
     //Also maybe put entry as a part of util, inner class
     //MAD: A number of these workingVersion refs are wrapped on this page, maybe use those?
     MakeDataCountEntry entry = new MakeDataCountEntry();
-    entry.setAuthors(workingVersion.getAuthorsStr());
+    entry.setAuthors(workingVersion.getAuthorsStr(false).replace(";", "|"));
     entry.setClientIp(dvRequestService.getDataverseRequest().getSourceAddress().toString()); //MAD: May be bad
-    entry.setEventTime(new SimpleDateFormat("yyyy-MM-dd").format(new Timestamp(new Date().getTime()))); //MAD: Different format
+    entry.setEventTime(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(new Timestamp(new Date().getTime()))); //MAD: Different format
     //entry.setFilename();
-    entry.setIdentifier(workingVersion.getDataset().getIdentifier());
+    entry.setIdentifier(dataset.getGlobalId().asString());
     //entry.setOtherId();
-    entry.setPublicationDate(workingVersion.getPublicationDateAsString());
-    //entry.setPublicationYear(persistentId); //MAD: probably from the above
+    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");     format.setTimeZone(TimeZone.getTimeZone("GMT"));     entry.setPublicationDate(format.format(workingVersion.getReleaseTime())); //null issues?
+    entry.setPublicationYear(new SimpleDateFormat("yyyy").format(workingVersion.getReleaseTime()));
     entry.setPublisher(workingVersion.getRootDataverseNameforCitation());
     //entry.setPublisherId();
-    //entry.setRequestUrl(dvRequestService.getDataverseRequest());
+    HttpServletRequest req = (HttpServletRequest)FacesContext.getCurrentInstance().getExternalContext().getRequest();
+    entry.setRequestUrl( (req).getRequestURL().append("?").append(req.getQueryString()).toString() );
     //entry.setSessionCookieId();
     //entry.setSize();
-    //entry.setTargetUrl();
+    entry.setTargetUrl((req).getRequestURL().append("?").append(req.getQueryString()).toString());
     entry.setTitle(workingVersion.getTitle());
     //entry.setUesrCookieId();
     //final HttpServletRequest request =(HttpServletRequest) FacesContext.getCurrentInstance().getExternalContext()
