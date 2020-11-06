@@ -61,6 +61,7 @@ scripts/installer/default.config
 tests/node_modules
 tests/package-lock.json
 venv
+/overlays/
 
 # from thumbnail tests in SearchIT
 scripts/search/data/binary/trees.png.thumb140

@@ -205,8 +205,8 @@ public class SystemConfig {
 
             
             if (appVersionString == null) {
-                // still null? - defaulting to 4.0:    
-                appVersionString = "4.0";
+                // still null? - defaulting to 4.19:
+                appVersionString = "4.19";
             }
         }
             
