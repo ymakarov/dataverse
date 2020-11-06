@@ -1,0 +1,51 @@
+<doi_batch xmlns="http://www.crossref.org/schema/4.3.7" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="4.3.7" xsi:schemaLocation="http://www.crossref.org/schema/4.3.7 http://www.crossref.org/schemas/crossref4.3.7.xsd">
+    <head>
+        <doi_batch_id>2020-10-13-13-00-00-10000</doi_batch_id>
+        <timestamp>20201013130000</timestamp>
+        <depositor>
+            <depositor_name>Yakov Makarov</depositor_name>
+            <email_address>yakov_makarov@mail.ru</email_address>
+        </depositor>
+        <registrant>Institute of Russian Literature, Russian Academy of Science</registrant>
+    </head>
+    <body>
+        <database>
+            <database_metadata language="ru">
+                <titles>
+                    <title>Репозиторий открытых данных по русской литературе и фольклору</title>
+                </titles>
+                <institution>
+                    <institution_name>Институт русской литературы (Пушкинский дом) РАН</institution_name>
+                    <institution_acronym>ИРЛИ РАН</institution_acronym>
+                </institution>
+            </database_metadata>
+            <dataset dataset_type="collection">
+                <contributors>
+                    <person_name contributor_role="author" sequence="first">
+                        <given_name>Борис</given_name>
+                        <surname>Орехов</surname>
+                    </person_name>
+                    <person_name contributor_role="author" sequence="additional">
+                        <given_name>Павел</given_name>
+                        <surname>Успенский</surname>
+                    </person_name>
+                    <person_name contributor_role="author" sequence="additional">
+                        <given_name>Вероника</given_name>
+                        <surname>Файнберг</surname>
+                    </person_name>
+                </contributors>
+                <titles>
+                    <title>
+                        «Камер-фурьерский журнал» В. Ходасевича
+                    </title>
+                </titles>
+                <doi_data>
+                    <doi>10.31860/openlit-2020.05-B001</doi>
+                    <resource>
+                        https://dataverse.pushdom.ru/dataset.xhtml?persistentId=doi:10.31860/openlit-2020.05-B001
+                    </resource>
+                </doi_data>
+            </dataset>
+        </database>
+    </body>
+</doi_batch>

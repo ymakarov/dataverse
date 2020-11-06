@@ -1230,7 +1230,7 @@ public class DdiExportUtil {
      * "official" hostname. If none of these options is set,
      * defaults to the InetAddress.getLocalHOst() and https;
      */
-    private static String getDataverseSiteUrl() {
+    public static String getDataverseSiteUrl() {
         String hostUrl = System.getProperty(SITE_URL);
         if (hostUrl != null && !"".equals(hostUrl)) {
             return hostUrl;
