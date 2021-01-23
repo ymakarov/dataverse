@@ -436,7 +436,11 @@ public class SettingsServiceBean {
         /**
          * Sort Date Facets Chronologically instead or presenting them in order of # of hits as other facets are. Default is true
          */
-        ChronologicalDateFacets
+        ChronologicalDateFacets,
+        /**
+         * Templates for doi suffix generation
+         */
+        DoiSuffixTemplates
         ;
 
         @Override

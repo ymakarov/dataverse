@@ -60,6 +60,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -138,6 +140,8 @@ import org.apache.solr.common.SolrDocumentList;
 import org.primefaces.PrimeFaces;
 import org.primefaces.model.DefaultTreeNode;
 import org.primefaces.model.TreeNode;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 /**
  *
@@ -1132,6 +1136,56 @@ public class DatasetPage implements java.io.Serializable {
         return settingsWrapper.getValueForKey(SettingsServiceBean.Key.ComputeBaseUrl) + "?" + this.getPersistentId() + "=" + swiftObject.getSwiftFileName() + "&temp_url_sig=" + swiftObject.getTempUrlSignature() + "&temp_url_expires=" + swiftObject.getTempUrlExpiry();
 
     }
+
+    public String nextIdentifier() {
+        try {
+            Map<String, DoiSuffixTemplate> templates = getStringDoiSuffixTemplateMap();
+            String alias = dataset.getDataverseContext().getAlias();
+            DoiSuffixTemplate template = templates.getOrDefault(alias, templates.get("common"));
+            LocalDate now = LocalDate.now();
+            String year = now.getYear() + "";
+            String month = now.getMonth().getValue() + "";
+
+            StringBuilder counter = new StringBuilder((template.count + 1) + "");
+            while (counter.length() < 3) {
+                counter.insert(0, "0");
+            }
+            return template.template
+                    .replace("YYYY", year)
+                    .replace("MM", month)
+                    .replace("II", Character.toUpperCase(alias.charAt(0)) + "")
+                    .replace("DDD", counter.toString());
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Couldn't generate identifier", e);
+            return null;
+        }
+    }
+
+    private Map<String, DoiSuffixTemplate> getStringDoiSuffixTemplateMap() {
+        String json = settingsService.getValueForKey(SettingsServiceBean.Key.DoiSuffixTemplates);
+        return new Gson().fromJson(json, new TypeToken<Map<String, DoiSuffixTemplate>>() {}.getType());
+    }
+
+    public void updateCounter() {
+        try {
+            Map<String, DoiSuffixTemplate> templates = getStringDoiSuffixTemplateMap();
+            String alias = dataset.getDataverseContext().getAlias();
+            DoiSuffixTemplate template = templates.get(alias);
+            if (template == null) {
+                DoiSuffixTemplate commonTemplate = templates.get("common");
+                template = commonTemplate.copy();
+                if (template == null) {
+                    logger.log(Level.WARNING, "Couldn't find doi template for dataverse: " + alias);
+                    return;
+                }
+                templates.put(alias, template);
+            }
+            template.count++;
+            settingsService.setValueForKey(SettingsServiceBean.Key.DoiSuffixTemplates, new Gson().toJson(templates));
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Couldn't update counter", e);
+        }
+    }
     
     public String getCloudEnvironmentName() {
         return settingsWrapper.getValueForKey(SettingsServiceBean.Key.CloudEnvironmentName);
@@ -2000,6 +2054,10 @@ public class DatasetPage implements java.io.Serializable {
             dataset.setOwner(selectedHostDataverse);
             dataset.setProtocol(protocol);
             dataset.setAuthority(authority);
+
+            if (dataset.getIdentifier() == null) {
+                dataset.setIdentifier(nextIdentifier());
+            }
 
             if (dataset.getOwner() == null) {
                 return permissionsWrapper.notFound();
@@ -3481,7 +3539,7 @@ public class DatasetPage implements java.io.Serializable {
                 } else {
                    cmd = new CreateNewDatasetCommand(dataset, dvRequestService.getDataverseRequest());
                 }
-                
+                updateCounter();
             } else {
                 //Precheck - also checking db copy of dataset to catch edits in progress that would cause update command transaction to fail
                 if (dataset.getId() != null) {
