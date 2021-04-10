@@ -229,20 +229,6 @@ public class SettingsServiceBean {
         for example: :TabularIngestSizeLimit:RData */
         TabularIngestSizeLimit,
         /**
-        Whether to allow user to create GeoConnect Maps
-        This boolean effects whether the user sees the map button on 
-        the dataset page and if the ingest will create a shape file
-        Default is false
-        */
-        GeoconnectCreateEditMaps,
-        /**
-        Whether to allow a user to view existing maps
-        This boolean effects whether a user may see the 
-        Explore World Map Button
-        Default is false;
-        */
-        GeoconnectViewMaps,
-        /**
          The message added to a popup upon dataset publish
          * 
          */
@@ -440,7 +426,17 @@ public class SettingsServiceBean {
         /**
          * Templates for doi suffix generation
          */
-        DoiSuffixTemplates
+        DoiSuffixTemplates,
+        /**
+         * Used where BrandingUtil.getInstallationBrandName is called, overides the default use of the root Dataverse collection name
+         */
+        InstallationName,
+        /**
+         * In metadata exports that set a 'distributor' this flag determines whether the
+         * Installation Brand Name is always included (default/false) or is not included
+         * when the Distributor field (citation metadatablock) is set (true)
+         */
+        ExportInstallationAsDistributorOnlyWhenNotSet
         ;
 
         @Override
